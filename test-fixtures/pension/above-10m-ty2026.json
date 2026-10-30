@@ -1,0 +1,31 @@
+{
+  "description": "Synthetic QA fixture reconstructed for the pension merge: ordinary annual pension statement, TY2026, PKR 12,000,000 gross, explicit nil medical allowance and nil tax deducted, no CNIC or date of birth printed.",
+  "issuer": "QA Pension Disbursement Office (Synthetic)",
+  "pensionerName": "Bilal Ahmed",
+  "ppoNumber": "QA-PENSION-12M-TY2026",
+  "taxYear": 2026,
+  "preparedDate": "2026-07-05",
+  "annualGross": 12000000,
+  "annualMedical": 0,
+  "annualTaxDeducted": 0,
+  "annualNetPaid": 12000000,
+  "monthlyGross": 1000000,
+  "expectedExtraction": {
+    "fields": [
+      { "label": "Tax Year", "value": 2026 },
+      { "label": "Gross Pension (Annual PKR)", "value": 12000000 },
+      { "label": "Medical Allowance (Annual PKR)", "value": 0 },
+      { "label": "Pension Tax Deducted (Annual PKR)", "value": 0 },
+      { "label": "Net Pension Payable (Annual PKR)", "value": 12000000 }
+    ]
+  },
+  "expectedCurrentEngine": {
+    "status": "ESTIMATE",
+    "baseTax": 100000,
+    "surcharge": 10000,
+    "taxDue": 110000,
+    "taxWithheld": 0,
+    "taxPayable": 110000,
+    "refundDue": 0
+  }
+}

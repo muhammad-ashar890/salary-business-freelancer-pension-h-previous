@@ -1,0 +1,1054 @@
+{
+  "business_trading": {
+    "group": "Business",
+    "tab": "Manufacturing/ Trading Items",
+    "columns": [
+      "Total Amount",
+      "Subject to Final Tax",
+      "Subject to Exemption",
+      "Subject to Normal Tax"
+    ],
+    "rows": {
+      "3000": {
+        "label": "Income / (Loss) from Business",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "3029": {
+        "label": "Net Revenue (excluding Sales Tax, Federal Excise, Brokerage, Commission, Discount, Freight Outward)",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "3009": {
+        "label": "Gross Revenue (excluding Sales Tax, Federal Excise)",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3019": {
+        "label": "Selling Expenses (Freight Outward, Brokerage, Commission, Discount, etc.)",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3030": {
+        "label": "Cost of Sales / Services",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "3039": {
+        "label": "Opening Stock",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3059": {
+        "label": "Net Purchases (excluding Sales Tax, Federal Excise)",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3072": {
+        "label": "Fuel",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3071": {
+        "label": "Salaries / Wages",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3073": {
+        "label": "Power",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3074": {
+        "label": "Gas",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3077": {
+        "label": "Repair / Maintenance",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3076": {
+        "label": "Stores / Spares",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3083": {
+        "label": "Other Direct Expenses",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3087": {
+        "label": "Accounting Amortization",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3088": {
+        "label": "Accounting Depreciation",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3099": {
+        "label": "Closing Stock",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3100": {
+        "label": "Gross Profit / (Loss)",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ]
+      }
+    },
+    "source": "02_business_manufacturing_trading.html"
+  },
+  "business_balance_sheet": {
+    "group": "Business",
+    "tab": "Balance Sheet",
+    "columns": [
+      "Amount"
+    ],
+    "rows": {
+      "3349": {
+        "label": "Total Assets",
+        "disabled": [
+          true
+        ]
+      },
+      "3301": {
+        "label": "Land (Business)",
+        "disabled": [
+          true
+        ]
+      },
+      "3302": {
+        "label": "Building (Business)",
+        "disabled": [
+          true
+        ]
+      },
+      "3320": {
+        "label": "Bank Account",
+        "disabled": [
+          true
+        ]
+      },
+      "3303": {
+        "label": "Plant / Machinery / Equipment / Furniture (including fittings)",
+        "disabled": [
+          false
+        ]
+      },
+      "3315": {
+        "label": "Stocks in trade / Stores / Spares",
+        "disabled": [
+          false
+        ]
+      },
+      "3304": {
+        "label": "Motor Vehicle(s)",
+        "disabled": [
+          true
+        ]
+      },
+      "3312": {
+        "label": "Advances / Deposits / Prepayments",
+        "disabled": [
+          false
+        ]
+      },
+      "3319": {
+        "label": "Cash in hand",
+        "disabled": [
+          false
+        ]
+      },
+      "3321": {
+        "label": "Bonds/Securities",
+        "disabled": [
+          false
+        ]
+      },
+      "3348": {
+        "label": "Other Assets",
+        "disabled": [
+          false
+        ]
+      },
+      "3399": {
+        "label": "Total Equity / Liabilities",
+        "disabled": [
+          true
+        ]
+      },
+      "3352": {
+        "label": "Capital",
+        "disabled": [
+          false
+        ]
+      },
+      "3371": {
+        "label": "Long Term Borrowings / Debt / Loan",
+        "disabled": [
+          false
+        ]
+      },
+      "3384": {
+        "label": "Trade Creditors / Payables",
+        "disabled": [
+          false
+        ]
+      },
+      "3398": {
+        "label": "Other Liabilities",
+        "disabled": [
+          false
+        ]
+      }
+    },
+    "source": "11_business_balance_sheet_plus_depreciation_amortization_details_payment_attachment.html"
+  },
+  "business_other_revenues": {
+    "group": "Business",
+    "tab": "Other Revenues",
+    "columns": [
+      "Total Amount",
+      "Subject to Final Tax",
+      "Subject to Exemption",
+      "Subject to Normal Tax"
+    ],
+    "rows": {
+      "3129": {
+        "label": "Other Revenues",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "3101": {
+        "label": "Fee for Technical / Professional Services",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3115": {
+        "label": "Accounting Gain on Sale of Intangibles",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3116": {
+        "label": "Accounting Gain on Sale of Assets",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3128": {
+        "label": "Others",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3131": {
+        "label": "Share in untaxed Income from AOP",
+        "disabled": [
+          false,
+          true,
+          true,
+          true
+        ]
+      },
+      "3141": {
+        "label": "Share in Taxed Income from AOP",
+        "disabled": [
+          false,
+          true,
+          true,
+          true
+        ]
+      },
+      "3123": {
+        "label": "Gain by builder/developer in excess of 10 times of tax liability under Rule 6 of Eleventh Schedule",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      }
+    }
+  },
+  "business_admin": {
+    "group": "Business",
+    "tab": "Admin, Selling & Financial Expenses",
+    "columns": [
+      "Total Amount",
+      "Subject to Final Tax",
+      "Subject to Exemption",
+      "Subject to Normal Tax"
+    ],
+    "rows": {
+      "3199": {
+        "label": "Management, Administrative, Selling & Financial Expenses",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "3151": {
+        "label": "Rent",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3152": {
+        "label": "Rates / Taxes / Cess",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3154": {
+        "label": "Salaries / Wages / Perquisites / Benefits",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3155": {
+        "label": "Traveling / Conveyance / Vehicles Running / Maintenance",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3158": {
+        "label": "Electricity / Water / Gas",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3162": {
+        "label": "Communication",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3165": {
+        "label": "Repair / Maintenance",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3166": {
+        "label": "Stationery / Printing / Photocopies / Office Supplies",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3168": {
+        "label": "Advertisement / Publicity / Promotion",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "3180": {
+        "label": "Other Indirect Expenses",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ]
+      },
+      "999904": {
+        "label": "Other Expenses",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "3200": {
+        "label": "Accounting Profit / (Loss)",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ]
+      }
+    }
+  },
+  "business_adjustments": {
+    "group": "Business",
+    "tab": "Adjustments",
+    "columns": [
+      "Total Amount",
+      "Subject to Final Tax",
+      "Subject to Exemption",
+      "Subject to Normal Tax"
+    ],
+    "rows": {
+      "3270": {
+        "label": "Income / (Loss) from Business before adjustment of Admissible Depreciation / Initial Allowance / Amortization for current / previous years",
+        "disabled": [
+          true,
+          false,
+          false,
+          true
+        ]
+      },
+      "327021": {
+        "label": "Unadjusted (Loss) from Business for 2021",
+        "disabled": [
+          false,
+          true,
+          true,
+          true
+        ]
+      },
+      "327022": {
+        "label": "Unadjusted (Loss) from Business for 2022",
+        "disabled": [
+          false,
+          true,
+          true,
+          true
+        ]
+      },
+      "327023": {
+        "label": "Unadjusted (Loss) from Business for 2023",
+        "disabled": [
+          false,
+          true,
+          true,
+          true
+        ]
+      },
+      "327024": {
+        "label": "Unadjusted (Loss) from Business for 2024",
+        "disabled": [
+          false,
+          true,
+          true,
+          true
+        ]
+      },
+      "327025": {
+        "label": "Unadjusted (Loss) from Business for 2025",
+        "disabled": [
+          false,
+          true,
+          true,
+          true
+        ]
+      }
+    }
+  },
+  "business_deductions": {
+    "group": "Business",
+    "tab": "Inadmissible/Admissible Deductions",
+    "columns": [
+      "Total Amount",
+      "Subject to Final Tax",
+      "Subject to Exemption",
+      "Subject to Normal Tax"
+    ],
+    "rows": {
+      "3239": {
+        "label": "Inadmissible Deductions",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "optional": false
+      },
+      "3201": {
+        "label": "Add Backs u/s 29(2) Provision for Doubtful Debts",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3202": {
+        "label": "Add Backs Provision for Obsolete Stocks / Stores / Spares / Fixed Assets",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3203": {
+        "label": "Add Backs Provision for Diminution in Value of Investment",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3204": {
+        "label": "Add Backs u/s 21(i) Provision for Reserves / Funds / Amount carried to Reserves / Funds or Capitalized",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3205": {
+        "label": "Add Backs u/s 21(a) Cess / Rate / Tax levied on Profits / Gains",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3206": {
+        "label": "Add Backs u/s 21(b) Amount of Tax Deducted at Source",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3207": {
+        "label": "Add Backs u/s 21(c) Payments liable to Deduction of Tax at Source but Tax not Deducted / Paid",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3208": {
+        "label": "Add Backs u/s 21(d) Entertainment Expenditure above prescribed limit",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3209": {
+        "label": "Add Backs u/s 21(e) Contributions to Unrecognized / Unapproved Funds",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "320901": {
+        "label": "Add Backs u/s 21(ea) Excess of 50% of Contribution to an Approved gratuity fund / Pension Fund / Superannuation Fund",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3210": {
+        "label": "Add Backs u/s 21(f) Contributions to Funds not under effective arrangement for deduction of Tax at source",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3211": {
+        "label": "Add Backs u/s 21(g) Fine / Penalty for violation of any law / rule / regulation",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3212": {
+        "label": "Add Backs u/s 21(h) Personal Expenditure",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3213": {
+        "label": "Add Backs u/s 21(j) Profit on Debt / brokerage / Commission / salary / remuneration Paid by an AOP to its member",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3215": {
+        "label": "Add Backs u/s 21(l) Expenditure under a single Account head exceeding prescribed amount not paid through prescribed mode",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3216": {
+        "label": "Add Backs u/s 21(m) Salary exceeding prescribed amount not paid through prescribed mode",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3217": {
+        "label": "Add Backs u/s 21(n) Capital Expenditure",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3218": {
+        "label": "Add Backs u/s 67(1) Expenditure attributable to Non-Business Income",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3219": {
+        "label": "Add Backs u/s 34(5) Liabilities allowed Previously as deduction not Paid within three Years",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3220": {
+        "label": "Add Backs u/s 28(1)(b) Lease Rental not admissible",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3224": {
+        "label": "Add Backs u/s 21(o) Sales promotion, advertisement and publicity expenses of pharmaceutical manufacturers exceeding prescribed limit",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3225": {
+        "label": "Add Backs Tax Gain on Sale of Intangibles",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3226": {
+        "label": "Add Backs Tax Gain on Sale of Assets",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3227": {
+        "label": "Add backs u/s 21(ca) Commission in excess of 0.2% of gross amount of supplies to a person not appearing in ATL in Third Schedule of Sales Tax Act",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "322901": {
+        "label": "Add Backs u/s 28(1)(b) Lease Rental not admissible on account of cost of Passenger transport vehicle exceeding 2.5 Million Rupees",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "322902": {
+        "label": "Add Backs u/s 21(p) Utility Bills exceeding prescribed amount not paid through prescribed mode",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "322903": {
+        "label": "Add Backs u/s 21(q) Expenditure attributable to sale to person required to be registered under Sales Tax but not registered",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "322904": {
+        "label": "Deduction on profit on debit inadmissible u/s 106A",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "322905": {
+        "label": "Add Backs u/s 21(r) Expenditure Attributable to sales for non-integration of business with FBR system",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3230": {
+        "label": "Add Backs Pre-Commencement Expenditure / Deferred Cost",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3231": {
+        "label": "7.50% of sales dealers of products listed in the 3rd Sch to the Sales Tax Act, 1990 who are not registered under the STA 1990 and not appearing in the active taxpayers\u2019 list under the ITO 2001",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3234": {
+        "label": "Other Inadmissible Deductions",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3235": {
+        "label": "Add Backs Accounting (Loss) on Sale of Intangibles",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "optional": true
+      },
+      "3236": {
+        "label": "Add Backs Accounting (Loss) on Sale of Assets",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "optional": true
+      },
+      "3237": {
+        "label": "Add Backs Accounting Amortization",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "optional": true
+      },
+      "3238": {
+        "label": "Add Backs Accounting Depreciation",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "optional": true
+      },
+      "3259": {
+        "label": "Admissible Deductions",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "optional": false
+      },
+      "3245": {
+        "label": "Accounting Gain on Sale of Intangibles",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "optional": true
+      },
+      "3246": {
+        "label": "Accounting Gain on Sale of Assets",
+        "disabled": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "optional": true
+      },
+      "3247": {
+        "label": "Tax Amortization for Current Year",
+        "disabled": [
+          true,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3248": {
+        "label": "Tax Depreciation / Initial Allowance for Current Year",
+        "disabled": [
+          true,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3250": {
+        "label": "Pre-Commencement Expenditure / Deferred Cost",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3254": {
+        "label": "Other Admissible Deductions",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3255": {
+        "label": "Tax (Loss) on Sale of Intangibles",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3256": {
+        "label": "Tax (Loss) on Sale of Assets",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3257": {
+        "label": "Unabsorbed Tax Amortization for Previous Years",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      },
+      "3258": {
+        "label": "Unabsorbed Tax Depreciation for Previous Years",
+        "disabled": [
+          false,
+          false,
+          false,
+          true
+        ],
+        "optional": true
+      }
+    }
+  }
+}

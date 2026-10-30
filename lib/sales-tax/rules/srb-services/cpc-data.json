@@ -1,0 +1,5701 @@
+{
+"source": "Sindh Revenue Board notification SRB-3-4/28/2025 (1 Jul 2025), Segment I: UN Central Product Classification version 2.1, services sections 5 to 9",
+"codes": [
+[
+"54",
+"Construction services"
+],
+[
+"541",
+"General construction services of buildings"
+],
+[
+"5411",
+"General construction services of residential buildings"
+],
+[
+"54111",
+"General construction services of one- and two-dwelling residential buildings"
+],
+[
+"54112",
+"General construction services of multi-dwelling residential buildings"
+],
+[
+"5412",
+"General construction services of non-residential buildings"
+],
+[
+"54121",
+"General construction services of industrial buildings"
+],
+[
+"54122",
+"General construction services of commercial buildings"
+],
+[
+"54129",
+"General construction services of other non-residential buildings"
+],
+[
+"542",
+"General construction services of civil engineering works"
+],
+[
+"5421",
+"General construction services of highways (except elevated highways), streets, roads, railways and airfield runways"
+],
+[
+"54211",
+"General construction services of highways (except elevated highways), streets and roads"
+],
+[
+"54212",
+"General construction services of railways"
+],
+[
+"54213",
+"General construction services of airfield runways"
+],
+[
+"5422",
+"General construction services of bridges, elevated highways and tunnels"
+],
+[
+"54221",
+"General construction services of bridges and elevated highways"
+],
+[
+"54222",
+"General construction services of tunnels"
+],
+[
+"5423",
+"General construction services of harbours, waterways, dams, water mains and lines, irrigation and other waterworks"
+],
+[
+"54231",
+"General construction services of aqueducts and other water supply conduits, except pipelines"
+],
+[
+"54232",
+"General construction services of harbours and similar waterworks"
+],
+[
+"54233",
+"General construction services of dams"
+],
+[
+"54234",
+"General construction services of irrigation and flood control waterworks"
+],
+[
+"5424",
+"General construction services of long-distance pipelines, communication and power lines (cables)"
+],
+[
+"54241",
+"General construction services of long-distance pipelines"
+],
+[
+"54242",
+"General construction services of long-distance communication and power lines (cables)"
+],
+[
+"5425",
+"General construction services of local pipelines and cables and related works"
+],
+[
+"54251",
+"General construction services of local pipelines"
+],
+[
+"54252",
+"General construction services of local cables and related works"
+],
+[
+"54253",
+"General construction services of sewage and water treatment plants"
+],
+[
+"5426",
+"General construction services of mines and industrial plants"
+],
+[
+"54261",
+"General construction services of mines"
+],
+[
+"54262",
+"General construction services of power plants"
+],
+[
+"54269",
+"General construction services of other industrial plants"
+],
+[
+"5427",
+"General construction services of outdoor sport and recreation facilities"
+],
+[
+"54270",
+"General construction services of outdoor sport and recreation facilities"
+],
+[
+"5429",
+"General construction services of other civil engineering works"
+],
+[
+"54290",
+"General construction services of other civil engineering works"
+],
+[
+"543",
+"Site preparation services"
+],
+[
+"5431",
+"Demolition services"
+],
+[
+"54310",
+"Demolition services"
+],
+[
+"5432",
+"Site formation and clearance services"
+],
+[
+"54320",
+"Site formation and clearance services"
+],
+[
+"5433",
+"Excavating and earthmoving services"
+],
+[
+"54330",
+"Excavating and earthmoving services"
+],
+[
+"5434",
+"Water well drilling and septic system installation services"
+],
+[
+"54341",
+"Water well drilling services"
+],
+[
+"54342",
+"Septic system installation services"
+],
+[
+"544",
+"Assembly and erection of prefabricated constructions"
+],
+[
+"5440",
+"Assembly and erection of prefabricated constructions"
+],
+[
+"54400",
+"Assembly and erection of prefabricated constructions"
+],
+[
+"545",
+"Special trade construction services"
+],
+[
+"5451",
+"Pile driving and foundation services"
+],
+[
+"54511",
+"Pile driving services"
+],
+[
+"54512",
+"Foundation services"
+],
+[
+"5452",
+"Construction framing services"
+],
+[
+"54521",
+"Building framing services"
+],
+[
+"54522",
+"Roof framing services"
+],
+[
+"5453",
+"Roofing and waterproofing services"
+],
+[
+"54530",
+"Roofing and waterproofing services"
+],
+[
+"5454",
+"Concrete services"
+],
+[
+"54540",
+"Concrete services"
+],
+[
+"5455",
+"Structural steel erection services"
+],
+[
+"54550",
+"Structural steel erection services"
+],
+[
+"5456",
+"Masonry services"
+],
+[
+"54560",
+"Masonry services"
+],
+[
+"5457",
+"Scaffolding services"
+],
+[
+"54570",
+"Scaffolding services"
+],
+[
+"5459",
+"Other special trade construction services"
+],
+[
+"54590",
+"Other special trade construction services"
+],
+[
+"546",
+"Installation services"
+],
+[
+"5461",
+"Electrical installation services"
+],
+[
+"54611",
+"Electrical wiring and fitting services"
+],
+[
+"54612",
+"Fire alarm installation services"
+],
+[
+"54613",
+"Burglar alarm system installation services"
+],
+[
+"54614",
+"Residential antenna installation services"
+],
+[
+"54619",
+"Other electrical installation services"
+],
+[
+"5462",
+"Water plumbing and drain laying services"
+],
+[
+"54621",
+"Water plumbing services"
+],
+[
+"54622",
+"Drain laying services"
+],
+[
+"5463",
+"Heating, ventilation and air-conditioning equipment installation services"
+],
+[
+"54631",
+"Heating equipment installation services"
+],
+[
+"54632",
+"Ventilation and air-conditioning equipment installation services"
+],
+[
+"5464",
+"Gas fitting installation services"
+],
+[
+"54640",
+"Gas fitting installation services"
+],
+[
+"5465",
+"Insulation services"
+],
+[
+"54650",
+"Insulation services"
+],
+[
+"5469",
+"Other installation services"
+],
+[
+"54691",
+"Lift and escalator installation services"
+],
+[
+"54699",
+"Other installation services n.e.c."
+],
+[
+"547",
+"Building completion and finishing services"
+],
+[
+"5471",
+"Glazing services"
+],
+[
+"54710",
+"Glazing services"
+],
+[
+"5472",
+"Plastering services"
+],
+[
+"54720",
+"Plastering services"
+],
+[
+"5473",
+"Painting services"
+],
+[
+"54730",
+"Painting services"
+],
+[
+"5474",
+"Floor and wall tiling services"
+],
+[
+"54740",
+"Floor and wall tiling services"
+],
+[
+"5475",
+"Other floor laying, wall covering and wall papering services"
+],
+[
+"54750",
+"Other floor laying, wall covering and wall papering services"
+],
+[
+"5476",
+"Joinery and carpentry services"
+],
+[
+"54760",
+"Joinery and carpentry services"
+],
+[
+"5477",
+"Fencing and railing services"
+],
+[
+"54770",
+"Fencing and railing services"
+],
+[
+"5479",
+"Other building completion and finishing services"
+],
+[
+"54790",
+"Other building completion and finishing services"
+],
+[
+"61",
+"Wholesale trade services"
+],
+[
+"611",
+"Wholesale trade services, except on a fee or contract basis"
+],
+[
+"612",
+"Wholesale trade services on a fee or contract basis"
+],
+[
+"62",
+"Retail trade services"
+],
+[
+"621",
+"Non-specialized store retail trade services"
+],
+[
+"622",
+"Specialized store retail trade services"
+],
+[
+"623",
+"Mail order or Internet retail trade services"
+],
+[
+"624",
+"Other non-store retail trade services"
+],
+[
+"625",
+"Retail trade services on a fee or contract basis Note: In the following codes ***1 to ***99, the symbol *** may stand for 610 and 620 or 611, 612, 621, 622, 623, 624 and 625, depending on the user’s needs. However, not all combinations may be applicable. ***1 Raw agricultural products and live animals ***11 Grains and oilseeds and oleaginous fruits, seeds and animal feed ***12 Flowers and plants ***13 Unmanufactured tobacco ***14 Live animals, including pet animals ***15 Hides, skins and leather ***19 Agricultural raw materials n.e.c. ***2 Food, beverages and tobacco ***21 Fruits and vegetables ***22 Dairy products, eggs and edible oils and fats ***23 Meat, poultry and game ***24 Fish and other seafood ***25 Sugar confectionery and bakery products ***26 Beverages ***27 Coffee, tea and spices ***28 Tobacco products ***29 Food products n.e.c. ***3 Textiles, clothing and footwear ***31 Yarn and fabrics ***32 Household linens, curtains, net curtains and diverse household articles of textile materials ***33 Articles of clothing, articles of fur and clothing accessories ***34 Footwear ***4 Household appliances, articles and equipment ***41 Household furniture ***42 Radio and television equipment and recorded audio and video disks and tapes ***43 Articles for lighting ***44 Household appliances ***45 Miscellaneous household utensils, cutlery, crockery, glassware, china and pottery ***46 Wickerwork, cork goods, cooper's ware and other wooden ware ***5 Miscellaneous consumer goods ***51 Books, news papers, magazines and stationery ***52 Photographic, optical and precision equipment ***53 Games and toys ***54 Watches, clocks and jewellery ***55 Sports goods (incl. bicycles) ***56 Leather goods and travel accessories ***59 Miscellaneous consumer goods n.e.c. ***6 Construction materials and hardware ***61 Construction materials and flat glass ***62 Fittings, fixtures and ceramic sanitary fixtures ***63 Wallpaper and floor coverings ***64 Paints, varnishes and lacquers ***65 Hardware and hand tools ***7 Chemical and pharmaceutical products ***71 Basic industrial chemicals and synthetic resins ***72 Fertilizers and agrochemical products ***73 Pharmaceutical products"
+],
+[
+"63",
+"Accommodation, food and beverage services"
+],
+[
+"631",
+"Accommodation services for visitors"
+],
+[
+"6311",
+"Room or unit accommodation services for visitors"
+],
+[
+"63111",
+"Room or unit accommodation services for visitors, with daily housekeeping services"
+],
+[
+"63112",
+"Room or unit accommodation services for visitors, without daily housekeeping services"
+],
+[
+"63113",
+"Room or unit accommodation services for visitors, in time-share properties"
+],
+[
+"63114",
+"Accommodation services for visitors, in rooms for multiple occupancy"
+],
+[
+"6312",
+"Camp site services"
+],
+[
+"63120",
+"Camp site services"
+],
+[
+"6313",
+"Recreational and vacation camp services"
+],
+[
+"63130",
+"Recreational and vacation camp services"
+],
+[
+"632",
+"Other accommodation services for visitors and others"
+],
+[
+"6321",
+"Room or unit accommodation services for students in student residences"
+],
+[
+"63210",
+"Room or unit accommodation services for students in student residences"
+],
+[
+"6322",
+"Room or unit accommodation services for workers in workers hostels or camps"
+],
+[
+"63220",
+"Room or unit accommodation services for workers in workers hostels or camps"
+],
+[
+"6329",
+"Other room or unit accommodation services n.e.c."
+],
+[
+"63290",
+"Other room or unit accommodation services n.e.c."
+],
+[
+"633",
+"Food serving services"
+],
+[
+"6331",
+"Meal serving services with full restaurant services"
+],
+[
+"63310",
+"Meal serving services with full restaurant services"
+],
+[
+"6332",
+"Meal serving services with limited services"
+],
+[
+"63320",
+"Meal serving services with limited services"
+],
+[
+"6339",
+"Event catering and other food serving services"
+],
+[
+"63391",
+"Event catering services"
+],
+[
+"63392",
+"Contract food services for transportation operators"
+],
+[
+"63393",
+"Other contract food services"
+],
+[
+"63399",
+"Other food serving services"
+],
+[
+"634",
+"Beverage serving services"
+],
+[
+"6340",
+"Beverage serving services"
+],
+[
+"63400",
+"Beverage serving services"
+],
+[
+"64",
+"Passenger transport services"
+],
+[
+"641",
+"Local transport and sightseeing transportation services of passengers"
+],
+[
+"6411",
+"Urban and suburban land transport services of passengers"
+],
+[
+"64111",
+"Urban and suburban railway transport services of passengers"
+],
+[
+"64112",
+"Urban and suburban scheduled road transport services of passengers"
+],
+[
+"64113",
+"Mixed mode urban and suburban transportation services of passengers"
+],
+[
+"64114",
+"Local special-purpose scheduled road transport services of passengers"
+],
+[
+"64115",
+"Taxi services"
+],
+[
+"64116",
+"Rental services of passenger cars with operator"
+],
+[
+"64117",
+"Road transport services of passengers by man- or animal-drawn vehicles"
+],
+[
+"64118",
+"Local bus and coach charter services"
+],
+[
+"64119",
+"Other land transportation services of passengers, n.e.c."
+],
+[
+"6412",
+"Local water transport services of passengers"
+],
+[
+"64121",
+"Inland water transport services of passengers by ferries"
+],
+[
+"64122",
+"Inland water transport services of passengers on cruises"
+],
+[
+"64129",
+"Other inland water transport services of passengers"
+],
+[
+"6413",
+"Sightseeing transportation services"
+],
+[
+"64131",
+"Sightseeing services by rail"
+],
+[
+"64132",
+"Sightseeing services by land, except rail"
+],
+[
+"64133",
+"Sightseeing services by water"
+],
+[
+"64134",
+"Sightseeing services by air"
+],
+[
+"642",
+"Long-distance transport services of passengers"
+],
+[
+"6421",
+"Interurban railway transport services of passengers"
+],
+[
+"64210",
+"Interurban railway transport services of passengers"
+],
+[
+"6422",
+"Interurban road transport services of passengers"
+],
+[
+"64221",
+"Interurban scheduled road transport services of passengers"
+],
+[
+"64222",
+"Interurban special-purpose scheduled road transport services of passengers"
+],
+[
+"64223",
+"Long-distance bus and coach charter services"
+],
+[
+"6423",
+"Long-distance water transport services of passengers"
+],
+[
+"64231",
+"Coastal and transoceanic water transport services of passengers by ferries"
+],
+[
+"64232",
+"Coastal and transoceanic water transport services of passengers on cruise ships"
+],
+[
+"64239",
+"Other coastal and transoceanic water transport services of passengers"
+],
+[
+"6424",
+"Air transport services of passengers"
+],
+[
+"64241",
+"Domestic scheduled air transport services of passengers"
+],
+[
+"64242",
+"Domestic non-scheduled air transport services of passengers"
+],
+[
+"64243",
+"International scheduled air transport services of passengers"
+],
+[
+"64244",
+"International non-scheduled air transport services of passengers"
+],
+[
+"6425",
+"Space transport services of passengers"
+],
+[
+"64250",
+"Space transport services of passengers"
+],
+[
+"65",
+"Freight transport services"
+],
+[
+"651",
+"Land transport services of freight"
+],
+[
+"6511",
+"Road transport services of freight"
+],
+[
+"65111",
+"Road transport services of freight by refrigerator vehicles"
+],
+[
+"65112",
+"Road transport services of freight by tank trucks or semi-trailers"
+],
+[
+"65113",
+"Road transport services of intermodal containers"
+],
+[
+"65114",
+"Road transport services of freight by man- or animal-drawn vehicles"
+],
+[
+"65115",
+"Moving services of household furniture and household goods"
+],
+[
+"65116",
+"Road transport services of letters and parcels"
+],
+[
+"65117",
+"Road transport services of dry bulk"
+],
+[
+"65118",
+"Road transport services of live animals"
+],
+[
+"65119",
+"Other road transport services of freight"
+],
+[
+"6512",
+"Railway transport services of freight"
+],
+[
+"65121",
+"Railway transport services of freight by refrigerator cars"
+],
+[
+"65122",
+"Railway transport services of freight by tanker cars"
+],
+[
+"65123",
+"Railway transport services of intermodal containers"
+],
+[
+"65124",
+"Railway transport services of letters and parcels"
+],
+[
+"65125",
+"Railway transport services of dry bulk goods"
+],
+[
+"65126",
+"Railway transport services of live animals"
+],
+[
+"65129",
+"Other railway transport services of freight"
+],
+[
+"6513",
+"Transport services via pipeline"
+],
+[
+"65131",
+"Transport services via pipeline of petroleum and natural gas"
+],
+[
+"65139",
+"Transport services via pipeline of other goods"
+],
+[
+"652",
+"Water transport services of freight"
+],
+[
+"6521",
+"Coastal and transoceanic water transport services of freight"
+],
+[
+"65211",
+"Coastal and transoceanic water transport services of freight by refrigerator vessels"
+],
+[
+"65212",
+"Coastal and transoceanic water transport services of freight by tankers"
+],
+[
+"65213",
+"Coastal and transoceanic water transport services of intermodal containers by container ships"
+],
+[
+"65219",
+"Other coastal and transoceanic water transport services of other freight"
+],
+[
+"6522",
+"Inland water transport services of freight"
+],
+[
+"65221",
+"Inland water transport services of freight by refrigerator vessels"
+],
+[
+"65222",
+"Inland water transport services of freight by tankers"
+],
+[
+"65229",
+"Other inland water transport services of freight"
+],
+[
+"653",
+"Air and space transport services of freight"
+],
+[
+"6531",
+"Air transport services of freight"
+],
+[
+"65311",
+"Air transport services of letters and parcels"
+],
+[
+"65319",
+"Air transport services of other freight"
+],
+[
+"6532",
+"Space transport services of freight"
+],
+[
+"65320",
+"Space transport services of freight"
+],
+[
+"66",
+"Rental services of transport vehicles with operators"
+],
+[
+"660",
+"Rental services of transport vehicles with operators"
+],
+[
+"6601",
+"Rental services of road vehicles with operators"
+],
+[
+"66011",
+"Rental services of buses and coaches with operator"
+],
+[
+"66012",
+"Rental services of trucks with operator"
+],
+[
+"6602",
+"Rental services of water vessels with operator"
+],
+[
+"66021",
+"Rental services of passenger vessels for coastal and transoceanic water transport with operator"
+],
+[
+"66022",
+"Rental services of freight vessels for coastal and transoceanic water transport with operator"
+],
+[
+"66023",
+"Rental services of passenger vessels for inland water transport with operator"
+],
+[
+"66024",
+"Rental services of freight vessels for inland water transport with operator"
+],
+[
+"6603",
+"Rental services of aircraft with operator"
+],
+[
+"66031",
+"Rental services of passenger aircraft with operator"
+],
+[
+"66032",
+"Rental services of freight aircraft with operator"
+],
+[
+"67",
+"Supporting transport services"
+],
+[
+"671",
+"Cargo handling services"
+],
+[
+"6711",
+"Container handling services"
+],
+[
+"67110",
+"Container handling services"
+],
+[
+"6719",
+"Other cargo and baggage handling services"
+],
+[
+"67190",
+"Other cargo and baggage handling services"
+],
+[
+"672",
+"Storage and warehousing services"
+],
+[
+"6721",
+"Refrigerated storage services"
+],
+[
+"67210",
+"Refrigerated storage services"
+],
+[
+"6722",
+"Bulk liquid or gas storage services"
+],
+[
+"67220",
+"Bulk liquid or gas storage services"
+],
+[
+"6729",
+"Other storage and warehousing services"
+],
+[
+"67290",
+"Other storage and warehousing services"
+],
+[
+"673",
+"Supporting services for railway transport"
+],
+[
+"6731",
+"Railway pushing or towing services"
+],
+[
+"67310",
+"Railway pushing or towing services"
+],
+[
+"6739",
+"Other supporting services for railway transport"
+],
+[
+"67390",
+"Other supporting services for railway transport"
+],
+[
+"674",
+"Supporting services for road transport"
+],
+[
+"6741",
+"Bus station services"
+],
+[
+"67410",
+"Bus station services"
+],
+[
+"6742",
+"Highway, bridge and tunnel operation services"
+],
+[
+"67420",
+"Highway, bridge and tunnel operation services"
+],
+[
+"6743",
+"Parking lot services"
+],
+[
+"67430",
+"Parking lot services"
+],
+[
+"6744",
+"Towing services for commercial and private vehicles"
+],
+[
+"67440",
+"Towing services for commercial and private vehicles"
+],
+[
+"6749",
+"Other supporting services for road transport"
+],
+[
+"67490",
+"Other supporting services for road transport"
+],
+[
+"675",
+"Supporting services for water transport"
+],
+[
+"6751",
+"Port and waterway operation services (excl. cargo handling)"
+],
+[
+"67511",
+"Port and waterway operation services (excl. cargo handling), on coastal and transoceanic waters"
+],
+[
+"67512",
+"Inland waterway operation services (excl. cargo handling)"
+],
+[
+"6752",
+"Pilotage and berthing services"
+],
+[
+"67521",
+"Pilotage and berthing services on coastal and transoceanic waters"
+],
+[
+"67522",
+"Pilotage and berthing services in inland waters"
+],
+[
+"6753",
+"Vessel salvage and refloating services"
+],
+[
+"67531",
+"Vessel salvage and refloating services on coastal and transoceanic waters"
+],
+[
+"67532",
+"Vessel salvage and refloating services in inland waters"
+],
+[
+"6759",
+"Other supporting services for water transport"
+],
+[
+"67590",
+"Other supporting services for water transport"
+],
+[
+"676",
+"Supporting services for air or space transport"
+],
+[
+"6761",
+"Airport operation services (excl. cargo handling)"
+],
+[
+"67610",
+"Airport operation services (excl. cargo handling)"
+],
+[
+"6762",
+"Air traffic control services"
+],
+[
+"67620",
+"Air traffic control services"
+],
+[
+"6763",
+"Other supporting services for air transport"
+],
+[
+"67630",
+"Other supporting services for air transport"
+],
+[
+"6764",
+"Supporting services for space transport"
+],
+[
+"67640",
+"Supporting services for space transport"
+],
+[
+"679",
+"Other supporting transport services"
+],
+[
+"6791",
+"Freight transport agency services and other freight transport services"
+],
+[
+"67910",
+"Freight transport agency services and other freight transport services"
+],
+[
+"6799",
+"Other supporting transport services n.e.c."
+],
+[
+"67990",
+"Other supporting transport services n.e.c."
+],
+[
+"68",
+"Postal and courier services"
+],
+[
+"680",
+"Postal and courier services"
+],
+[
+"6801",
+"Postal services"
+],
+[
+"68011",
+"Postal services related to letters"
+],
+[
+"68012",
+"Postal services related to parcels"
+],
+[
+"68013",
+"Post office counter services"
+],
+[
+"68019",
+"Other postal services"
+],
+[
+"6802",
+"Courier services"
+],
+[
+"68021",
+"Domestic courier services"
+],
+[
+"68022",
+"International courier services"
+],
+[
+"6803",
+"Local delivery services"
+],
+[
+"68030",
+"Local delivery services"
+],
+[
+"69",
+"Electricity, gas and water distribution (on own account)"
+],
+[
+"691",
+"Electricity and gas distribution (on own account)"
+],
+[
+"6911",
+"Electricity transmission and distribution (on own account)"
+],
+[
+"69111",
+"Transmission of electricity (on own account)"
+],
+[
+"69112",
+"Distribution of electricity (on own account)"
+],
+[
+"6912",
+"Gas distribution through mains (on own account)"
+],
+[
+"69120",
+"Gas distribution through mains (on own account)"
+],
+[
+"692",
+"Water distribution (on own account)"
+],
+[
+"6921",
+"Water distribution through mains, except steam and hot water (on own account)"
+],
+[
+"69210",
+"Water distribution through mains, except steam and hot water (on own account)"
+],
+[
+"6922",
+"Distribution of steam, hot water and air-conditioning supply through mains (on own account)"
+],
+[
+"69220",
+"Distribution of steam, hot water and air-conditioning supply through mains (on own account)"
+],
+[
+"6923",
+"Water distribution, except through mains (on own account)"
+],
+[
+"69230",
+"Water distribution, except through mains (on own account)"
+],
+[
+"71",
+"Financial and related services"
+],
+[
+"711",
+"Financial services, except investment banking, insurance services and pension services"
+],
+[
+"7111",
+"Central banking services"
+],
+[
+"71110",
+"Central banking services"
+],
+[
+"7112",
+"Deposit services"
+],
+[
+"71121",
+"Deposit services to corporate and institutional depositors"
+],
+[
+"71122",
+"Deposit services to other depositors"
+],
+[
+"7113",
+"Credit-granting services"
+],
+[
+"71131",
+"Residential mortgage loan services"
+],
+[
+"71132",
+"Non-residential mortgage loan services"
+],
+[
+"71133",
+"Personal non-mortgage loan services for non-business purposes"
+],
+[
+"71134",
+"Credit card loan services"
+],
+[
+"71135",
+"Non-mortgage loan services for business purposes"
+],
+[
+"71139",
+"Other credit-granting services"
+],
+[
+"7114",
+"Financial leasing services"
+],
+[
+"71140",
+"Financial leasing services"
+],
+[
+"7119",
+"Other financial services, except investment banking, insurance services and pension services"
+],
+[
+"71190",
+"Other financial services, except investment banking, insurance services and pension services"
+],
+[
+"712",
+"Investment banking services"
+],
+[
+"7120",
+"Investment banking services"
+],
+[
+"71200",
+"Investment banking services"
+],
+[
+"713",
+"Insurance and pension services (excluding reinsurance services), except compulsory social security services"
+],
+[
+"7131",
+"Life insurance and pension services (excluding reinsurance services)"
+],
+[
+"71311",
+"Life insurance services"
+],
+[
+"71312",
+"Individual pension services"
+],
+[
+"71313",
+"Group pension services"
+],
+[
+"7132",
+"Accident and health insurance services"
+],
+[
+"71321",
+"Accidental death and dismemberment insurance services"
+],
+[
+"71322",
+"Health insurance services"
+],
+[
+"7133",
+"Other non-life insurance services (excluding reinsurance services)"
+],
+[
+"71331",
+"Motor vehicle insurance services"
+],
+[
+"71332",
+"Marine, aviation, and other transport insurance services"
+],
+[
+"71333",
+"Freight insurance services"
+],
+[
+"71334",
+"Other property insurance services"
+],
+[
+"71335",
+"General liability insurance services"
+],
+[
+"71336",
+"Credit and surety insurance services"
+],
+[
+"71337",
+"Travel insurance services"
+],
+[
+"71339",
+"Other non-life insurance services"
+],
+[
+"714",
+"Reinsurance services"
+],
+[
+"7141",
+"Life reinsurance services"
+],
+[
+"71410",
+"Life reinsurance services"
+],
+[
+"7142",
+"Accident and health reinsurance services"
+],
+[
+"71420",
+"Accident and health reinsurance services"
+],
+[
+"7143",
+"Other non-life reinsurance services"
+],
+[
+"71431",
+"Motor vehicle reinsurance services"
+],
+[
+"71432",
+"Marine, aviation and other transport reinsurance services"
+],
+[
+"71433",
+"Freight reinsurance services"
+],
+[
+"71434",
+"Other property reinsurance services"
+],
+[
+"71435",
+"General liability reinsurance services"
+],
+[
+"71436",
+"Credit and surety reinsurance services"
+],
+[
+"71439",
+"Other non-life reinsurance services, n.e.c."
+],
+[
+"715",
+"Services auxiliary to financial services other than to insurance and pensions"
+],
+[
+"7151",
+"Services related to investment banking"
+],
+[
+"71511",
+"Mergers and acquisition services"
+],
+[
+"71512",
+"Corporate finance and venture capital services"
+],
+[
+"71519",
+"Other services related to investment banking"
+],
+[
+"7152",
+"Brokerage and related securities and commodities services"
+],
+[
+"71521",
+"Securities brokerage services"
+],
+[
+"71522",
+"Commodity brokerage services"
+],
+[
+"71523",
+"Processing and clearing services of securities transactions"
+],
+[
+"7153",
+"Portfolio management services except pension funds"
+],
+[
+"71530",
+"Portfolio management services except pension funds"
+],
+[
+"7154",
+"Trust and custody services"
+],
+[
+"71541",
+"Trust services"
+],
+[
+"71542",
+"Custody services"
+],
+[
+"7155",
+"Services related to the administration of financial markets"
+],
+[
+"71551",
+"Financial market operational services"
+],
+[
+"71552",
+"Financial market regulatory services"
+],
+[
+"71559",
+"Other financial market administration services"
+],
+[
+"7159",
+"Other services auxiliary to financial services"
+],
+[
+"71591",
+"Financial consultancy services"
+],
+[
+"71592",
+"Foreign exchange services"
+],
+[
+"71593",
+"Financial transactions processing and clearinghouse services"
+],
+[
+"71599",
+"Other services auxiliary to financial services n.e.c."
+],
+[
+"716",
+"Services auxiliary to insurance and pensions"
+],
+[
+"7161",
+"Insurance brokerage and agency services"
+],
+[
+"71610",
+"Insurance brokerage and agency services"
+],
+[
+"7162",
+"Insurance claims adjustment services"
+],
+[
+"71620",
+"Insurance claims adjustment services"
+],
+[
+"7163",
+"Actuarial services"
+],
+[
+"71630",
+"Actuarial services"
+],
+[
+"7164",
+"Pension fund management services"
+],
+[
+"71640",
+"Pension fund management services"
+],
+[
+"7169",
+"Other services auxiliary to insurance and pensions"
+],
+[
+"71690",
+"Other services auxiliary to insurance and pensions"
+],
+[
+"717",
+"Services of holding financial assets"
+],
+[
+"7170",
+"Services of holding financial assets"
+],
+[
+"71701",
+"Services of holding equity of subsidiary companies"
+],
+[
+"71702",
+"Services of holding securities and other assets of trusts and funds and similar financial entities"
+],
+[
+"72",
+"Real estate services"
+],
+[
+"721",
+"Real estate services involving own or leased property"
+],
+[
+"7211",
+"Rental or leasing services involving own or leased property"
+],
+[
+"72111",
+"Rental or leasing services involving own or leased residential property"
+],
+[
+"72112",
+"Rental or leasing services involving own or leased non-residential property"
+],
+[
+"7212",
+"Trade services of buildings"
+],
+[
+"72121",
+"Trade services of residential buildings"
+],
+[
+"72122",
+"Trade services of non-residential buildings"
+],
+[
+"72123",
+"Trade services of time-share properties"
+],
+[
+"7213",
+"Trade services of vacant and subdivided land"
+],
+[
+"72130",
+"Trade services of vacant and subdivided land"
+],
+[
+"722",
+"Real estate services on a fee or contract basis"
+],
+[
+"7221",
+"Property management services on a fee or contract basis"
+],
+[
+"72211",
+"Residential property management services on a fee or contract basis except of time-share ownership properties"
+],
+[
+"72212",
+"Non-residential property management services on a fee or contract basis"
+],
+[
+"72213",
+"Time-share property management services on a fee or contract basis"
+],
+[
+"7222",
+"Building sales on a fee or contract basis"
+],
+[
+"72221",
+"Residential building sales on a fee or contract basis, except of time-share ownership properties"
+],
+[
+"72222",
+"Non-residential building sales on a fee or contract basis"
+],
+[
+"72223",
+"Sale of time-share properties on a fee or contract basis"
+],
+[
+"7223",
+"Land sales on a fee or contract basis"
+],
+[
+"72230",
+"Land sales on a fee or contract basis"
+],
+[
+"7224",
+"Real estate appraisal services on a fee or contract basis"
+],
+[
+"72240",
+"Real estate appraisal services on a fee or contract basis"
+],
+[
+"73",
+"Leasing or rental services without operator"
+],
+[
+"731",
+"Leasing or rental services concerning machinery and equipment without operator"
+],
+[
+"7311",
+"Leasing or rental services concerning transport equipment without operator"
+],
+[
+"73111",
+"Leasing or rental services concerning cars and light vans without operator"
+],
+[
+"73112",
+"Leasing or rental services concerning goods transport motor vehicles without operator"
+],
+[
+"73113",
+"Leasing or rental services concerning railroad vehicles without operator"
+],
+[
+"73114",
+"Leasing or rental services concerning other land transport equipment without operator"
+],
+[
+"73115",
+"Leasing or rental services concerning vessels without operator"
+],
+[
+"73116",
+"Leasing or rental services concerning aircraft without operator"
+],
+[
+"73117",
+"Leasing or rental services concerning containers"
+],
+[
+"7312",
+"Leasing or rental services concerning other machinery and equipment without operator"
+],
+[
+"73121",
+"Leasing or rental services concerning agricultural machinery and equipment without operator"
+],
+[
+"73122",
+"Leasing or rental services concerning construction machinery and equipment without operator"
+],
+[
+"73123",
+"Leasing or rental services concerning office machinery and equipment (except computers) without operator"
+],
+[
+"73124",
+"Leasing or rental services concerning computers without operator"
+],
+[
+"73125",
+"Leasing or rental services concerning telecommunications equipment without operator"
+],
+[
+"73129",
+"Leasing or rental services concerning other machinery and equipment without operator n.e.c."
+],
+[
+"732",
+"Leasing or rental services concerning other goods"
+],
+[
+"7321",
+"Leasing or rental services concerning televisions, radios, video cassette recorders and related equipment and accessories"
+],
+[
+"73210",
+"Leasing or rental services concerning televisions, radios, video cassette recorders and related equipment and accessories"
+],
+[
+"7322",
+"Leasing or rental services concerning videotapes and disks"
+],
+[
+"73220",
+"Leasing or rental services concerning videotapes and disks"
+],
+[
+"7323",
+"Leasing or rental services concerning furniture and other household appliances"
+],
+[
+"73230",
+"Leasing or rental services concerning furniture and other household appliances"
+],
+[
+"7324",
+"Leasing or rental services concerning pleasure and leisure equipment"
+],
+[
+"73240",
+"Leasing or rental services concerning pleasure and leisure equipment"
+],
+[
+"7325",
+"Leasing or rental services concerning household linen"
+],
+[
+"73250",
+"Leasing or rental services concerning household linen"
+],
+[
+"7326",
+"Leasing or rental services concerning textiles, clothing and footwear"
+],
+[
+"73260",
+"Leasing or rental services concerning textiles, clothing and footwear"
+],
+[
+"7327",
+"Leasing or rental services concerning do-it-yourself machinery and equipment"
+],
+[
+"73270",
+"Leasing or rental services concerning do-it-yourself machinery and equipment"
+],
+[
+"7329",
+"Leasing or rental services concerning other goods n.e.c."
+],
+[
+"73290",
+"Leasing or rental services concerning other goods n.e.c."
+],
+[
+"733",
+"Licensing services for the right to use intellectual property and similar products"
+],
+[
+"7331",
+"Licensing services for the right to use computer software and databases"
+],
+[
+"73311",
+"Licensing services for the right to use computer software"
+],
+[
+"73312",
+"Licensing services for the right to use databases"
+],
+[
+"7332",
+"Licensing services for the right to use entertainment, literary or artistic originals"
+],
+[
+"73320",
+"Licensing services for the right to use entertainment, literary or artistic originals"
+],
+[
+"7333",
+"Licensing services for the right to use R&D products"
+],
+[
+"73330",
+"Licensing services for the right to use R&D products"
+],
+[
+"7334",
+"Licensing services for the right to use trademarks and franchises"
+],
+[
+"73340",
+"Licensing services for the right to use trademarks and franchises"
+],
+[
+"7335",
+"Licensing services for the right to use mineral exploration and evaluation"
+],
+[
+"73350",
+"Licensing services for the right to use mineral exploration and evaluation"
+],
+[
+"7339",
+"Licensing services for the right to use other intellectual property products"
+],
+[
+"73390",
+"Licensing services for the right to use other intellectual property products"
+],
+[
+"81",
+"Research and development services"
+],
+[
+"811",
+"Research and experimental development services in natural sciences and engineering"
+],
+[
+"8111",
+"Basic research services in natural sciences and engineering"
+],
+[
+"81111",
+"Basic research services in physical sciences"
+],
+[
+"81112",
+"Basic research services in chemistry and biology"
+],
+[
+"81113",
+"Basic research services in biotechnology"
+],
+[
+"81114",
+"Basic research services in engineering and technology"
+],
+[
+"81115",
+"Basic research services in medical sciences and pharmacy"
+],
+[
+"81116",
+"Basic research services in agricultural sciences"
+],
+[
+"81119",
+"Basic research services in other natural sciences"
+],
+[
+"8112",
+"Applied research services in natural sciences and engineering"
+],
+[
+"81121",
+"Applied research services in physical sciences"
+],
+[
+"81122",
+"Applied research services in chemistry and biology"
+],
+[
+"81123",
+"Applied research services in biotechnology"
+],
+[
+"81124",
+"Applied research services in engineering and technology"
+],
+[
+"81125",
+"Applied research services in medical sciences and pharmacy"
+],
+[
+"81126",
+"Applied research services in agricultural sciences"
+],
+[
+"81129",
+"Applied research services in other natural sciences"
+],
+[
+"8113",
+"Experimental development services in natural sciences and engineering"
+],
+[
+"81131",
+"Experimental development services in physical sciences"
+],
+[
+"81132",
+"Experimental development services in chemistry and biology"
+],
+[
+"81133",
+"Experimental development services in biotechnology"
+],
+[
+"81134",
+"Experimental development services in engineering and technology"
+],
+[
+"81135",
+"Experimental development services in medical sciences and pharmacy"
+],
+[
+"81136",
+"Experimental development services in agricultural sciences"
+],
+[
+"81139",
+"Experimental development services in other natural sciences"
+],
+[
+"812",
+"Research and experimental development services in social sciences and humanities"
+],
+[
+"8121",
+"Basic research services in social sciences and humanities"
+],
+[
+"81211",
+"Basic research services in psychology"
+],
+[
+"81212",
+"Basic research services in economics"
+],
+[
+"81213",
+"Basic research services in law"
+],
+[
+"81214",
+"Basic research services in languages and literature"
+],
+[
+"81219",
+"Basic research services in other social sciences and humanities"
+],
+[
+"8122",
+"Applied research services in social sciences and humanities"
+],
+[
+"81221",
+"Applied research services in psychology"
+],
+[
+"81222",
+"Applied research services in economics"
+],
+[
+"81223",
+"Applied research services in law"
+],
+[
+"81224",
+"Applied research services in language and literature"
+],
+[
+"81229",
+"Applied research services on other social sciences and humanities"
+],
+[
+"8123",
+"Experimental development services in social sciences and humanities"
+],
+[
+"81231",
+"Experimental development services in psychology"
+],
+[
+"81232",
+"Experimental development services in economics"
+],
+[
+"81233",
+"Experimental development services in law"
+],
+[
+"81234",
+"Experimental development services in languages and literature"
+],
+[
+"81239",
+"Experimental development services in other social sciences and humanities"
+],
+[
+"813",
+"Interdisciplinary research and experimental development services"
+],
+[
+"8130",
+"Interdisciplinary research and experimental development services"
+],
+[
+"81301",
+"Interdisciplinary basic research services"
+],
+[
+"81302",
+"Interdisciplinary applied research services"
+],
+[
+"81303",
+"Interdisciplinary experimental development services"
+],
+[
+"814",
+"Research and development originals"
+],
+[
+"8140",
+"Research and development originals"
+],
+[
+"81400",
+"Research and development originals"
+],
+[
+"82",
+"Legal and accounting services"
+],
+[
+"821",
+"Legal services"
+],
+[
+"8211",
+"Legal advisory and representation services concerning criminal law"
+],
+[
+"82110",
+"Legal advisory and representation services concerning criminal law"
+],
+[
+"8212",
+"Legal advisory and representation services concerning other fields of law"
+],
+[
+"82120",
+"Legal advisory and representation services concerning other fields of law"
+],
+[
+"8213",
+"Legal documentation and certification services"
+],
+[
+"82130",
+"Legal documentation and certification services"
+],
+[
+"8219",
+"Other legal services"
+],
+[
+"82191",
+"Arbitration and conciliation services"
+],
+[
+"82199",
+"Other legal services n.e.c."
+],
+[
+"822",
+"Accounting, auditing and bookkeeping services"
+],
+[
+"8221",
+"Financial auditing services"
+],
+[
+"82210",
+"Financial auditing services"
+],
+[
+"8222",
+"Accounting and bookkeeping services"
+],
+[
+"82221",
+"Accounting services"
+],
+[
+"82222",
+"Bookkeeping services"
+],
+[
+"82223",
+"Payroll services"
+],
+[
+"823",
+"Tax consultancy and preparation services"
+],
+[
+"8231",
+"Corporate tax consulting and preparation services"
+],
+[
+"82310",
+"Corporate tax consulting and preparation services"
+],
+[
+"8232",
+"Individual tax preparation and planning services"
+],
+[
+"82320",
+"Individual tax preparation and planning services"
+],
+[
+"824",
+"Insolvency and receivership services"
+],
+[
+"8240",
+"Insolvency and receivership services"
+],
+[
+"82400",
+"Insolvency and receivership services"
+],
+[
+"83",
+"Professional, technical and business services (except research, development, legal and accounting services)"
+],
+[
+"831",
+"Management consulting and management services; information technology services"
+],
+[
+"8311",
+"Management consulting and management services"
+],
+[
+"83111",
+"Strategic management consulting services"
+],
+[
+"83112",
+"Financial management consulting services"
+],
+[
+"83113",
+"Human resources management consulting services"
+],
+[
+"83114",
+"Marketing management consulting services"
+],
+[
+"83115",
+"Operations management consulting services"
+],
+[
+"83116",
+"Supply chain and other management consulting services"
+],
+[
+"83117",
+"Business process management services"
+],
+[
+"83118",
+"Head office services"
+],
+[
+"8312",
+"Business consulting services"
+],
+[
+"83121",
+"Public relations services"
+],
+[
+"83129",
+"Other business consulting services"
+],
+[
+"8313",
+"Information technology (IT) consulting and support services"
+],
+[
+"83131",
+"IT consulting services"
+],
+[
+"83132",
+"IT support services"
+],
+[
+"8314",
+"Information technology (IT) design and development services"
+],
+[
+"83141",
+"IT design and development services for applications"
+],
+[
+"83142",
+"IT design and development services for networks and systems"
+],
+[
+"83143",
+"Software originals"
+],
+[
+"8315",
+"Hosting and information technology (IT) infrastructure provisioning services"
+],
+[
+"83151",
+"Website hosting services"
+],
+[
+"83152",
+"Application service provisioning"
+],
+[
+"83159",
+"Other hosting and IT infrastructure provisioning services"
+],
+[
+"8316",
+"IT infrastructure and network management services"
+],
+[
+"83161",
+"Network management services"
+],
+[
+"83162",
+"Computer systems management services"
+],
+[
+"8319",
+"Other management services, except construction project management services"
+],
+[
+"83190",
+"Other management services, except construction project management services"
+],
+[
+"832",
+"Architectural services, urban and land planning and landscape architectural services"
+],
+[
+"8321",
+"Architectural services and advisory services"
+],
+[
+"83211",
+"Architectural advisory services"
+],
+[
+"83212",
+"Architectural services for residential building projects"
+],
+[
+"83213",
+"Architectural services for non-residential building projects"
+],
+[
+"83214",
+"Historical restoration architectural services"
+],
+[
+"8322",
+"Urban and land planning services"
+],
+[
+"83221",
+"Urban planning services"
+],
+[
+"83222",
+"Rural land planning services"
+],
+[
+"83223",
+"Project site master planning services"
+],
+[
+"8323",
+"Landscape architectural services and advisory services"
+],
+[
+"83231",
+"Landscape architectural advisory services"
+],
+[
+"83232",
+"Landscape architectural services"
+],
+[
+"833",
+"Engineering services"
+],
+[
+"8331",
+"Engineering advisory services"
+],
+[
+"83310",
+"Engineering advisory services"
+],
+[
+"8332",
+"Engineering services for specific projects"
+],
+[
+"83321",
+"Engineering services for building projects"
+],
+[
+"83322",
+"Engineering services for industrial and manufacturing projects"
+],
+[
+"83323",
+"Engineering services for transportation projects"
+],
+[
+"83324",
+"Engineering services for power projects"
+],
+[
+"83325",
+"Engineering services for telecommunications and broadcasting projects"
+],
+[
+"83326",
+"Engineering services for waste management projects (hazardous and non-hazardous)"
+],
+[
+"83327",
+"Engineering services for water, sewerage and drainage projects"
+],
+[
+"83329",
+"Engineering services for other projects"
+],
+[
+"8333",
+"Project management services for construction projects"
+],
+[
+"83330",
+"Project management services for construction projects"
+],
+[
+"834",
+"Scientific and other technical services"
+],
+[
+"8341",
+"Geological, geophysical and other prospecting services"
+],
+[
+"83411",
+"Geological and geophysical consulting services"
+],
+[
+"83412",
+"Geophysical services"
+],
+[
+"83413",
+"Mineral exploration and evaluation"
+],
+[
+"8342",
+"Surface surveying and map-making services"
+],
+[
+"83421",
+"Surface surveying services"
+],
+[
+"83422",
+"Map-making services"
+],
+[
+"8343",
+"Weather forecasting and meteorological services"
+],
+[
+"83430",
+"Weather forecasting and meteorological services"
+],
+[
+"8344",
+"Technical testing and analysis services"
+],
+[
+"83441",
+"Composition and purity testing and analysis services"
+],
+[
+"83442",
+"Testing and analysis services of physical properties"
+],
+[
+"83443",
+"Testing and analysis services of integrated mechanical and electrical systems"
+],
+[
+"83444",
+"Technical inspection services of road transport vehicles"
+],
+[
+"83449",
+"Other technical testing and analysis services"
+],
+[
+"835",
+"Veterinary services"
+],
+[
+"8351",
+"Veterinary services for pet animals"
+],
+[
+"83510",
+"Veterinary services for pet animals"
+],
+[
+"8352",
+"Veterinary services for livestock"
+],
+[
+"83520",
+"Veterinary services for livestock"
+],
+[
+"8359",
+"Other veterinary services"
+],
+[
+"83590",
+"Other veterinary services"
+],
+[
+"836",
+"Advertising services and provision of advertising space or time"
+],
+[
+"8361",
+"Advertising services"
+],
+[
+"83611",
+"Full service advertising"
+],
+[
+"83612",
+"Direct marketing and direct mail services"
+],
+[
+"83619",
+"Other advertising services"
+],
+[
+"8362",
+"Purchase or sale of advertising space or time, on commission"
+],
+[
+"83620",
+"Purchase or sale of advertising space or time, on commission"
+],
+[
+"8363",
+"Sale of advertising space or time (except on commission)"
+],
+[
+"83631",
+"Sale of advertising space in print media (except on commission)"
+],
+[
+"83632",
+"Sale of TV/radio advertising time (except on commission)"
+],
+[
+"83633",
+"Sale of Internet advertising space (except on commission)"
+],
+[
+"83639",
+"Sale of other advertising space or time (except on commission)"
+],
+[
+"837",
+"Market research and public opinion polling services"
+],
+[
+"8370",
+"Market research and public opinion polling services"
+],
+[
+"83700",
+"Market research and public opinion polling services"
+],
+[
+"838",
+"Photography services and photographic processing services"
+],
+[
+"8381",
+"Photography services and event videography services"
+],
+[
+"83811",
+"Portrait photography services"
+],
+[
+"83812",
+"Advertising and related photography services"
+],
+[
+"83813",
+"Event photography and event videography services"
+],
+[
+"83814",
+"Specialty photography services"
+],
+[
+"83815",
+"Restoration and retouching services of photography"
+],
+[
+"83819",
+"Other photography services"
+],
+[
+"8382",
+"Photographic processing services"
+],
+[
+"83820",
+"Photographic processing services"
+],
+[
+"839",
+"Other professional, technical and business services"
+],
+[
+"8391",
+"Specialty design services"
+],
+[
+"83911",
+"Interior design services"
+],
+[
+"83912",
+"Industrial design services"
+],
+[
+"83919",
+"Other specialty design services"
+],
+[
+"8392",
+"Design originals"
+],
+[
+"83920",
+"Design originals"
+],
+[
+"8393",
+"Scientific and technical consulting services n.e.c."
+],
+[
+"83931",
+"Environmental consulting services"
+],
+[
+"83939",
+"Other scientific and technical consulting services n.e.c."
+],
+[
+"8394",
+"Original compilations of facts/information"
+],
+[
+"83940",
+"Original compilations of facts/information"
+],
+[
+"8395",
+"Translation and interpretation services"
+],
+[
+"83950",
+"Translation and interpretation services"
+],
+[
+"8396",
+"Trademarks and franchises"
+],
+[
+"83960",
+"Trademarks and franchises"
+],
+[
+"8399",
+"Other professional, technical and business services, n.e.c."
+],
+[
+"83990",
+"Other professional, technical and business services, n.e.c."
+],
+[
+"84",
+"Telecommunications, broadcasting and information supply services"
+],
+[
+"841",
+"Telephony and other telecommunications services"
+],
+[
+"8411",
+"Carrier services"
+],
+[
+"84110",
+"Carrier services"
+],
+[
+"8412",
+"Fixed telephony services"
+],
+[
+"8413",
+"Mobile telecommunications services"
+],
+[
+"84131",
+"Mobile voice services"
+],
+[
+"84132",
+"Mobile text services"
+],
+[
+"84133",
+"Mobile data services, except text services"
+],
+[
+"8414",
+"Private network services"
+],
+[
+"84140",
+"Private network services"
+],
+[
+"8415",
+"Data transmission services"
+],
+[
+"84150",
+"Data transmission services"
+],
+[
+"8419",
+"Other telecommunications services"
+],
+[
+"84190",
+"Other telecommunications services"
+],
+[
+"842",
+"Internet telecommunications services"
+],
+[
+"8421",
+"Internet backbone services"
+],
+[
+"84210",
+"Internet backbone services"
+],
+[
+"8422",
+"Internet access services"
+],
+[
+"84221",
+"Narrowband Internet access services"
+],
+[
+"84222",
+"Broadband Internet access services"
+],
+[
+"8429",
+"Other Internet telecommunications services"
+],
+[
+"84290",
+"Other Internet telecommunications services"
+],
+[
+"843",
+"On-line content"
+],
+[
+"8431",
+"On-line text based information"
+],
+[
+"84311",
+"On-line books"
+],
+[
+"84312",
+"On-line newspapers and periodicals"
+],
+[
+"84313",
+"On-line directories and mailing lists"
+],
+[
+"8432",
+"On-line audio content"
+],
+[
+"84321",
+"Musical audio downloads"
+],
+[
+"84322",
+"Streamed audio content"
+],
+[
+"8433",
+"On-line video content"
+],
+[
+"84331",
+"Films and other video downloads"
+],
+[
+"84332",
+"Streamed video content"
+],
+[
+"8434",
+"Software downloads"
+],
+[
+"84341",
+"System software downloads"
+],
+[
+"84342",
+"Application software downloads"
+],
+[
+"8439",
+"Other on-line content"
+],
+[
+"84391",
+"On-line games"
+],
+[
+"84392",
+"On-line software"
+],
+[
+"84394",
+"Web search portal content"
+],
+[
+"84399",
+"Other on-line content n.e.c."
+],
+[
+"844",
+"News agency services"
+],
+[
+"8441",
+"News agency services to newspapers and periodicals"
+],
+[
+"84410",
+"News agency services to newspapers and periodicals"
+],
+[
+"8442",
+"News agency services to audiovisual media"
+],
+[
+"84420",
+"News agency services to audiovisual media"
+],
+[
+"845",
+"Library and archive services"
+],
+[
+"8451",
+"Library services"
+],
+[
+"84510",
+"Library services"
+],
+[
+"8452",
+"Archive services"
+],
+[
+"84520",
+"Archive services"
+],
+[
+"846",
+"Broadcasting, programming and programme distribution services"
+],
+[
+"8461",
+"Radio and television broadcast originals"
+],
+[
+"84611",
+"Radio broadcast originals"
+],
+[
+"84612",
+"Television broadcast originals"
+],
+[
+"8462",
+"Radio and television channel programmes"
+],
+[
+"84621",
+"Radio channel programmes"
+],
+[
+"84622",
+"Television channel programmes"
+],
+[
+"8463",
+"Broadcasting services and multi-channel progamme distribution services"
+],
+[
+"84631",
+"Broadcasting services"
+],
+[
+"84632",
+"Home programme distribution services, basic programming package"
+],
+[
+"84633",
+"Home programme distribution services, discretionary programming package"
+],
+[
+"84634",
+"Home programme distribution services, pay-per-view"
+],
+[
+"85",
+"Support services"
+],
+[
+"851",
+"Employment services"
+],
+[
+"8511",
+"Personnel search and referral services"
+],
+[
+"85111",
+"Executive/retained search services"
+],
+[
+"85112",
+"Permanent placement services, other than executive search services"
+],
+[
+"8512",
+"Labour supply services"
+],
+[
+"85121",
+"Contract staffing services"
+],
+[
+"85122",
+"Temporary staffing services"
+],
+[
+"85123",
+"Long-term staffing (payrolling) services"
+],
+[
+"85124",
+"Temporary staffing-to-permanent placement services"
+],
+[
+"85125",
+"Co-employment staffing services"
+],
+[
+"852",
+"Investigation and security services"
+],
+[
+"8521",
+"Investigation services"
+],
+[
+"85210",
+"Investigation services"
+],
+[
+"8522",
+"Security consulting services"
+],
+[
+"85220",
+"Security consulting services"
+],
+[
+"8523",
+"Security systems services"
+],
+[
+"85230",
+"Security systems services"
+],
+[
+"8524",
+"Armoured car services"
+],
+[
+"85240",
+"Armoured car services"
+],
+[
+"8525",
+"Guard services"
+],
+[
+"85250",
+"Guard services"
+],
+[
+"8529",
+"Other security services"
+],
+[
+"85290",
+"Other security services"
+],
+[
+"853",
+"Cleaning services"
+],
+[
+"8531",
+"Disinfecting and exterminating services"
+],
+[
+"85310",
+"Disinfecting and exterminating services"
+],
+[
+"8532",
+"Window cleaning services"
+],
+[
+"85320",
+"Window cleaning services"
+],
+[
+"8533",
+"General cleaning services"
+],
+[
+"85330",
+"General cleaning services"
+],
+[
+"8534",
+"Specialized cleaning services"
+],
+[
+"85340",
+"Specialized cleaning services"
+],
+[
+"854",
+"Packaging services"
+],
+[
+"8540",
+"Packaging services"
+],
+[
+"85400",
+"Packaging services"
+],
+[
+"855",
+"Travel arrangement, tour operator and related services"
+],
+[
+"8551",
+"Reservation services for transportation"
+],
+[
+"85511",
+"Reservation services for air transportation"
+],
+[
+"85512",
+"Reservation services for rail transportation"
+],
+[
+"85513",
+"Reservation services for bus transportation"
+],
+[
+"85514",
+"Reservation services for vehicle rental"
+],
+[
+"85519",
+"Other transportation arrangement and reservation services n.e.c."
+],
+[
+"8552",
+"Reservation services for accommodation, cruises and package tours"
+],
+[
+"85521",
+"Reservation services for accommodation"
+],
+[
+"85522",
+"Time-share exchange services"
+],
+[
+"85523",
+"Reservation services for cruises"
+],
+[
+"85524",
+"Reservation services for package tours"
+],
+[
+"8553",
+"Other reservation services"
+],
+[
+"85531",
+"Reservation services for convention centres, congress centres and exhibition halls"
+],
+[
+"85539",
+"Reservation services for event tickets, entertainment and recreational services and other reservation services"
+],
+[
+"8554",
+"Tour operator services"
+],
+[
+"85540",
+"Tour operator services"
+],
+[
+"8555",
+"Tourist guide services"
+],
+[
+"85550",
+"Tourist guide services"
+],
+[
+"8556",
+"Tourism promotion and visitor information services"
+],
+[
+"85561",
+"Tourism promotion services"
+],
+[
+"85562",
+"Visitor information services"
+],
+[
+"859",
+"Other support services"
+],
+[
+"8591",
+"Credit reporting services"
+],
+[
+"85910",
+"Credit reporting services"
+],
+[
+"8592",
+"Collection agency services"
+],
+[
+"85920",
+"Collection agency services"
+],
+[
+"8593",
+"Telephone-based support services"
+],
+[
+"85931",
+"Telephone call centre services"
+],
+[
+"85939",
+"Other telephone-based support services"
+],
+[
+"8594",
+"Combined office administrative services"
+],
+[
+"85940",
+"Combined office administrative services"
+],
+[
+"8595",
+"Specialized office support services"
+],
+[
+"85951",
+"Duplicating services"
+],
+[
+"85952",
+"Mailing list compilation services"
+],
+[
+"85953",
+"Mailing services"
+],
+[
+"85954",
+"Document preparation and other specialized office support services"
+],
+[
+"8596",
+"Convention and trade show assistance and organization services"
+],
+[
+"85961",
+"Convention assistance and organization services"
+],
+[
+"85962",
+"Trade show assistance and organization services"
+],
+[
+"8597",
+"Landscape care and maintenance services"
+],
+[
+"85970",
+"Landscape care and maintenance services"
+],
+[
+"8599",
+"Other information and support services n.e.c."
+],
+[
+"85991",
+"Other information services"
+],
+[
+"85999",
+"Other support services n.e.c."
+],
+[
+"86",
+"Support and operation services to agriculture, hunting, forestry, fishing, mining and utilities"
+],
+[
+"861",
+"Support and operation services to agriculture, hunting, forestry and fishing"
+],
+[
+"8611",
+"Support and operation services to crop production"
+],
+[
+"86111",
+"Post-harvest crop services"
+],
+[
+"86112",
+"Seed processing services"
+],
+[
+"86113",
+"Crop production services on inputs owned by others"
+],
+[
+"86119",
+"Other support services to crop production"
+],
+[
+"8612",
+"Animal husbandry services"
+],
+[
+"86121",
+"Farm animal husbandry services on inputs owned by others"
+],
+[
+"86122",
+"Support services to farm animal husbandry"
+],
+[
+"86129",
+"Other animal husbandry services"
+],
+[
+"8613",
+"Support and operation services to hunting"
+],
+[
+"86131",
+"Hunting services on resources owned by others"
+],
+[
+"86132",
+"Support services to hunting"
+],
+[
+"8614",
+"Support and operation services to forestry and logging"
+],
+[
+"86141",
+"Forestry and logging services on inputs owned by others"
+],
+[
+"86142",
+"Support services to forestry and logging"
+],
+[
+"8615",
+"Support and operation services to fishing"
+],
+[
+"86151",
+"Fishing services on resources owned by others"
+],
+[
+"86152",
+"Aquaculture services on inputs owned by others"
+],
+[
+"86153",
+"Support services to fishing"
+],
+[
+"86154",
+"Support services to aquaculture"
+],
+[
+"862",
+"Support and operation services to mining"
+],
+[
+"8621",
+"Support services to mining"
+],
+[
+"86211",
+"Support services to oil and gas extraction"
+],
+[
+"86219",
+"Support services to other mining"
+],
+[
+"8622",
+"Mining services on resources owned by others"
+],
+[
+"86221",
+"Oil and gas extraction services on resources owned by others"
+],
+[
+"86229",
+"Other mining services on resources owned by others"
+],
+[
+"863",
+"Support and operation services to electricity, gas and water distribution"
+],
+[
+"8631",
+"Support services to electricity transmission and distribution"
+],
+[
+"86311",
+"Electricity transmission services (on a fee or contract basis)"
+],
+[
+"86312",
+"Electricity distribution services (on a fee or contract basis)"
+],
+[
+"8632",
+"Gas distribution services through mains (on a fee or contract basis)"
+],
+[
+"86320",
+"Gas distribution services through mains (on a fee or contract basis)"
+],
+[
+"8633",
+"Water distribution services through mains (on a fee or contract basis)"
+],
+[
+"86330",
+"Water distribution services through mains (on a fee or contract basis)"
+],
+[
+"8634",
+"Distribution services of steam, hot water and air-conditioning supply through mains (on a fee or contract basis)"
+],
+[
+"86340",
+"Distribution services of steam, hot water and air-conditioning supply through mains (on a fee or contract basis)"
+],
+[
+"8635",
+"Water distribution services, except through mains (on a fee or contract basis)"
+],
+[
+"86350",
+"Water distribution services, except through mains (on a fee or contract basis)"
+],
+[
+"87",
+"Maintenance, repair and installation (except construction) services"
+],
+[
+"871",
+"Maintenance and repair services of fabricated metal products, machinery and equipment"
+],
+[
+"8711",
+"Maintenance and repair services of fabricated metal products, except machinery and equipment"
+],
+[
+"87110",
+"Maintenance and repair services of fabricated metal products, except machinery and equipment"
+],
+[
+"8712",
+"Maintenance and repair services of office and accounting machinery"
+],
+[
+"87120",
+"Maintenance and repair services of office and accounting machinery"
+],
+[
+"8713",
+"Maintenance and repair services of computers and peripheral equipment"
+],
+[
+"87130",
+"Maintenance and repair services of computers and peripheral equipment"
+],
+[
+"8714",
+"Maintenance and repair of transport machinery and equipment"
+],
+[
+"87141",
+"Maintenance and repair services of motor vehicles"
+],
+[
+"87142",
+"Maintenance and repair services of motorcycles"
+],
+[
+"87143",
+"Maintenance and repair services of trailers, semi-trailers and other motor vehicles n.e.c."
+],
+[
+"87149",
+"Maintenance and repair services of other transport equipment"
+],
+[
+"8715",
+"Maintenance and repair services of other machinery and equipment"
+],
+[
+"87151",
+"Maintenance and repair services of electrical household appliances"
+],
+[
+"87152",
+"Maintenance and repair services of electrical machinery and apparatus n.e.c."
+],
+[
+"87153",
+"Maintenance and repair services of telecommunication equipment and apparatus"
+],
+[
+"87154",
+"Maintenance and repair services of medical, precision and optical instruments"
+],
+[
+"87155",
+"Maintenance and repair services of consumer electronics"
+],
+[
+"87156",
+"Maintenance and repair services of commercial and industrial machinery"
+],
+[
+"87157",
+"Maintenance and repair services of elevators and escalators"
+],
+[
+"87159",
+"Maintenance and repair services of other equipment"
+],
+[
+"872",
+"Repair services of other goods"
+],
+[
+"8721",
+"Repair services of footwear and leather goods"
+],
+[
+"87210",
+"Repair services of footwear and leather goods"
+],
+[
+"8722",
+"Repair services of watches, clocks and jewellery"
+],
+[
+"87220",
+"Repair services of watches, clocks and jewellery"
+],
+[
+"8723",
+"Repair services of garments and household textiles"
+],
+[
+"87230",
+"Repair services of garments and household textiles"
+],
+[
+"8724",
+"Repair services of furniture"
+],
+[
+"87240",
+"Repair services of furniture"
+],
+[
+"8729",
+"Maintenance and repair services of other goods n.e.c."
+],
+[
+"87290",
+"Maintenance and repair services of other goods n.e.c."
+],
+[
+"873",
+"Installation services (other than construction)"
+],
+[
+"8731",
+"Installation services of fabricated metal products, except machinery and equipment"
+],
+[
+"87310",
+"Installation services of fabricated metal products, except machinery and equipment"
+],
+[
+"8732",
+"Installation services of industrial, manufacturing and service industry machinery and equipment"
+],
+[
+"87320",
+"Installation services of industrial, manufacturing and service industry machinery and equipment"
+],
+[
+"8733",
+"Installation services of office and accounting machinery and computers"
+],
+[
+"87331",
+"Installation services of mainframe computers"
+],
+[
+"87332",
+"Installation services of personal computers and peripheral equipment"
+],
+[
+"87333",
+"Installation services of office and accounting machinery"
+],
+[
+"8734",
+"Installation services of radio, television and communications equipment and apparatus"
+],
+[
+"87340",
+"Installation services of radio, television and communications equipment and apparatus"
+],
+[
+"8735",
+"Installation services of professional medical machinery and equipment, and precision and optical instruments"
+],
+[
+"87350",
+"Installation services of professional medical machinery and equipment, and precision and optical instruments"
+],
+[
+"8736",
+"Installation services of electrical machinery and apparatus n.e.c."
+],
+[
+"87360",
+"Installation services of electrical machinery and apparatus n.e.c."
+],
+[
+"8739",
+"Installation services of other goods n.e.c."
+],
+[
+"87390",
+"Installation services of other goods n.e.c."
+],
+[
+"88",
+"Manufacturing services on physical inputs owned by others"
+],
+[
+"881",
+"Food, beverage and tobacco manufacturing services"
+],
+[
+"8811",
+"Meat processing services"
+],
+[
+"88110",
+"Meat processing services"
+],
+[
+"8812",
+"Fish processing services"
+],
+[
+"88120",
+"Fish processing services"
+],
+[
+"8813",
+"Fruit and vegetables processing services"
+],
+[
+"88130",
+"Fruit and vegetables processing services"
+],
+[
+"8814",
+"Vegetable and animal oil and fat manufacturing services"
+],
+[
+"88140",
+"Vegetable and animal oil and fat manufacturing services"
+],
+[
+"8815",
+"Dairy product manufacturing services"
+],
+[
+"88150",
+"Dairy product manufacturing services"
+],
+[
+"8816",
+"Other food product manufacturing services"
+],
+[
+"88161",
+"Grain mill product manufacturing services"
+],
+[
+"88162",
+"Starch and starch product manufacturing services"
+],
+[
+"88163",
+"Bakery product manufacturing services"
+],
+[
+"88164",
+"Sugar manufacturing services"
+],
+[
+"88165",
+"Cocoa, chocolate and sugar confectionery manufacturing services"
+],
+[
+"88166",
+"Macaroni, noodles, couscous and similar farinaceous products manufacturing services"
+],
+[
+"88167",
+"Prepared meals and dishes manufacturing services"
+],
+[
+"88169",
+"Other food product manufacturing services n.e.c."
+],
+[
+"8817",
+"Prepared animal feeds manufacturing services"
+],
+[
+"88170",
+"Prepared animal feeds manufacturing services"
+],
+[
+"8818",
+"Beverage manufacturing services"
+],
+[
+"88181",
+"Distilled alcoholic beverage manufacturing services"
+],
+[
+"88182",
+"Wine manufacturing services"
+],
+[
+"88183",
+"Malt and malt liquor manufacturing services"
+],
+[
+"88184",
+"Soft drink manufacturing services"
+],
+[
+"8819",
+"Tobacco manufacturing services"
+],
+[
+"88190",
+"Tobacco manufacturing services"
+],
+[
+"882",
+"Textile, wearing apparel and leather manufacturing services"
+],
+[
+"8821",
+"Textile manufacturing services"
+],
+[
+"88211",
+"Textile fibre manufacturing services"
+],
+[
+"88212",
+"Textile weaving services"
+],
+[
+"88213",
+"Textile finishing services"
+],
+[
+"88214",
+"Knitted and crocheted fabric manufacturing services"
+],
+[
+"88215",
+"Made-up textile article manufacturing services"
+],
+[
+"88216",
+"Carpet and rug manufacturing services"
+],
+[
+"88217",
+"Cordage, rope, twine and netting manufacturing services"
+],
+[
+"88219",
+"Other textile manufacturing services n.e.c."
+],
+[
+"8822",
+"Wearing apparel manufacturing services"
+],
+[
+"88221",
+"Wearing apparel manufacturing services, except fur apparel"
+],
+[
+"88222",
+"Fur apparel manufacturing services"
+],
+[
+"88223",
+"Knitted and crocheted apparel manufacturing services"
+],
+[
+"8823",
+"Leather and leather product manufacturing services"
+],
+[
+"88231",
+"Leather tanning and dressing services; fur dressing and dyeing services"
+],
+[
+"88232",
+"Luggage manufacturing services"
+],
+[
+"88233",
+"Footwear manufacturing services"
+],
+[
+"883",
+"Wood and paper manufacturing services"
+],
+[
+"8831",
+"Wood and wood product manufacturing services"
+],
+[
+"88311",
+"Wood manufacturing services"
+],
+[
+"88312",
+"Veneer sheet and wood panel manufacturing services"
+],
+[
+"88313",
+"Carpentry manufacturing services"
+],
+[
+"88314",
+"Wooden containers manufacturing services"
+],
+[
+"88319",
+"Other wood product manufacturing services"
+],
+[
+"8832",
+"Paper and paper product manufacturing services"
+],
+[
+"88321",
+"Pulp, paper and paperboard manufacturing services"
+],
+[
+"88322",
+"Corrugated paper and paperboard manufacturing services"
+],
+[
+"88329",
+"Other paper article manufacturing services"
+],
+[
+"884",
+"Petroleum, chemical and pharmaceutical product manufacturing services"
+],
+[
+"8841",
+"Coke and refined petroleum product manufacturing services"
+],
+[
+"88411",
+"Coke oven products manufacturing services"
+],
+[
+"88412",
+"Refined petroleum products manufacturing services"
+],
+[
+"8842",
+"Chemical product manufacturing services"
+],
+[
+"88421",
+"Basic chemicals manufacturing services"
+],
+[
+"88422",
+"Fertilizer manufacturing services"
+],
+[
+"88423",
+"Plastics and rubber manufacturing services"
+],
+[
+"88424",
+"Agrochemical product manufacturing services"
+],
+[
+"88425",
+"Paint manufacturing services"
+],
+[
+"88426",
+"Soap, detergents, cleaning preparation and perfume manufacturing services"
+],
+[
+"88427",
+"Other chemical products manufacturing services n.e.c."
+],
+[
+"88429",
+"Man-made fibre manufacturing services"
+],
+[
+"8843",
+"Pharmaceutical product manufacturing services"
+],
+[
+"88430",
+"Pharmaceutical product manufacturing services"
+],
+[
+"885",
+"Rubber, plastic and other non-metallic mineral product manufacturing services"
+],
+[
+"8851",
+"Rubber product manufacturing services"
+],
+[
+"88511",
+"Tyre manufacturing services"
+],
+[
+"88512",
+"Other rubber product manufacturing services"
+],
+[
+"8852",
+"Plastic product manufacturing services"
+],
+[
+"88520",
+"Plastic product manufacturing services"
+],
+[
+"8853",
+"Other non-metallic mineral product manufacturing services"
+],
+[
+"88531",
+"Glass manufacturing services"
+],
+[
+"88532",
+"Refractory product manufacturing services"
+],
+[
+"88533",
+"Clay building material manufacturing services"
+],
+[
+"88534",
+"Other porcelain and ceramic product manufacturing services"
+],
+[
+"88535",
+"Cement, lime and plaster manufacturing services"
+],
+[
+"88536",
+"Concrete, cement and plaster article manufacturing services"
+],
+[
+"88537",
+"Stone cutting, shaping and finishing services"
+],
+[
+"88539",
+"Other non-metallic mineral product manufacturing services n.e.c."
+],
+[
+"886",
+"Basic metal manufacturing services"
+],
+[
+"8860",
+"Basic metal manufacturing services"
+],
+[
+"88601",
+"Basic iron and steel manufacturing services"
+],
+[
+"88602",
+"Basic precious and other non-ferrous metal manufacturing services"
+],
+[
+"887",
+"Fabricated metal product, machinery and equipment manufacturing services"
+],
+[
+"8871",
+"Structural metal product, tank, reservoir and steam generator manufacturing services"
+],
+[
+"88711",
+"Structural metal product manufacturing services"
+],
+[
+"88712",
+"Tank, reservoir and metal container manufacturing services"
+],
+[
+"88713",
+"Steam generator manufacturing services"
+],
+[
+"8872",
+"Weapon and ammunition manufacturing services"
+],
+[
+"88720",
+"Weapon and ammunition manufacturing services"
+],
+[
+"8873",
+"Other fabricated metal product manufacturing and metal treatment services"
+],
+[
+"88731",
+"Metal treatment and coating services"
+],
+[
+"88732",
+"General machining services"
+],
+[
+"88733",
+"Cutlery, hand tool and general hardware manufacturing services"
+],
+[
+"88739",
+"Other fabricated metal product manufacturing services n.e.c."
+],
+[
+"8874",
+"Computer, electronic and optical product manufacturing services"
+],
+[
+"88741",
+"Electronic component and board manufacturing services"
+],
+[
+"88742",
+"Computer and peripheral equipment manufacturing services"
+],
+[
+"88743",
+"Communication equipment manufacturing services"
+],
+[
+"88744",
+"Consumer electronics manufacturing services"
+],
+[
+"88745",
+"Measuring, testing, navigating and control equipment manufacturing services"
+],
+[
+"88746",
+"Watch and clock manufacturing services"
+],
+[
+"88747",
+"Irradiation, electromedical and electrotherapeutic equipment manufacturing services"
+],
+[
+"88748",
+"Optical instrument and photographic equipment manufacturing services"
+],
+[
+"88749",
+"Magnetic and optical media manufacturing services"
+],
+[
+"8875",
+"Electrical equipment manufacturing services"
+],
+[
+"88751",
+"Electric motor, generator, transformer and electricity distribution and control apparatus manufacturing services"
+],
+[
+"88752",
+"Battery and accumulator manufacturing services"
+],
+[
+"88753",
+"Fibre optic cable manufacturing services"
+],
+[
+"88754",
+"Other electronic and electric wire and cable manufacturing services"
+],
+[
+"88755",
+"Wiring device manufacturing services"
+],
+[
+"88756",
+"Electric lighting equipment manufacturing services"
+],
+[
+"88757",
+"Domestic appliance manufacturing services"
+],
+[
+"88759",
+"Other electrical equipment manufacturing services"
+],
+[
+"8876",
+"General-purpose machinery manufacturing services"
+],
+[
+"88761",
+"Engines and turbine manufacturing services"
+],
+[
+"88762",
+"Fluid power equipment manufacturing services"
+],
+[
+"88763",
+"Other pump, compressor, tap and valve manufacturing services"
+],
+[
+"88764",
+"Bearing, gear, gearing and driving element manufacturing services"
+],
+[
+"88765",
+"Oven, furnace and furnace burner manufacturing services"
+],
+[
+"88766",
+"Lifting and handling equipment manufacturing services"
+],
+[
+"88767",
+"Office machinery and equipment (except computers and peripheral equipment) manufacturing services"
+],
+[
+"88768",
+"Power-driven hand tool manufacturing services"
+],
+[
+"88769",
+"Other general-purpose machinery manufacturing services"
+],
+[
+"8877",
+"Special-purpose machinery manufacturing services"
+],
+[
+"88771",
+"Agricultural and forestry machinery manufacturing services"
+],
+[
+"88772",
+"Metal-forming machinery and machine tools manufacturing services"
+],
+[
+"88773",
+"Metallurgy machinery manufacturing services"
+],
+[
+"88774",
+"Mining, quarrying and construction machinery manufacturing services"
+],
+[
+"88775",
+"Food, beverage and tobacco processing machinery manufacturing services"
+],
+[
+"88776",
+"Textile, apparel and leather production machinery manufacturing services"
+],
+[
+"88779",
+"Other special-purpose machinery manufacturing services"
+],
+[
+"888",
+"Transport equipment manufacturing services"
+],
+[
+"8881",
+"Motor vehicle and trailer manufacturing services"
+],
+[
+"88811",
+"Motor vehicle manufacturing services"
+],
+[
+"88812",
+"Trailers and semi-trailer manufacturing services"
+],
+[
+"88813",
+"Motor vehicle part and accessory manufacturing services"
+],
+[
+"8882",
+"Other transport equipment manufacturing services"
+],
+[
+"88821",
+"Ship building services"
+],
+[
+"88822",
+"Pleasure and sporting boat manufacturing services"
+],
+[
+"88823",
+"Railway locomotive and rolling stock manufacturing services"
+],
+[
+"88824",
+"Air and spacecraft manufacturing services"
+],
+[
+"88825",
+"Military fighting vehicle manufacturing services"
+],
+[
+"88826",
+"Motorcycle manufacturing services"
+],
+[
+"88827",
+"Bicycles and invalid carriage manufacturing services"
+],
+[
+"88829",
+"Other transport equipment manufacturing services n.e.c."
+],
+[
+"889",
+"Other manufacturing services"
+],
+[
+"8890",
+"Other manufacturing services"
+],
+[
+"88901",
+"Furniture manufacturing services"
+],
+[
+"88902",
+"Jewellery manufacturing services"
+],
+[
+"88903",
+"Imitation jewellery manufacturing services"
+],
+[
+"88904",
+"Musical instrument manufacturing services"
+],
+[
+"88905",
+"Sports good manufacturing services"
+],
+[
+"88906",
+"Game and toy manufacturing services"
+],
+[
+"88907",
+"Medical and dental instrument and supply manufacturing services"
+],
+[
+"88909",
+"Other manufacturing services n.e.c."
+],
+[
+"89",
+"Other manufacturing services; publishing, printing and reproduction services; materials recovery services"
+],
+[
+"891",
+"Publishing, printing and reproduction services"
+],
+[
+"8911",
+"Publishing, on a fee or contract basis"
+],
+[
+"89110",
+"Publishing, on a fee or contract basis"
+],
+[
+"8912",
+"Printing and reproduction services of recorded media, on a fee or contract basis"
+],
+[
+"89121",
+"Printing services"
+],
+[
+"89122",
+"Services related to printing"
+],
+[
+"89123",
+"Reproduction services of recorded media, on a fee or contract basis"
+],
+[
+"892",
+"Moulding, pressing, stamping, extruding and similar plastic manufacturing services"
+],
+[
+"8920",
+"Moulding, pressing, stamping, extruding and similar plastic manufacturing services"
+],
+[
+"89200",
+"Moulding, pressing, stamping, extruding and similar plastic manufacturing services"
+],
+[
+"893",
+"Casting, forging, stamping and similar metal manufacturing services"
+],
+[
+"8931",
+"Iron and steel casting services"
+],
+[
+"89310",
+"Iron and steel casting services"
+],
+[
+"8932",
+"Non-ferrous metal casting services"
+],
+[
+"89320",
+"Non-ferrous metal casting services"
+],
+[
+"8933",
+"Metal forging, pressing, stamping, roll forming and powder metallurgy services"
+],
+[
+"89330",
+"Metal forging, pressing, stamping, roll forming and powder metallurgy services"
+],
+[
+"894",
+"Materials recovery (recycling) services, on a fee or contract basis"
+],
+[
+"8941",
+"Metal waste and scrap recovery (recycling) services, on a fee or contract basis"
+],
+[
+"89410",
+"Metal waste and scrap recovery (recycling) services, on a fee or contract basis"
+],
+[
+"8942",
+"Non-metal waste and scrap recovery (recycling) services, on a fee or contract basis"
+],
+[
+"89420",
+"Non-metal waste and scrap recovery (recycling) services, on a fee or contract basis"
+],
+[
+"91",
+"Public administration and other services provided to the community as a whole; compulsory social security services"
+],
+[
+"911",
+"Administrative services of the government"
+],
+[
+"9111",
+"Overall government public services"
+],
+[
+"91111",
+"Executive and legislative services"
+],
+[
+"91112",
+"Financial and fiscal services"
+],
+[
+"91113",
+"Overall economic and social planning and statistical services"
+],
+[
+"91114",
+"Government services to research and development"
+],
+[
+"91119",
+"Other overall government public services"
+],
+[
+"9112",
+"Public administrative services related to the provision of educational, health care, cultural and other social services, excluding social security services"
+],
+[
+"91121",
+"Public administrative services related to education"
+],
+[
+"91122",
+"Public administrative services related to health care"
+],
+[
+"91123",
+"Public administrative services related to housing and community amenities"
+],
+[
+"91124",
+"Public administrative services related to recreation, culture and religion"
+],
+[
+"9113",
+"Public administrative services related to the more efficient operation of business"
+],
+[
+"91131",
+"Public administrative services related to agriculture, forestry, fishing and hunting"
+],
+[
+"91132",
+"Public administrative services related to fuel and energy"
+],
+[
+"91133",
+"Public administrative services related to mining and mineral resources, manufacturing and construction"
+],
+[
+"91134",
+"Public administrative services related to transport and communications"
+],
+[
+"91135",
+"Public administrative services related to the distributive and catering trades, hotels and restaurants"
+],
+[
+"91136",
+"Public administrative services related to tourism affairs"
+],
+[
+"91137",
+"Public administrative services related to multipurpose development projects"
+],
+[
+"91138",
+"Public administrative services related to general economic, commercial and labour affairs"
+],
+[
+"9119",
+"Other administrative services of the government"
+],
+[
+"91191",
+"Administrative services related to government personnel"
+],
+[
+"91199",
+"Other administrative services of the government n.e.c."
+],
+[
+"912",
+"Public administrative services provided to the community as a whole"
+],
+[
+"9121",
+"Public administrative services related to external affairs, diplomatic and consular services abroad"
+],
+[
+"91210",
+"Public administrative services related to external affairs, diplomatic and consular services abroad"
+],
+[
+"9122",
+"Services related to foreign economic aid"
+],
+[
+"91220",
+"Services related to foreign economic aid"
+],
+[
+"9123",
+"Services related to foreign military aid"
+],
+[
+"91230",
+"Services related to foreign military aid"
+],
+[
+"9124",
+"Military defence services"
+],
+[
+"91240",
+"Military defence services"
+],
+[
+"9125",
+"Civil defence services"
+],
+[
+"91250",
+"Civil defence services"
+],
+[
+"9126",
+"Police and fire protection services"
+],
+[
+"91260",
+"Police and fire protection services"
+],
+[
+"9127",
+"Public administrative services related to law courts"
+],
+[
+"91270",
+"Public administrative services related to law courts"
+],
+[
+"9128",
+"Administrative services related to the detention or rehabilitation of criminals"
+],
+[
+"91280",
+"Administrative services related to the detention or rehabilitation of criminals"
+],
+[
+"9129",
+"Public administrative services related to other public order and safety affairs"
+],
+[
+"91290",
+"Public administrative services related to other public order and safety affairs"
+],
+[
+"913",
+"Administrative services related to compulsory social security schemes"
+],
+[
+"9131",
+"Administrative services related to sickness, maternity or temporary disablement benefit schemes"
+],
+[
+"91310",
+"Administrative services related to sickness, maternity or temporary disablement benefit schemes"
+],
+[
+"9132",
+"Administrative services related to government employee pension schemes; old-age disability or survivors' benefit schemes, other than for government employees"
+],
+[
+"91320",
+"Administrative services related to government employee pension schemes; old-age disability or survivors' benefit schemes, other than for government employees"
+],
+[
+"9133",
+"Administrative services related to unemployment compensation benefit schemes"
+],
+[
+"91330",
+"Administrative services related to unemployment compensation benefit schemes"
+],
+[
+"9134",
+"Administrative services related to family and child allowance programmes"
+],
+[
+"91340",
+"Administrative services related to family and child allowance programmes"
+],
+[
+"92",
+"Education services"
+],
+[
+"921",
+"Pre-primary education services"
+],
+[
+"9210",
+"Pre-primary education services"
+],
+[
+"92100",
+"Pre-primary education services"
+],
+[
+"922",
+"Primary education services"
+],
+[
+"9220",
+"Primary education services"
+],
+[
+"92200",
+"Primary education services"
+],
+[
+"923",
+"Secondary education services"
+],
+[
+"9231",
+"Lower secondary education services, general"
+],
+[
+"92310",
+"Lower secondary education services, general"
+],
+[
+"9232",
+"Lower secondary education services, technical and vocational"
+],
+[
+"92320",
+"Lower secondary education services, technical and vocational"
+],
+[
+"9233",
+"Upper secondary education services, general"
+],
+[
+"92330",
+"Upper secondary education services, general"
+],
+[
+"9234",
+"Upper secondary education services, technical and vocational"
+],
+[
+"92340",
+"Upper secondary education services, technical and vocational"
+],
+[
+"924",
+"Post-secondary non-tertiary education services"
+],
+[
+"9241",
+"Post-secondary non-tertiary education services, general"
+],
+[
+"92410",
+"Post-secondary non-tertiary education services, general"
+],
+[
+"9242",
+"Post-secondary non-tertiary education services, technical and vocational"
+],
+[
+"92420",
+"Post-secondary non-tertiary education services, technical and vocational"
+],
+[
+"925",
+"Tertiary education services"
+],
+[
+"9251",
+"First stage tertiary education services"
+],
+[
+"92510",
+"First stage tertiary education services"
+],
+[
+"9252",
+"Second stage tertiary education services"
+],
+[
+"92520",
+"Second stage tertiary education services"
+],
+[
+"929",
+"Other education and training services and educational support services"
+],
+[
+"9291",
+"Other education and training services"
+],
+[
+"92911",
+"Cultural education services"
+],
+[
+"92912",
+"Sports and recreation education services"
+],
+[
+"92919",
+"Other education and training services, n.e.c."
+],
+[
+"9292",
+"Educational support services"
+],
+[
+"92920",
+"Educational support services"
+],
+[
+"93",
+"Human health and social care services"
+],
+[
+"931",
+"Human health services"
+],
+[
+"9311",
+"Inpatient services"
+],
+[
+"93111",
+"Surgical services for inpatients"
+],
+[
+"93112",
+"Gynaecological and obstetrical services for inpatients"
+],
+[
+"93113",
+"Psychiatric services for inpatients"
+],
+[
+"93119",
+"Other services for inpatients"
+],
+[
+"9312",
+"Medical and dental services"
+],
+[
+"93121",
+"General medical services"
+],
+[
+"93122",
+"Specialized medical services"
+],
+[
+"93123",
+"Dental services"
+],
+[
+"9319",
+"Other human health services"
+],
+[
+"93191",
+"Childbirth and related services"
+],
+[
+"93192",
+"Nursing services"
+],
+[
+"93193",
+"Physiotherapeutic services"
+],
+[
+"93194",
+"Ambulance services"
+],
+[
+"93195",
+"Medical laboratory services"
+],
+[
+"93196",
+"Diagnostic-imaging services"
+],
+[
+"93197",
+"Blood, sperm and organ bank services"
+],
+[
+"93199",
+"Other human health services n.e.c."
+],
+[
+"932",
+"Residential care services for the elderly and disabled"
+],
+[
+"9321",
+"Residential health-care services other than by hospitals"
+],
+[
+"93210",
+"Residential health-care services other than by hospitals"
+],
+[
+"9322",
+"Residential care services for the elderly and persons with disabilities"
+],
+[
+"93221",
+"Residential care services for the elderly"
+],
+[
+"93222",
+"Residential care services for young disabled persons"
+],
+[
+"93223",
+"Residential care services for disabled adults"
+],
+[
+"933",
+"Other social services with accommodation"
+],
+[
+"9330",
+"Other social services with accommodation"
+],
+[
+"93301",
+"Residential care services for children suffering from mental retardation, mental health illnesses or substance abuse"
+],
+[
+"93302",
+"Other social services with accommodation for children"
+],
+[
+"93303",
+"Residential care services for adults suffering from mental retardation, mental health illnesses or substance abuse"
+],
+[
+"93304",
+"Other social services with accommodation for adults"
+],
+[
+"934",
+"Social services without accommodation for the elderly and disabled"
+],
+[
+"9341",
+"Vocational rehabilitation services"
+],
+[
+"93411",
+"Vocational rehabilitation services for persons with disabilities"
+],
+[
+"93412",
+"Vocational rehabilitation services for unemployed persons"
+],
+[
+"9349",
+"Other social services without accommodation for the elderly and disabled"
+],
+[
+"93491",
+"Other social services without accommodation for the elderly"
+],
+[
+"93492",
+"Other social services without accommodation for disabled children"
+],
+[
+"93493",
+"Other social services without accommodation for disabled adults"
+],
+[
+"935",
+"Other social services without accommodation"
+],
+[
+"9351",
+"Child day-care services"
+],
+[
+"93510",
+"Child day-care services"
+],
+[
+"9352",
+"Guidance and counselling services n.e.c. related to children"
+],
+[
+"93520",
+"Guidance and counselling services n.e.c. related to children"
+],
+[
+"9353",
+"Welfare services without accommodation"
+],
+[
+"93530",
+"Welfare services without accommodation"
+],
+[
+"9359",
+"Other social services without accommodation, n.e.c."
+],
+[
+"93590",
+"Other social services without accommodation, n.e.c."
+],
+[
+"94",
+"Sewage and waste collection, treatment and disposal and other environmental protection services"
+],
+[
+"941",
+"Sewerage, sewage treatment and septic tank cleaning services"
+],
+[
+"9411",
+"Sewerage and sewage treatment services"
+],
+[
+"94110",
+"Sewerage and sewage treatment services"
+],
+[
+"9412",
+"Septic tank emptying and cleaning services"
+],
+[
+"94120",
+"Septic tank emptying and cleaning services"
+],
+[
+"942",
+"Waste collection services"
+],
+[
+"9421",
+"Collection services of hazardous waste"
+],
+[
+"94211",
+"Collection services of hazardous medical and other biohazardous waste"
+],
+[
+"94212",
+"Collection services of industrial hazardous waste (except medical and other biohazardous waste)"
+],
+[
+"94219",
+"Collection services of other hazardous waste"
+],
+[
+"9422",
+"Collection services of non-hazardous recyclable materials"
+],
+[
+"94221",
+"Collection services of non-hazardous recyclable materials, residential"
+],
+[
+"94229",
+"Collection services of non-hazardous recyclable materials, other"
+],
+[
+"9423",
+"General waste collection services"
+],
+[
+"94231",
+"General waste collection services, residential"
+],
+[
+"94239",
+"General waste collection services, other"
+],
+[
+"943",
+"Waste treatment and disposal services"
+],
+[
+"9431",
+"Waste preparation, consolidation and storage services"
+],
+[
+"94311",
+"Hazardous waste preparation, consolidation and storage services"
+],
+[
+"94312",
+"Ship-breaking and other dismantling of wrecks services"
+],
+[
+"94313",
+"Non-hazardous recyclable materials preparation, consolidation and storage services"
+],
+[
+"94319",
+"Other non-hazardous waste preparation, consolidation and storage services"
+],
+[
+"9432",
+"Hazardous waste treatment and disposal services"
+],
+[
+"94321",
+"Hazardous waste treatment services"
+],
+[
+"94322",
+"Hazardous waste disposal services"
+],
+[
+"9433",
+"Non-hazardous waste treatment and disposal services"
+],
+[
+"94331",
+"Sanitary landfill services, non-hazardous waste"
+],
+[
+"94332",
+"Other landfill services, non-hazardous waste"
+],
+[
+"94333",
+"Incineration of non-hazardous waste"
+],
+[
+"94339",
+"Other non-hazardous waste treatment and disposal services"
+],
+[
+"944",
+"Remediation services"
+],
+[
+"9441",
+"Site remediation and clean-up services"
+],
+[
+"94411",
+"Site remediation and clean-up services, air"
+],
+[
+"94412",
+"Site remediation and clean-up services, surface water"
+],
+[
+"94413",
+"Site remediation and clean-up services, soil and groundwater"
+],
+[
+"9442",
+"Containment, control and monitoring services and other site remediation services n.e.c."
+],
+[
+"94420",
+"Containment, control and monitoring services and other site remediation services n.e.c."
+],
+[
+"9443",
+"Building remediation services"
+],
+[
+"94430",
+"Building remediation services"
+],
+[
+"9449",
+"Other remediation services n.e.c."
+],
+[
+"94490",
+"Other remediation services n.e.c."
+],
+[
+"945",
+"Sanitation and similar services"
+],
+[
+"9451",
+"Sweeping and snow removal services"
+],
+[
+"94510",
+"Sweeping and snow removal services"
+],
+[
+"9459",
+"Other sanitation services"
+],
+[
+"94590",
+"Other sanitation services"
+],
+[
+"949",
+"Other environmental protection services n.e.c."
+],
+[
+"9490",
+"Other environmental protection services n.e.c."
+],
+[
+"94900",
+"Other environmental protection services n.e.c."
+],
+[
+"95",
+"Services of membership organizations"
+],
+[
+"951",
+"Services furnished by business, employers and professional organizations"
+],
+[
+"9511",
+"Services furnished by business and employers organizations"
+],
+[
+"95110",
+"Services furnished by business and employers organizations"
+],
+[
+"9512",
+"Services furnished by professional organizations"
+],
+[
+"95120",
+"Services furnished by professional organizations"
+],
+[
+"952",
+"Services furnished by trade unions"
+],
+[
+"9520",
+"Services furnished by trade unions"
+],
+[
+"95200",
+"Services furnished by trade unions"
+],
+[
+"959",
+"Services furnished by other membership organizations"
+],
+[
+"9591",
+"Religious services"
+],
+[
+"95910",
+"Religious services"
+],
+[
+"9592",
+"Services furnished by political organizations"
+],
+[
+"95920",
+"Services furnished by political organizations"
+],
+[
+"9599",
+"Services furnished by other membership organizations n.e.c."
+],
+[
+"95991",
+"Services furnished by human rights organizations"
+],
+[
+"95992",
+"Services furnished by environmental advocacy groups"
+],
+[
+"95993",
+"Other special group advocacy services"
+],
+[
+"95994",
+"Other civic betterment and community facility support services"
+],
+[
+"95995",
+"Services provided by youth associations"
+],
+[
+"95996",
+"Grant-giving services"
+],
+[
+"95997",
+"Cultural and recreational associations (other than sports or games)"
+],
+[
+"95998",
+"Other civic and social organizations"
+],
+[
+"95999",
+"Other services provided by membership organizations n.e.c."
+],
+[
+"96",
+"Recreational, cultural and sporting services"
+],
+[
+"961",
+"Audiovisual and related services"
+],
+[
+"9611",
+"Sound recording services"
+],
+[
+"96111",
+"Sound recording services, except live recording services"
+],
+[
+"96112",
+"Live recording services"
+],
+[
+"96113",
+"Sound recording originals"
+],
+[
+"9612",
+"Motion picture, videotape, television and radio programme production services"
+],
+[
+"96121",
+"Motion picture, videotape and television programme production services"
+],
+[
+"96122",
+"Radio programme production services"
+],
+[
+"96123",
+"Motion picture, videotape, television and radio programme originals"
+],
+[
+"9613",
+"Audiovisual post-production services"
+],
+[
+"96131",
+"Audiovisual editing services"
+],
+[
+"96132",
+"Transfers and duplication of masters services"
+],
+[
+"96133",
+"Colour correction and digital restoration services"
+],
+[
+"96134",
+"Visual effects services"
+],
+[
+"96135",
+"Animation services"
+],
+[
+"96136",
+"Captioning, titling and subtitling services"
+],
+[
+"96137",
+"Sound editing and design services"
+],
+[
+"96139",
+"Other post-production services"
+],
+[
+"9614",
+"Motion picture, videotape and television programme distribution services"
+],
+[
+"96140",
+"Motion picture, videotape and television programme distribution services"
+],
+[
+"9615",
+"Motion picture projection services"
+],
+[
+"96150",
+"Motion picture projection services"
+],
+[
+"962",
+"Performing arts and other live entertainment event presentation and promotion services"
+],
+[
+"9621",
+"Performing arts event promotion and organization services"
+],
+[
+"96210",
+"Performing arts event promotion and organization services"
+],
+[
+"9622",
+"Performing arts event production and presentation services"
+],
+[
+"96220",
+"Performing arts event production and presentation services"
+],
+[
+"9623",
+"Performing arts facility operation services"
+],
+[
+"96230",
+"Performing arts facility operation services"
+],
+[
+"9629",
+"Other performing arts and live entertainment services"
+],
+[
+"96290",
+"Other performing arts and live entertainment services"
+],
+[
+"963",
+"Services of performing and other artists"
+],
+[
+"9631",
+"Services of performing artists"
+],
+[
+"96310",
+"Services of performing artists"
+],
+[
+"9632",
+"Services of authors, composers, sculptors and other artists, except performing artists"
+],
+[
+"96320",
+"Services of authors, composers, sculptors and other artists, except performing artists"
+],
+[
+"9633",
+"Original works of authors, composers and other artists except performing artists, painters and sculptors"
+],
+[
+"96330",
+"Original works of authors, composers and other artists except performing artists, painters and sculptors"
+],
+[
+"964",
+"Museum and preservation services"
+],
+[
+"9641",
+"Museum and preservation services of historical sites and buildings"
+],
+[
+"96411",
+"Museum services except for historical sites and buildings"
+],
+[
+"96412",
+"Preservation services of historical sites and buildings"
+],
+[
+"9642",
+"Botanical, zoological and nature reserve services"
+],
+[
+"96421",
+"Botanical and zoological garden services"
+],
+[
+"96422",
+"Nature reserve services including wildlife preservation services"
+],
+[
+"965",
+"Sports and recreational sports services"
+],
+[
+"9651",
+"Sports and recreational sports event promotion and organization services"
+],
+[
+"96511",
+"Sports and recreational sports event promotion services"
+],
+[
+"96512",
+"Services of sports clubs"
+],
+[
+"9652",
+"Sports and recreational sports facility operation services"
+],
+[
+"96520",
+"Sports and recreational sports facility operation services"
+],
+[
+"9659",
+"Other sports and recreational sports services"
+],
+[
+"96590",
+"Other sports and recreational sports services"
+],
+[
+"966",
+"Services of athletes and related support services"
+],
+[
+"9661",
+"Services of athletes"
+],
+[
+"96610",
+"Services of athletes"
+],
+[
+"9662",
+"Support services related to sports and recreation"
+],
+[
+"96620",
+"Support services related to sports and recreation"
+],
+[
+"969",
+"Other amusement and recreational services"
+],
+[
+"9691",
+"Amusement park and similar attraction services"
+],
+[
+"96910",
+"Amusement park and similar attraction services"
+],
+[
+"9692",
+"Gambling and betting services"
+],
+[
+"96921",
+"On-line gambling services"
+],
+[
+"96929",
+"Other gambling and betting services"
+],
+[
+"9693",
+"Coin-operated amusement machine services"
+],
+[
+"96930",
+"Coin-operated amusement machine services"
+],
+[
+"9699",
+"Other recreation and amusement services n.e.c."
+],
+[
+"96990",
+"Other recreation and amusement services n.e.c."
+],
+[
+"97",
+"Other services"
+],
+[
+"971",
+"Washing, cleaning and dyeing services"
+],
+[
+"9711",
+"Coin-operated laundry services"
+],
+[
+"97110",
+"Coin-operated laundry services"
+],
+[
+"9712",
+"Dry-cleaning services (including fur product cleaning services)"
+],
+[
+"97120",
+"Dry-cleaning services (including fur product cleaning services)"
+],
+[
+"9713",
+"Other textile cleaning services"
+],
+[
+"97130",
+"Other textile cleaning services"
+],
+[
+"9714",
+"Pressing services"
+],
+[
+"97140",
+"Pressing services"
+],
+[
+"9715",
+"Dyeing and colouring services"
+],
+[
+"97150",
+"Dyeing and colouring services"
+],
+[
+"972",
+"Beauty and physical well-being services"
+],
+[
+"9721",
+"Hairdressing and barbers' services"
+],
+[
+"97210",
+"Hairdressing and barbers' services"
+],
+[
+"9722",
+"Cosmetic treatment, manicuring and pedicuring services"
+],
+[
+"97220",
+"Cosmetic treatment, manicuring and pedicuring services"
+],
+[
+"9723",
+"Physical well-being services"
+],
+[
+"97230",
+"Physical well-being services"
+],
+[
+"9729",
+"Other beauty treatment services n.e.c."
+],
+[
+"97290",
+"Other beauty treatment services n.e.c."
+],
+[
+"973",
+"Funeral, cremation and undertaking services"
+],
+[
+"9731",
+"Cemeteries and cremation services"
+],
+[
+"97310",
+"Cemeteries and cremation services"
+],
+[
+"9732",
+"Undertaking services"
+],
+[
+"97320",
+"Undertaking services"
+],
+[
+"979",
+"Other miscellaneous services"
+],
+[
+"9791",
+"Escort services"
+],
+[
+"97910",
+"Escort services"
+],
+[
+"9799",
+"Other miscellaneous services n.e.c."
+],
+[
+"97990",
+"Other miscellaneous services n.e.c."
+],
+[
+"98",
+"Domestic services"
+],
+[
+"980",
+"Domestic services"
+],
+[
+"9800",
+"Domestic services"
+],
+[
+"98000",
+"Domestic services"
+],
+[
+"99",
+"Services provided by extraterritorial organizations and bodies"
+],
+[
+"990",
+"Services provided by extraterritorial organizations and bodies"
+],
+[
+"9900",
+"Services provided by extraterritorial organizations and bodies"
+],
+[
+"99000",
+"Services provided by extraterritorial organizations and bodies"
+]
+]
+}

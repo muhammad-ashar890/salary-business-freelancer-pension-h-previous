@@ -1,0 +1,69 @@
+HISTORY CARD — "tax payable 0" ka matlab
+Commit: 71fe281      (on top of dd4aa95)
+Date: 2026-10-28
+
+## 1. Diagnostic ka jawab: Filing 4 ka tax 0 **sahi** hai
+
+Aap ki Filing 4 (cmvrz1tse004o2, Salary) ki asli figures:
+
+  taxable income        2,400,000
+  tax withheld          162,000
+  tax payable           0
+  calculation line      TY2026-149-SALARY-2M2-3M2: base 2,400,000 → tax 162,000
+  packet 1009           2,400,000
+  packet 64020004       162,000        (Tax Collected / Deducted)
+
+Yani income par tax **162,000** bana, aur wo 162,000 employer ne section 149 ke
+tehat pehle hi kaat liya tha. Is liye jo baqi bacha wo **0** hai. Return ke hisab
+se ye bilkul theek hai — "tax payable 0" ka matlab tax nahi bana, nahi; matlab
+**kuch dena baqi nahi**.
+
+Maine pehle jo kaha tha ke "162,000 aana chahiye tha" — wo ghalat tha. 162,000 tax
+HAI; payable us ke baad 0 hai.
+
+## 2. Do cheezein jo diagnostic me "0" dikha rahi thin (bug nahi, design)
+
+- `INCOME RECORDS (0)` — sirf freelancer/services route income records banati hai.
+  Salary route apni figure income selection + documents se leti hai.
+- `TAX CREDITS (0)` — app withholding ko credit table me nahi likhti; wo draft ke
+  `taxWithheld` par aur packet ki row **64020004** par jati hai.
+- `CALCULATION LINES ... -credit 0 = payable 0` — ye do columns (`taxCreditApplied`,
+  `taxPayable`) app kabhi likhti hi nahi, is liye har line par 0 hain. Mere diag
+  script ne unhein print kar ke uljhan paida ki. Ab script unhein nahi chhapati;
+  sirf "base → tax (surcharge)" dikhati hai aur saaf likhti hai ke withholding
+  draft aur packet par hoti hai.
+
+## 3. Jo asli cheez theek ki (screen ki confusion)
+
+History card par sirf "Tax payable (estimate) PKR 0" likha tha, jo ghalti jaisa
+lagta hai. Ab usi ke neeche, jab kuch kaata gaya ho:
+
+    Tax payable (estimate)
+    PKR 0
+    Already deducted at source: PKR 162,000 — is liye payable kam ya 0 hai.
+
+Koi tax figure dobara calculate nahi hota: payable wohi rehta hai jo engine ne
+nikala. Sirf doosra number samne aa jata hai.
+
+## 4. Install
+
+   cd C:\Users\User\Downloads\tr-pension-merge-branch-20261026
+   Expand-Archive .\History-Tax-Clarity-20261028.zip -DestinationPath . -Force
+
+purani files `backup-before-fix\` me hain.
+
+## 5. Check
+
+   node --test scripts\verify-filing-duplicates.cjs      → 12 pass
+   node --test scripts\verify-history-tax-line.cjs       → 3 pass
+   node scripts\diag-draft-tax.cjs cmvrz1tse004o2        → saaf lines
+
+App restart ke baad History par Filing 4 ke neeche "Already deducted at source:
+PKR 162,000" likha hoga.
+
+## 6. Nateeja
+
+TY2026 ki chaar filings sab theek hain:
+  Filing 1 Salary 202,000 · Filing 2 Freelancer 5,832 · Filing 3 Business 290,000 ·
+  Filing 4 Salary — tax 162,000 income par, 162,000 kaata gaya, payable 0.
+Ab sirf pension filing banana baqi hai (documents tayyar hain).

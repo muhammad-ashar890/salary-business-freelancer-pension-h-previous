@@ -1,0 +1,338 @@
+{
+  "captureProvenance": {
+    "kind": "user-supplied IRIS 2.0 DOM capture; read-only inspection",
+    "receivedOn": "2026-10-16",
+    "sourceFiles": [
+      "business-other-revenues.html",
+      "tax-deduction.html",
+      "business-income/10_business_TAX_DEDUCTION_page_no_popup.html",
+      "business-income/34_business_tax_deduction_ALL_sections_added_ADDT_royalty_popup_open.html",
+      "business-income/35_business_tax_deduction_ALL_sections_added_ADDT_goods_services_popup_open.html",
+      "business-income/56_business_tax_deduction_ADD_MINIMUM_TAX_picker_popup_open.html",
+      "business-income/66_business_tax_deduction_ADD_ADJUSTABLE_TAX_picker_popup_open.html",
+      "business-income/67_business_tax_deduction_ADD_FINAL_TAX_picker_popup_open.html",
+      "business-income/03_business_other_revenues.html"
+    ],
+    "capturedRoute": {
+      "leftPanel": "Business",
+      "leftTab": "Tax Deduction",
+      "groupAccordion": "Adjustable Tax / Minimum Tax / Final Tax",
+      "note": "The Services tax-deduction rows are rendered on the Business panel's Tax Deduction tab, in its own group accordions. The Tax Chargeable / Payments > Withholding Tax tab only renders the locked summary rows 64000101-64000103. The same tab renders non-Services Adjustable Tax rows as well; 64010002 (Import u/s 148 @1%) and 64150701 (Purchase of other Commodities by Distributors / Dealers / Wholesalers u/s 236G) are listed here because the capture proves their row shape on this tab, and they are tagged captureSource: \"general_business_capture\" so they are never treated as Services rate-card policy."
+    },
+    "rawHtmlPersisted": false,
+    "workflowUrlOrTokenPersisted": false,
+    "personalDataOrAmountsPersisted": false
+  },
+  "taxDeductions": {
+    "portalArea": "Business",
+    "portalSection": "Tax Deduction",
+    "groups": {
+      "adjustableTax": {
+        "label": "Adjustable Tax",
+        "columns": [
+          "Description",
+          "Code",
+          "Taxable Amount",
+          "Tax Deducted"
+        ],
+        "inputColumns": [
+          "Taxable Amount",
+          "Tax Deducted"
+        ],
+        "rows": {
+          "64010002": {
+            "label": "Import u/s 148 @1%",
+            "writableInputIndexes": [
+              0,
+              1
+            ],
+            "disabledInputIndexes": [],
+            "captureSource": "general_business_capture"
+          },
+          "64060116": {
+            "label": "Payment for Services u/s 153(1)(b) @8% u/c (42) of Part IV of Second Schedule",
+            "writableInputIndexes": [
+              0,
+              1
+            ],
+            "disabledInputIndexes": []
+          },
+          "64150701": {
+            "label": "Purchase of other Commodities by Distributors / Dealers / Wholesalers u/s 236G",
+            "writableInputIndexes": [
+              0,
+              1
+            ],
+            "disabledInputIndexes": [],
+            "captureSource": "general_business_capture"
+          }
+        }
+      },
+      "minimumTax": {
+        "label": "Minimum Tax",
+        "columns": [
+          "Description",
+          "Code",
+          "Taxable Amount",
+          "Tax Collected / Deducted",
+          "Tax Chargeable",
+          "Attributable Taxable Income",
+          "Tax on Attributable Taxable Income",
+          "Difference of Minimum Tax Chargeable"
+        ],
+        "inputColumns": [
+          "Taxable Amount",
+          "Tax Collected / Deducted",
+          "Tax Chargeable",
+          "Attributable Taxable Income",
+          "Tax on Attributable Taxable Income",
+          "Difference of Minimum Tax Chargeable"
+        ],
+        "rows": {
+          "64060151": {
+            "label": "Payment for Services u/s 153(1)(b) @0.5%",
+            "writableInputIndexes": [
+              0,
+              1
+            ],
+            "disabledInputIndexes": [
+              2,
+              3,
+              4,
+              5
+            ]
+          },
+          "64060152": {
+            "label": "Payment for Services u/s 153(1)(b) @1%",
+            "writableInputIndexes": [
+              0,
+              1
+            ],
+            "disabledInputIndexes": [
+              2,
+              3,
+              4,
+              5
+            ]
+          },
+          "64060153": {
+            "label": "Payment for Services u/s 153(1)(b) @1.5%",
+            "writableInputIndexes": [
+              0,
+              1
+            ],
+            "disabledInputIndexes": [
+              2,
+              3,
+              4,
+              5
+            ]
+          },
+          "64060156": {
+            "label": "Payment for Services u/s 153(1)(b) @3%",
+            "writableInputIndexes": [
+              0,
+              1
+            ],
+            "disabledInputIndexes": [
+              2,
+              3,
+              4,
+              5
+            ]
+          },
+          "64060158": {
+            "label": "Payment for IT/IT-enabled service u/s 153(1)(b) @4%",
+            "writableInputIndexes": [
+              0,
+              1
+            ],
+            "disabledInputIndexes": [
+              2,
+              3,
+              4,
+              5
+            ]
+          },
+          "64060162": {
+            "label": "Payment for specified services u/s 153(1)(b) @6%",
+            "writableInputIndexes": [
+              0,
+              1
+            ],
+            "disabledInputIndexes": [
+              2,
+              3,
+              4,
+              5
+            ]
+          },
+          "64060180": {
+            "label": "Payment for Services u/s 153(1)(b) @15%",
+            "writableInputIndexes": [
+              0,
+              1
+            ],
+            "disabledInputIndexes": [
+              2,
+              3,
+              4,
+              5
+            ]
+          },
+          "64060352": {
+            "label": "Fee for Export related Services u/s 153(2) @1%",
+            "writableInputIndexes": [
+              0,
+              1
+            ],
+            "disabledInputIndexes": [
+              2,
+              3,
+              4,
+              5
+            ]
+          },
+          "64060555": {
+            "label": "Payment for Specified Services u/s 153(1)(b) @2%",
+            "writableInputIndexes": [
+              0,
+              1
+            ],
+            "disabledInputIndexes": [
+              2,
+              3,
+              4,
+              5
+            ]
+          }
+        }
+      },
+      "finalTax": {
+        "label": "Final Tax",
+        "columns": [
+          "Description",
+          "Code",
+          "Taxable Amount",
+          "Tax Deducted",
+          "Tax Chargeable"
+        ],
+        "inputColumns": [
+          "Taxable Amount",
+          "Tax Deducted",
+          "Tax Chargeable"
+        ],
+        "rows": {
+          "64060285": {
+            "label": "Export of services u/s 154A @1%",
+            "writableInputIndexes": [
+              0,
+              1
+            ],
+            "disabledInputIndexes": [
+              2
+            ]
+          },
+          "64060290": {
+            "label": "Export of IT/ITeS Services u/s 154A @ 0.25%",
+            "writableInputIndexes": [
+              0,
+              1
+            ],
+            "disabledInputIndexes": [
+              2
+            ]
+          }
+        }
+      }
+    }
+  },
+  "approvedServicesMapping": {
+    "incomeRow3101": {
+      "incomeCharacter": "TECHNICAL_PROFESSIONAL_FEE",
+      "irisCode": "3101",
+      "portalArea": "Business",
+      "portalSection": "Other Revenues",
+      "column": "Total Amount",
+      "rowLabel": "Fee for Technical / Professional Services"
+    },
+    "withholdingBySubcategory": {
+      "1b-service-certain": {
+        "statutorySection": "153(1)(b)",
+        "irisCodes": [
+          "64060162"
+        ]
+      },
+      "1b-service-it-ites": {
+        "statutorySection": "153(1)(b)",
+        "irisCodes": [
+          "64060158"
+        ]
+      },
+      "1b-service-advertising-media": {
+        "statutorySection": "153(1)(b)",
+        "irisCodes": [
+          "64060153"
+        ]
+      },
+      "1b-service-other": {
+        "statutorySection": "153(1)(b)",
+        "irisCodes": [
+          "64060180"
+        ]
+      },
+      "2-services-to-exporter": {
+        "statutorySection": "153(2)",
+        "irisCodes": [
+          "64060352"
+        ]
+      },
+      "export-it-ites-pseb": {
+        "statutorySection": "154A",
+        "irisCodes": [
+          "64060290"
+        ]
+      },
+      "export-services-other": {
+        "statutorySection": "154A",
+        "irisCodes": [
+          "64060285"
+        ]
+      }
+    }
+  },
+  "businessOtherRevenues": {
+    "portalArea": "Business",
+    "portalSection": "Other Revenues",
+    "columns": [
+      "Total Amount",
+      "Subject to Final Tax",
+      "Subject to Exemption",
+      "Subject to Normal Tax"
+    ],
+    "rows": {
+      "3101": {
+        "label": "Fee for Technical / Professional Services",
+        "writableInputIndexes": [
+          0,
+          1,
+          2
+        ],
+        "disabledInputIndexes": [
+          3
+        ]
+      },
+      "3128": {
+        "label": "Others",
+        "writableInputIndexes": [
+          0,
+          1,
+          2
+        ],
+        "disabledInputIndexes": [
+          3
+        ]
+      }
+    }
+  }
+}
