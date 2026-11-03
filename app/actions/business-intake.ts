@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { mergeReviewedBusinessSchedules } from "@/lib/tax/business-reviewed-schedules";
+import { checkBankOwnership } from '@/lib/tax/business-bank-ownership';
 import { readReviewedBusinessFacts } from '@/lib/tax/business-document-intake';
 import { resolveTy2026IncomeSelections, parsePersistedSelectionUserDetails, TY2026_BUSINESS_PROFIT_SUBCATEGORY } from '@/lib/tax/rules/ty2026/subcategories';
 import { readBusinessBooksAnnual } from '@/lib/tax/business-schedule-fields';
@@ -27,13 +28,14 @@ async function owned(draftId: string) {
 export async function getBusinessDocumentIntakeAction(draftId: string, candidate?: unknown) {
   try {
     const draft=await owned(draftId);
-    const [documents,selection,statements,previousReturnDocuments]=await Promise.all([
+    const [documents,selection,statements,previousReturnDocuments,bankAccounts]=await Promise.all([
       prisma.document.findMany({where:{filingDraftId:draft.id,userId:draft.userId,documentType:{in:['business_books','business_balance_sheet','business_support','bank_statement']}},select:{id:true,documentType:true,extractionStatus:true,extractedData:true}}),
       prisma.filingIncomeSelection.findFirst({where:{filingDraftId:draft.id,userId:draft.userId,source:'business',subcategory:TY2026_BUSINESS_PROFIT_SUBCATEGORY,status:'SELECTED'},select:{detailsJson:true}}),
       prisma.bankStatement.findMany({where:{filingDraftId:draft.id,userId:draft.userId,bankAccountId:{not:null}},orderBy:{createdAt:'desc'},select:{closingBalance:true,bankAccount:{select:{iban:true}}}}),
       // Kept in its own query: the previous return must never be read as part of
       // the business evidence (its labels overlap: Tax Year, Total Assets ...).
       prisma.document.findMany({where:{filingDraftId:draft.id,userId:draft.userId,documentType:'previous_return'},orderBy:{createdAt:'desc'},select:{documentType:true,extractionStatus:true,extractedData:true}}),
+      prisma.bankAccount.findMany({where:{filingDraftId:draft.id,userId:draft.userId},select:{id:true,iban:true}}),
     ]);
     let saved=parsePersistedSelectionUserDetails(selection?.detailsJson ?? '{}') ?? {};
     if(candidate !== undefined) {
@@ -47,6 +49,28 @@ export async function getBusinessDocumentIntakeAction(draftId: string, candidate
     const schedules=mergeReviewedBusinessSchedules(books,documents);
     let details=intake.details;
     const issues=[...intake.issues,...schedules.issues];
+    const ownership = checkBankOwnership({accounts:bankAccounts, decisions:details.businessBankOwnershipDecisions ?? [],
+      reviewedBusinessIbans: Array.isArray(details.businessBankAccounts) ? details.businessBankAccounts.map(row=>row.iban) : undefined});
+    if (!Array.isArray(details.businessBankAccounts) && ownership.decisions.some(row => row.ownership === 'business')) {
+      issues.push({key:'businessBankOwnership',text:'A business account needs a reviewed Business bank account list before its 3320 placement can be confirmed.'});
+    }
+    for (const issue of ownership.issues) {
+      const descriptions: Record<string,string> = {
+        missing_confirmation:'Choose Personal, Business or Mixed for each bank account.',
+        mixed_requires_review:'A mixed account needs manual ownership and IRIS placement review; automatic filing is held.',
+        iban_changed:'A bank account IBAN changed; confirm its ownership again.',
+        unknown_account:'A saved ownership answer refers to an account no longer in this filing; remove the stale answer.',
+        business_evidence_unregistered:'A reviewed business bank account is not in this filing’s Bank Accounts. Add it there and confirm its ownership before continuing.',
+        business_evidence_conflict:'Bank ownership conflicts with the reviewed business bank list. Correct the documents or your selection.',
+        duplicate_decision:'A bank account has duplicate ownership answers; remove the duplicates.',
+        duplicate_account:'A duplicate bank account was found; review the bank accounts.',
+        duplicate_iban:'Multiple accounts have the same IBAN; review the bank accounts.',
+        invalid_account:'A bank account needs a valid IBAN before ownership can be confirmed.',
+        invalid_decision:'Bank ownership answers are invalid; review them again.',
+      };
+      issues.push({key:'businessBankOwnership',text:descriptions[issue.code] ?? 'Review bank ownership before continuing.'});
+    }
+
     if (books.length !== 1) issues.push({key:'documents',text:'Provide one reviewed Business Books record (upload or manual declaration).'});
     else { try { details=withBusinessBooksValues(details,readBusinessBooksAnnual(books[0].extractedData)); } catch(e) {issues.push({key:'documents',text:e instanceof Error?e.message:'Review Business Books.'});} }
     if (sheet.length !== 1) issues.push({key:'documents',text:'Provide one reviewed business balance record (upload or manual declaration).'});

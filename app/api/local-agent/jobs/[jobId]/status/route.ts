@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { businessOwnershipPacketValidationError } from "@/lib/tax/business-ownership-packet-validation";
 import {
   hashToken,
   JOB_STATUSES,
+  JOB_TYPES,
   normalizePauseAction,
 } from "@/lib/tax/fbr-desktop";
 
@@ -31,20 +33,40 @@ export async function GET(
     }
     const job = await prisma.localAgentJob.findFirst({
       where: { id: jobId, userId: device.userId, trustedDeviceId: device.id },
-      select: { id: true, status: true, expiresAt: true },
+      select: { id: true, status: true, expiresAt: true, jobType: true, filingDraftId: true, payloadJson: true },
     });
     if (!job)
       return NextResponse.json(
         { success: false, ok: false, error: "Job not found for this device" },
         { status: 404 },
       );
+    // A worker may already have fetched context when ownership/evidence is
+    // edited. Its existing beforeStep liveness check must fail closed at the
+    // next portal operation, not just at queue time. This cannot undo an
+    // operation already in flight: editing should only occur while stopped.
+    let reportedStatus = job.status;
+    if ([JOB_TYPES.TAX_DRY_RUN, JOB_TYPES.TAX_ASSISTED_FILING].includes(job.jobType as any) &&
+        [JOB_STATUSES.RUNNING, JOB_STATUSES.ACCEPTED_BY_DEVICE].includes(job.status as any)) {
+      let payload: any = null;
+      try { payload = JSON.parse(job.payloadJson || '{}'); } catch { /* invalid pinned payload */ }
+      const packet = payload?.packetId && Number.isInteger(payload?.packetVersion) && payload?.packetHash
+        ? await prisma.filingPacket.findFirst({where:{id:payload.packetId,version:payload.packetVersion,packetHash:payload.packetHash,filingDraftId:job.filingDraftId,userId:device.userId,approvalStatus:'APPROVED',status:{not:'SUPERSEDED'}},select:{snapshotJson:true}})
+        : null;
+      let snapshot: any = null;
+      try { if (packet) snapshot = JSON.parse(packet.snapshotJson); } catch { /* invalid snapshot */ }
+      if (!snapshot) reportedStatus = JOB_STATUSES.CANCELLED;
+      else {
+        const ownershipError = await businessOwnershipPacketValidationError(snapshot,job.filingDraftId,device.userId);
+        if (ownershipError) reportedStatus = JOB_STATUSES.CANCELLED;
+      }
+    }
     return NextResponse.json(
       {
         success: true,
         ok: true,
         job: {
           id: job.id,
-          status: job.status,
+          status: reportedStatus,
           expired: Boolean(
             job.expiresAt && job.expiresAt.getTime() <= Date.now(),
           ),

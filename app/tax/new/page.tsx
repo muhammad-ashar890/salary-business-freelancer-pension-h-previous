@@ -41,7 +41,7 @@ function NewFilingPageContent() {
     const taxYear = formData.get("taxYear");
     const filerType = formData.get("filerType");
     const businessStructure = formData.get("businessStructure");
-    const salaryPercentage = formData.get("salaryPercentage");
+    const taxpayerListStatus = formData.get("taxpayerListStatus");
     const residencyStatus = formData.get("residencyStatus");
     const currentStep = Number(formData.get("currentStep"));
     const wizardCompletionStep = Number(formData.get("wizardCompletionStep"));
@@ -85,7 +85,9 @@ function NewFilingPageContent() {
       taxYear: taxYear ? Number(taxYear) : undefined,
       filerType: filerType ? String(filerType) : null,
       businessStructure: businessStructure ? String(businessStructure) : null,
-      salaryPercentage: salaryPercentage ? String(salaryPercentage) : null,
+      taxpayerListStatus: taxpayerListStatus
+        ? String(taxpayerListStatus)
+        : null,
       residencyStatus:
         residencyStatus === "resident" || residencyStatus === "non_resident"
           ? residencyStatus

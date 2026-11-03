@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashToken } from "@/lib/tax/fbr-desktop";
+import { businessOwnershipPacketValidationError } from "@/lib/tax/business-ownership-packet-validation";
 import { pensionPacketValidationError } from "@/lib/tax/pension-packet-validation";
 import {
   getFbrPortalAutomationConfig,
@@ -134,6 +135,9 @@ export async function GET(
         { status: 500 },
       );
     }
+
+    const ownershipError = await businessOwnershipPacketValidationError(snapshot,job.filingDraftId,device.userId);
+    if (ownershipError) return NextResponse.json({success:false,error:ownershipError,code:"BUSINESS_BANK_REVIEW_REQUIRED"},{status:409});
 
     // Do not hand an old or partially-supported pension map to any desktop
     // version, including older agents that do not know the new local guard.

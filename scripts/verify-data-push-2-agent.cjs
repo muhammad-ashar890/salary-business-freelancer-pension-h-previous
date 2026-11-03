@@ -26,7 +26,7 @@ const rowFiller = require("../electron-connect/iris-row-filler.js");
 const IBAN = "PK36SCBL0000001123456702";
 const UNKNOWN_IBAN = "PK93MEZN0000001234567890";
 
-function balancePage({ childRows = "", jointChecked = false, openDialog = false, propertyMode = "direct", propertyCards = [] } = {}) {
+function balancePage({ childRows = "", jointChecked = false, ibanPlaceholder = "IBAN", duplicateIban = false, foreignLabel = "Foreign Currency/Others", foreignChecked = false, duplicateForeign = false, openDialog = false, propertyMode = "direct", propertyCards = [] } = {}) {
   const cell = (disabled, value = "") =>
     `<div class="col-lg-4 columns-parent h-padding-0"><div class="left h-padding-0 data-middle-child-wapper"><div><span><span class="hide"></span><input class="font-14 data-middle-child form-control text-right amount-cell-input" type="text"${disabled ? " disabled" : ""} value="${value}"/></span></div></div></div>`;
   const row = (id, text, { disabled = false, icons = "", value = "", child = false } = {}) =>
@@ -196,7 +196,7 @@ function openPropertyForm(code) {
 function openDlg(id) {
   const bank = id === "add-balance-sheet-bank-account";
   const body = bank
-    ? '<app-balance-sheet-bank-account-dialog><h6 class="mat-mdc-dialog-title dialog-header"><span class="left v-padding-top-5">Bank Account</span><span class="right"><mat-icon class="mat-icon">close</mat-icon></span></h6><mat-dialog-content><div class="account-options">' + box("Joint Account", ${jointChecked}) + box("Foreign Currency/Others", false) + '</div><mat-form-field class="mat-mdc-form-field"><mat-label>IBAN *</mat-label><input class="mat-mdc-input-element" placeholder="IBAN" maxlength="24" required type="text"/><div class="mat-mdc-form-field-icon-suffix"><button class="mdc-icon-button" data-k="search" type="button"><mat-icon class="mat-icon">search</mat-icon></button></div></mat-form-field>' + field("Account Title", "Account Title", 50, true) + field("Bank Name", "Bank Name", 50, true) + '</mat-dialog-content><mat-dialog-actions><button class="btn clear-btn-color" type="button"> CLOSE </button><button class="btn active-btn-color" type="button" disabled> ADD </button></mat-dialog-actions></app-balance-sheet-bank-account-dialog>'
+    ? '<app-balance-sheet-bank-account-dialog><h6 class="mat-mdc-dialog-title dialog-header"><span class="left v-padding-top-5">Bank Account</span><span class="right"><mat-icon class="mat-icon">close</mat-icon></span></h6><mat-dialog-content><div class="account-options">' + box("Joint Account", ${jointChecked}) + box(${JSON.stringify(foreignLabel)}, ${foreignChecked}) + (${duplicateForeign} ? box("Foreign Currency/Others", false) : "") + '</div><mat-form-field class="mat-mdc-form-field"><mat-label>IBAN *</mat-label><input class="mat-mdc-input-element" placeholder="${ibanPlaceholder}" maxlength="24" required type="text"/>' + (${duplicateIban} ? '<input placeholder="IBAN" type="text"/>' : '') + '<div class="mat-mdc-form-field-icon-suffix"><button class="mdc-icon-button" data-k="search" type="button"><mat-icon class="mat-icon">search</mat-icon></button></div></mat-form-field>' + field("Account Title", "Account Title", 50, true) + field("Bank Name", "Bank Name", 50, true) + '</mat-dialog-content><mat-dialog-actions><button class="btn clear-btn-color" type="button"> CLOSE </button><button class="btn active-btn-color" type="button" disabled> ADD </button></mat-dialog-actions></app-balance-sheet-bank-account-dialog>'
     : '<app-balance-sheet-motor-vehicle-dialog><h6 class="mat-mdc-dialog-title dialog-header"><span class="left v-padding-top-5">Motor Vehicle</span><span class="right"><mat-icon class="mat-icon">close</mat-icon></span></h6><mat-dialog-content>' + field("Vehicle Registration No. *", "Vehicle Registration No.", 15) + field("Chassis No.", "Chassis No", 20) + field("Make *", "Make", 50) + field("Model *", "Model", 50) + '</mat-dialog-content><mat-dialog-actions><button class="btn clear-btn-color" type="button"> CLOSE </button><button class="btn active-btn-color" type="button" disabled> ADD </button></mat-dialog-actions></app-balance-sheet-motor-vehicle-dialog>';
   const dlg = document.createElement("mat-dialog-container");
   dlg.setAttribute("role", "dialog");
@@ -207,14 +207,14 @@ function openDlg(id) {
   closeBtn.addEventListener("click", () => dlg.remove());
   if (bank) {
     dlg.querySelector('[data-k="search"]').addEventListener("click", () => {
-      const hit = KNOWN[q("IBAN").value];
+      const hit = KNOWN[q(${JSON.stringify(ibanPlaceholder)}).value];
       q("Account Title").value = hit ? hit[0] : "";
       q("Bank Name").value = hit ? hit[1] : "";
       addBtn.disabled = !hit;
     });
     addBtn.addEventListener("click", () => {
       const joint = dlg.querySelector('[data-k="box:Joint Account"]').checked;
-      addChild("3320", "Bank Account - " + q("IBAN").value + " - " + q("Account Title").value + " - " + q("Bank Name").value + " - " + (joint ? "Joint" : "Self"), "bank-account");
+      addChild("3320", "Bank Account - " + q(${JSON.stringify(ibanPlaceholder)}).value + " - " + q("Account Title").value + " - " + q("Bank Name").value + " - " + (joint ? "Joint" : "Self"), "bank-account");
       dlg.remove();
     });
   } else {
@@ -438,6 +438,44 @@ test("Bank Account dialog that opens with Joint Account ticked is closed untouch
     assert.deepEqual(await page.evaluate(() => window.clicks), ["add-balance-sheet-bank-account", "CLOSE"]);
     assert.equal((await rowsOf(page, "3320")).length, 1);
   });
+});
+
+test("current Foreign Currency Account label: unchecked account is added and read back", async () => {
+  await withPage(balancePage({foreignLabel:"Foreign Currency Account"}), async (page, win) => {
+    const out=await driver.runBalanceSheetDriver(win,[BANK],options(win));
+    assert.equal(out.results[0].status,"filled");
+    assert.equal((await rowsOf(page,"3320"))[1].value,"2500000");
+    assert.deepEqual(await page.evaluate(()=>window.clicks),["add-balance-sheet-bank-account","search","ADD"]);
+  });
+});
+for (const opts of [
+  {foreignLabel:"Foreign Currency Account",foreignChecked:true},
+  {foreignLabel:"Foreign Currency Account",duplicateForeign:true},
+  {foreignLabel:"Unknown foreign option"},
+]) test(`foreign checkbox safety holds: ${JSON.stringify(opts)}`, async () => {
+  await withPage(balancePage(opts),async(page,win)=>{
+    const out=await driver.runBalanceSheetDriver(win,[BANK],options(win));
+    assert.equal(out.results[0].setupStatus,"bank_dialog_checkbox_state");
+    assert.equal((await rowsOf(page,"3320")).length,1);
+    assert.deepEqual(await page.evaluate(()=>window.clicks),["add-balance-sheet-bank-account","CLOSE"]);
+  });
+});
+
+test("captured IRIS 2.0 bank labels: IBAN field resolves, row and amount are filled", async () => {
+ await withPage(balancePage({foreignLabel:"Foreign Currency Account",ibanPlaceholder:"IBAN/Mobile Wallet No. *"}), async(page,win)=>{
+  const out=await driver.runBalanceSheetDriver(win,[BANK],options(win));
+  assert.equal(out.results[0].status,"filled");
+  assert.equal((await rowsOf(page,"3320"))[1].value,"2500000");
+  assert.deepEqual(await page.evaluate(()=>window.clicks),["add-balance-sheet-bank-account","search","ADD"]);
+ });
+});
+test("two allowed IBAN inputs are ambiguous and prevent any input or ADD", async () => {
+ await withPage(balancePage({foreignLabel:"Foreign Currency Account",ibanPlaceholder:"IBAN/Mobile Wallet No. *",duplicateIban:true}),async(page,win)=>{
+  const out=await driver.runBalanceSheetDriver(win,[BANK],options(win));
+  assert.equal(out.results[0].setupStatus,"bank_iban_ambiguous_field");
+  assert.deepEqual(await page.evaluate(()=>window.clicks),["add-balance-sheet-bank-account","CLOSE"]);
+  assert.equal((await rowsOf(page,"3320")).length,1);
+ });
 });
 
 test("dry mode clicks nothing and reports the dialogs it would use", async () => {

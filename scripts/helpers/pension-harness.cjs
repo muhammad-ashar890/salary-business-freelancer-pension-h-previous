@@ -107,6 +107,8 @@ function harness({
   ledgerTax = 0,
   modelResponse = null,
   extractionFileBuffer = null,
+  reconciliationBalances = [],
+  mockCompleteness = false,
 } = {}) {
   const common = { filingDraftId: "qa-draft", userId: "qa-user" };
   const state = {
@@ -365,6 +367,7 @@ function harness({
       },
     },
     filingIncomeSelection: {
+      findFirst: async ({ where = {} } = {}) => state.draft.incomeSelections.find((s) => match(s, where)) ?? null,
       findMany: async ({ where = {} } = {}) =>
         state.draft.incomeSelections.filter((s) => match(s, where)),
       deleteMany: async () => {
@@ -478,10 +481,11 @@ function harness({
       },
     },
     "@/lib/rate-limit": { consumeRateLimit: () => ({ allowed: true }) },
+    ...(mockCompleteness ? {"@/lib/tax/filing-completeness": {validateFilingCompleteness: async () => ({blockers:[]})}} : {}),
     "@/lib/tax/reconciliation-calculation": {
       validateAuthoritativeReconciliation: async () => ({
         success: true,
-        preview: { accountBalances: [], netCashMovement: 0 },
+        preview: { accountBalances: reconciliationBalances, netCashMovement: 0 },
       }),
     },
   });

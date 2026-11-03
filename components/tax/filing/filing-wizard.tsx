@@ -1,4 +1,6 @@
 "use client";
+
+import { countUploadedDocumentSlots } from "@/lib/tax/document-slot-count";
 import { getBusinessDocumentIntakeAction } from "@/app/actions/business-intake";
 import {
   getFilerStatusGateAction,
@@ -246,10 +248,6 @@ export function FilingWizard({
       iban: "",
     },
   ]);
-  const [salaryPercentage, setSalaryPercentage] = useState<
-    "over_50" | "under_50" | null
-  >(null);
-
   // ── Business structure (unchanged) ──
   const [businessStructure, setBusinessStructure] = useState<string | null>(
     null,
@@ -329,6 +327,17 @@ export function FilingWizard({
   // The IBAN is read from the bank statement, so after a statement is mapped or
   // its IBAN is saved the account list is re-read from the database; the
   // "IBAN required" gate on the pipeline steps depends on it.
+  // If the draft already carries a saved Filer status answer (for example the
+  // draft was resumed, or a snapshot saved it), restore it into setup state —
+  // the Review step prices tax from this state and used to ask the taxpayer
+  // to answer again even though the answer was sitting on the draft.
+  useEffect(() => {
+    if (filerStatus) return;
+    const saved = filingSummary?.taxpayerListStatus;
+    if (saved === "ATL" || saved === "LATE_FILER" || saved === "NON_ATL")
+      setFilerStatus(saved);
+  }, [filerStatus, filingSummary?.taxpayerListStatus]);
+
   function refreshBankAccountsFromServer() {
     if (!draftId) return;
     getBankAccountsAction(draftId).then((result) => {
@@ -947,9 +956,9 @@ export function FilingWizard({
     formData.set("taxYear", String(taxYear));
     formData.set("taxpayerType", taxpayerType);
     formData.set("residencyStatus", residencyStatus ?? "");
+    formData.set("taxpayerListStatus", filerStatus ?? "");
     formData.set("filerType", filerType ?? "");
     formData.set("businessStructure", businessStructure ?? "");
-    formData.set("salaryPercentage", salaryPercentage ?? "");
     formData.set("employerCount", employerCount);
     formData.set("hasServicesIncome", hasServicesIncome);
     formData.set("hasForeignIncomeOrAssets", hasForeignIncomeOrAssets);
@@ -981,7 +990,7 @@ export function FilingWizard({
     taxpayerType,
     filerType,
     businessStructure,
-    salaryPercentage,
+    filerStatus,
     incomeSources,
     incomeSubcategorySelections,
     readinessCompleted,
@@ -1029,9 +1038,6 @@ export function FilingWizard({
   }, [buildFormData, onSaveDraft, step]);
 
   // ── Setup-phase step list ───────────────────────────────────────────
-  const showsSalarySplit =
-    selectedIncomeSources.includes("salary") &&
-    selectedIncomeSources.length >= 2;
   const subcategorySteps = useMemo(
     () => getTy2026SubcategoryStepKeys(selectedIncomeSources, taxYear),
     [selectedIncomeSources, taxYear],
@@ -1056,7 +1062,6 @@ export function FilingWizard({
         "who",
         "income",
         ...(requiresBankAccounts ? (["bank_accounts"] as SetupStepKey[]) : []),
-        ...(showsSalarySplit ? (["salary_split"] as SetupStepKey[]) : []),
         ...tail,
         "review",
       ];
@@ -1068,7 +1073,6 @@ export function FilingWizard({
         "structure",
         "income",
         ...(requiresBankAccounts ? (["bank_accounts"] as SetupStepKey[]) : []),
-        ...(showsSalarySplit ? (["salary_split"] as SetupStepKey[]) : []),
         ...tail,
         "review",
       ];
@@ -1080,7 +1084,6 @@ export function FilingWizard({
         "structure",
         "income",
         ...(requiresBankAccounts ? (["bank_accounts"] as SetupStepKey[]) : []),
-        ...(showsSalarySplit ? (["salary_split"] as SetupStepKey[]) : []),
         ...tail,
         "review",
       ];
@@ -1094,7 +1097,6 @@ export function FilingWizard({
     isSoleProprietor,
     isBusinessEntity,
     isPractitioner,
-    showsSalarySplit,
     requiresBankAccounts,
     subcategorySteps,
   ]);
@@ -1400,7 +1402,6 @@ export function FilingWizard({
         (selection) => selection.source === source,
       );
     }
-    if (currentStepKey === "salary_split") return Boolean(salaryPercentage);
     if (currentStepKey === "tax_year") return Boolean(taxYear);
     if (currentStepKey === "filer_status") return Boolean(filerStatus);
     if (currentStepKey === "residency") return Boolean(residencyStatus);
@@ -1445,7 +1446,6 @@ export function FilingWizard({
     incomeSources,
     incomeSubcategorySelections,
     pensionFormerEmployerAnswer,
-    salaryPercentage,
     taxYear,
     // 28-Oct-2026: without this the memo kept the pre-answer value, so the
     // Continue button stayed disabled no matter which filer card was tapped.
@@ -1583,7 +1583,6 @@ export function FilingWizard({
     ) {
       return false;
     }
-    if (showsSalarySplit && !salaryPercentage) return false;
     if (!taxYear) return false;
     if (!filerStatus) return false;
     if (!residencyStatus) return false;
@@ -1602,8 +1601,6 @@ export function FilingWizard({
     incomeSources,
     subcategorySteps,
     incomeSubcategorySelections,
-    showsSalarySplit,
-    salaryPercentage,
     taxYear,
     filerStatus,
     residencyStatus,
@@ -1771,13 +1768,6 @@ export function FilingWizard({
       });
     }
 
-    if (salaryPercentage) {
-      rows.push({
-        label: "Salary share",
-        value: salaryPercentage === "over_50" ? "Over 50%" : "Under 50%",
-      });
-    }
-
     if (readinessCompleted.length > 0) {
       rows.push({
         label: "Readiness",
@@ -1786,11 +1776,7 @@ export function FilingWizard({
     }
 
     if (documentSlots.length > 0) {
-      const uploadedCount =
-        filingSummary?.documentCount ??
-        documentSlots.filter((slot) =>
-          Boolean(uploadedDocuments[slot.documentType]),
-        ).length;
+      const uploadedCount = countUploadedDocumentSlots(documentSlots, uploadedDocuments);
       const awaitingMapping = filingSummary?.documentsAwaitingMapping ?? [];
       rows.push({
         label: "Documents uploaded",
@@ -1874,7 +1860,6 @@ export function FilingWizard({
     needsIncomeSourceSelection,
     incomeSources,
     incomeSubcategorySelections,
-    salaryPercentage,
     readinessCompleted,
     documentSlots,
     uploadedDocuments,
@@ -1907,7 +1892,6 @@ export function FilingWizard({
           b.push(`Complete ${stepLabelFor(subcategoryStep)}`);
         }
       }
-      if (showsSalarySplit && !salaryPercentage) b.push("Specify salary share");
       if (!taxYear) b.push("Select tax year");
       if (!residencyStatus) b.push("Select Resident or Non-Resident");
       if (
@@ -2013,8 +1997,6 @@ export function FilingWizard({
     incomeSources,
     subcategorySteps,
     incomeSubcategorySelections,
-    showsSalarySplit,
-    salaryPercentage,
     taxYear,
     residencyStatus,
     requiresBankAccounts,
@@ -2053,7 +2035,6 @@ export function FilingWizard({
       }
     }
 
-    let intakeReady = false;
     let navigationSelections = incomeSubcategorySelections;
     const navigationStep = currentStepRef.current;
     const navigationStepKey = combinedSteps[navigationStep] ?? "who";
@@ -2132,6 +2113,7 @@ export function FilingWizard({
               [
                 "bank_statement",
                 "salary_certificate",
+                "pension_statement",
                 "business_books",
                 "business_balance_sheet",
                 "invoice_summary",
@@ -2171,7 +2153,6 @@ export function FilingWizard({
       if (!intake.success) { setFilingActionError(intake.error ?? "Could not validate business evidence."); return; }
       navigationSelections = incomeSubcategorySelections.map(selection => isTy2026BusinessProfitSelection(selection) ? { ...selection, details: intake.details } : selection);
       setIncomeSubcategorySelections(navigationSelections);
-      intakeReady = intake.ready;
       setBusinessIntakeIssues(intake.issues);
       setBusinessIntakeLoadedFor(draftId);
       if (navigationStepKey === "business_review" && !intake.ready) {
@@ -2187,13 +2168,24 @@ export function FilingWizard({
       return;
     }
 
+    const persistedTaxStatus = filingSummary?.taxCalculationStatus;
     const hasCurrentTaxEstimate =
       !taxCalculationInvalidatedRef.current &&
-      (taxCalculatedInSession ||
-        filingSummary?.taxCalculationStatus === "ESTIMATE");
+      (persistedTaxStatus === "ESTIMATE" ||
+        (taxCalculatedInSession && persistedTaxStatus !== "NEEDS_USER_INPUT" && persistedTaxStatus !== "NEEDS_RULES"));
     if (navigationStepKey === "pipeline_review" && !hasCurrentTaxEstimate) {
+      // A held calculation names its own blocker: surface that reason
+      // instead of the generic prompt. NEEDS_USER_INPUT is the taxpayer's
+      // own pending decision (e.g. the pension tax-basis review) — the
+      // filing stops at Review until it is answered and recalculated.
+      const heldReason =
+        persistedTaxStatus === "NEEDS_USER_INPUT" ||
+        persistedTaxStatus === "NEEDS_RULES"
+          ? taxCalculationNote
+          : null;
       setFilingActionError(
-        "Calculate the tax estimate before continuing to approval.",
+        heldReason ??
+          "Calculate the tax estimate before continuing to approval.",
       );
       return;
     }
@@ -2270,7 +2262,9 @@ export function FilingWizard({
 
     if (!canGoNext) return;
     setFilingActionError(null);
-    const nextIndex = Math.min(totalSteps - 1, navigationStep + (navigationStepKey === "documents" && intakeReady ? 2 : 1));
+    // Always visit Business review, even for an already-confirmed account, so
+    // the taxpayer can inspect or change ownership after resuming a draft.
+    const nextIndex = Math.min(totalSteps - 1, navigationStep + 1);
     if (navigationStepKey === "pipeline_review") {
       setTaxCalculatedInSession(false);
     }
@@ -2295,8 +2289,7 @@ export function FilingWizard({
         wizardCompletionStep: persistedCompletionStep,
         incomeSources,
         incomeSubcategorySelections: navigationSelections,
-        salaryPercentage,
-        readinessCompleted,
+            readinessCompleted,
       });
 
       if (!updateResult.success) {
@@ -2542,7 +2535,6 @@ export function FilingWizard({
         businessStructure={businessStructure}
         incomeSources={incomeSources}
         bankAccounts={bankAccounts}
-        salaryPercentage={salaryPercentage}
         taxYear={taxYear}
         filerStatus={filerStatus}
         onFilerStatusChange={(value) => {
@@ -2581,7 +2573,6 @@ export function FilingWizard({
           } else {
             setIncomeSources([]);
             setIncomeSubcategorySelections([]);
-            setSalaryPercentage(null);
           }
         }}
         onBusinessStructureChange={(value) => {
@@ -2592,10 +2583,6 @@ export function FilingWizard({
         onBankAccountsChange={(accounts) => {
           resetForSetupChange();
           setBankAccounts(accounts);
-        }}
-        onSalaryPercentageChange={(value) => {
-          resetForSetupChange();
-          setSalaryPercentage(value);
         }}
         onTaxYearChange={(value) => {
           resetForSetupChange();
@@ -2781,6 +2768,7 @@ export function FilingWizard({
   function renderPipelineReview() {
     return (
       <WizardReviewStep
+        uploadedDocumentCount={countUploadedDocumentSlots(documentSlots, uploadedDocuments)}
         filingSummary={filingSummary}
         filingSummaryError={filingSummaryError}
         taxCalculationError={taxCalculationError}
@@ -2853,7 +2841,6 @@ export function FilingWizard({
     structure: renderSetup,
     income: renderSetup,
     bank_accounts: renderSetup,
-    salary_split: renderSetup,
     tax_year: renderSetup,
     filer_status: renderSetup,
     residency: renderSetup,
@@ -2868,7 +2855,7 @@ export function FilingWizard({
     subcategory_other_income: renderSetup,
     subcategory_advance_tax: renderSetup,
     readiness: renderSetup,
-    business_review: () => businessIntakeLoadedFor !== draftId ? <p role="status">Checking reviewed business evidence...</p> : businessIntakeIssues?.length === 0 ? <div className="rounded-xl border p-5"><p>All business data is available from reviewed evidence. No manual entry is needed. Continue to the next stage.</p></div> : <WizardBusinessProfitStep intakeIssues={businessIntakeIssues} selections={incomeSubcategorySelections} onToggle={toggleIncomeSubcategory} onDetailsChange={updateIncomeSubcategoryDetails} draftId={draftId ?? resumeDraftId ?? null} bankAccounts={bankAccounts.map((account) => ({ iban: account.iban, bankName: account.bankName, accountLabel: account.accountLabel }))} />,
+    business_review: () => businessIntakeLoadedFor !== draftId ? <p role="status">Checking reviewed business evidence...</p> : <WizardBusinessProfitStep intakeIssues={businessIntakeIssues} selections={incomeSubcategorySelections} onToggle={toggleIncomeSubcategory} onDetailsChange={updateIncomeSubcategoryDetails} draftId={draftId ?? resumeDraftId ?? null} bankAccounts={bankAccounts.map((account) => ({ id: account.id, iban: account.iban, bankName: account.bankName, accountLabel: account.accountLabel }))} />,
     documents: renderDocuments,
     review: renderSetup,
     bank_intelligence: renderBankIntelligence,

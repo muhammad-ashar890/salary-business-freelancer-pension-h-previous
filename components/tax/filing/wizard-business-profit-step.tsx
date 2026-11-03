@@ -109,7 +109,7 @@ type WizardBusinessProfitStepProps = Readonly<{
   /** The saved filing, to read its mapped Business Books (none before Create). */
   draftId?: string | null;
   /** The filing's bank accounts (Bank accounts step), to tick the business ones. */
-  bankAccounts?: readonly { iban: string; bankName: string; accountLabel: string }[];
+  bankAccounts?: readonly { id?: string; iban: string; bankName: string; accountLabel: string }[];
 }>;
 
 /** No mapped Books: the 8 yearly figures are unknown on this step. */
@@ -592,6 +592,30 @@ export function WizardBusinessProfitStep({
         title="Review your business documents"
         description="Your yearly figures come from reviewed Business Books. Check extracted values below, resolve missing evidence and confirm only details the documents do not establish. Do not guess tax treatment or replace missing evidence with zero."
       />
+
+      {(bankAccounts.length > 0 || (details?.businessBankOwnershipDecisions?.length ?? 0) > 0) && <section className="space-y-3 rounded-xl border p-4">
+        <h3 className="text-sm font-semibold">Confirm bank account ownership</h3>
+        <p className="text-xs text-muted-foreground">Choose an answer for every account. Mixed or uncertain placement needs manual review. An account used for business transactions is not automatically a business account.</p>
+        {bankAccounts.filter(account => !normalizeIban(account.iban)).map(account => <p key={account.id ?? account.accountLabel} className="text-sm text-destructive">{account.bankName} — {account.accountLabel}: add a valid IBAN in Bank Accounts before confirming ownership.</p>)}
+        {accountChoices.map(account => {
+          const saved = details?.businessBankOwnershipDecisions?.find(row => row.bankAccountId === account.id && row.iban === account.iban);
+          return <div className="rounded-lg border p-3" key={account.id ?? account.iban}>
+            <p className="text-sm">{account.bankName} — {account.accountLabel} <span className="font-mono">{account.iban}</span></p>
+            <fieldset className="mt-2 flex flex-wrap gap-4 text-sm" disabled={!account.id}>
+              <legend className="sr-only">Ownership for {account.accountLabel}</legend>
+              {([['personal','Personal — entire balance excluded from business assets'],['business','Business'],['mixed','Mixed / unsure']] as const).map(([value,label]) => <label key={value} className="flex items-center gap-1">
+                <input type="radio" name={`ownership-${account.id}`} checked={saved?.ownership === value} onChange={() => {
+                  if (!account.id) return;
+                  const rest = (details?.businessBankOwnershipDecisions ?? []).filter(row => row.bankAccountId !== account.id);
+                  saveDetails({...(details ?? {}),businessBankOwnershipDecisions:[...rest,{bankAccountId:account.id,iban:account.iban,ownership:value,confirmed:true}]});
+                }} /> {label}
+              </label>)}
+            </fieldset>
+            {!account.id && <p className="text-xs text-destructive">Save this account before confirming ownership.</p>}
+          </div>;
+        })}
+        {(details?.businessBankOwnershipDecisions ?? []).some(row => !accountChoices.some(account => account.id === row.bankAccountId)) && <button type="button" className="rounded border px-3 py-1 text-sm" onClick={() => saveDetails({...(details ?? {}),businessBankOwnershipDecisions:(details?.businessBankOwnershipDecisions ?? []).filter(row => accountChoices.some(account => account.id === row.bankAccountId))})}>Remove answers for deleted accounts</button>}
+      </section>}
 
       {intakeIssues && intakeIssues.length > 0 && <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm" role="status">
         <p className="font-medium">Only missing or conflicting business information needs attention</p>

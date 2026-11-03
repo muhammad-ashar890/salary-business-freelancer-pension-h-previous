@@ -256,11 +256,11 @@ test("saved No above PKR 10 million with unknown age still requests rules instea
   const harness = actionHarness({ answer: false, pension: 12_000_000, dateOfBirth: null });
   const response = await harness.run();
   assert.equal(response.success, true, response.error);
-  assert.equal(response.result.status, "NEEDS_RULES");
+  assert.equal(response.result.status, "NEEDS_USER_INPUT");
   assert.equal(response.result.taxDue, null);
   assert.equal(response.result.taxPayable, null);
   assert.match(response.result.note, /date of birth/i);
-  assert.equal(harness.calls.draftUpdates.at(-1).taxCalculationStatus, "NEEDS_RULES");
+  assert.equal(harness.calls.draftUpdates.at(-1).taxCalculationStatus, "NEEDS_USER_INPUT");
 });
 
 test("saved No keeps exempt pension out of the combined salary slab", async () => {

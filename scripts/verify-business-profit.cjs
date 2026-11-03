@@ -454,7 +454,7 @@ try {
 
   // A route with no income is still refused (only business profit is exempt).
   const emptySalary = estimate([{ route: "salary", income: 0 }]);
-  equal(emptySalary.status, "NEEDS_RULES", "empty salary is still refused");
+  equal(emptySalary.status, "NEEDS_USER_INPUT", "empty salary is held for taxpayer input");
 
   // ---------------------------------------------------------------------
   // 4. Wiring (source checks for browser-only behaviour)

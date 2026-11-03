@@ -38,10 +38,11 @@ function sourceLabel(source: string) {
 }
 
 type WizardReviewStepProps = Readonly<{
+  uploadedDocumentCount: number;
   filingSummary: FilingSummary | null;
   filingSummaryError: string | null;
   taxCalculationError: string | null;
-  /** Why the latest calculation stopped (NEEDS_RULES); null when not known. */
+  /** Why the latest calculation stopped (NEEDS_RULES / NEEDS_USER_INPUT); null when not known. */
   taxCalculationNote?: string | null;
   withholdingWarning: string | null;
   withholdingConfirmed: boolean;
@@ -61,6 +62,7 @@ type WizardReviewStepProps = Readonly<{
 }>;
 
 export function WizardReviewStep({
+  uploadedDocumentCount,
   filingSummary,
   filingSummaryError,
   taxCalculationError,
@@ -93,6 +95,8 @@ export function WizardReviewStep({
       ? (filingSummary.collectionBreakdown ?? [])
       : [];
   const needsRules = filingSummary?.taxCalculationStatus === "NEEDS_RULES";
+  const needsUserInput =
+    filingSummary?.taxCalculationStatus === "NEEDS_USER_INPUT";
   const hasSalaryTaxLine = breakdown.some((line) => line.source === "salary");
   const selectedServicesCategories =
     filingSummary?.selectedServicesSubcategories ?? [];
@@ -151,8 +155,12 @@ export function WizardReviewStep({
     if (!draftId || !filerStatus) return;
     if (calculatingTaxFor !== null) return;
     if (!servicesEvidenceCompleteForAuto) return;
-    if (filingSummary?.taxpayerListStatus === filerStatus) return;
-    const key = `${draftId}:${filerStatus}:${filingSummary?.taxpayerListStatus ?? "none"}`;
+    if (
+      filingSummary?.taxpayerListStatus === filerStatus &&
+      filingSummary?.taxCalculationStatus === "ESTIMATE"
+    )
+      return;
+    const key = `${draftId}:${filerStatus}:${filingSummary?.taxpayerListStatus ?? "none"}:${filingSummary?.taxCalculationStatus ?? "none"}`;
     if (autoCalculatedFor.current === key) return;
     autoCalculatedFor.current = key;
     onCalculateTax(filerStatus);
@@ -162,6 +170,7 @@ export function WizardReviewStep({
     calculatingTaxFor,
     servicesEvidenceCompleteForAuto,
     filingSummary?.taxpayerListStatus,
+    filingSummary?.taxCalculationStatus,
     onCalculateTax,
   ]);
 
@@ -306,7 +315,14 @@ export function WizardReviewStep({
               Tax calculation
             </p>
             <p className="text-xs text-muted-foreground">
-              Status: {filingSummary?.taxCalculationStatus ?? "NOT_CALCULATED"}
+              Status:{" "}
+              {filingSummary?.taxCalculationStatus === "NEEDS_USER_INPUT"
+                ? "Waiting for your decision"
+                : filingSummary?.taxCalculationStatus === "NEEDS_RULES"
+                  ? "Cannot be calculated yet"
+                  : filingSummary?.taxCalculationStatus === "ESTIMATE"
+                    ? "Calculated"
+                    : "Not calculated"}
             </p>
           </div>
           {filingSummary?.taxpayerListStatus && (
@@ -464,6 +480,21 @@ export function WizardReviewStep({
           </div>
         )}
 
+        {needsUserInput && (
+          <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3">
+            <p className="text-xs font-semibold text-blue-700 dark:text-blue-500">
+              One decision from you is still needed
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              {taxCalculationNote
+                ? taxCalculationNote
+                : "Press the Calculate button again to see exactly what is needed."}{" "}
+              This is not a missing tax rule — the rates are ready. Complete
+              the item above, then calculate again.
+            </p>
+          </div>
+        )}
+
         {/*
           28-Oct-2026 (operator): the three "Calculate for ATL / Late Filer /
           Non-ATL" buttons are gone. The Filer / Non-filer answer given in the
@@ -502,7 +533,9 @@ export function WizardReviewStep({
           </p>
         )}
 
-        {(filingSummary?.taxpayerListStatus !== filerStatus || !filerStatus) && (
+        {(filingSummary?.taxCalculationStatus !== "ESTIMATE" ||
+          filingSummary?.taxpayerListStatus !== filerStatus ||
+          !filerStatus) && (
           <Button
             type="button"
             onClick={() => filerStatus && onCalculateTax(filerStatus)}
@@ -573,14 +606,14 @@ export function WizardReviewStep({
           </div>
           <p className="font-semibold text-foreground">Document extraction</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {filingSummary?.documentCount ?? 0} document(s) attached to this
+            {uploadedDocumentCount} document(s) shown in the checklist for this
             filing.
           </p>
           <Badge
             variant="outline"
             className="mt-3 border-amanah/25 bg-amanah/10 text-amanah"
           >
-            {filingSummary?.pendingDocumentCount ?? 0} pending extraction
+            {filingSummary?.pendingDocumentCount ?? 0} required document(s) pending extraction
           </Badge>
         </div>
 

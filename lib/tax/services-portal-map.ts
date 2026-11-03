@@ -98,7 +98,7 @@ export function buildServicesPortalMappings(input: {
   const unmappedInvoiceIds = new Map<string, string[]>();
   const mappedIncomeCents = new Map<string, number>();
   const businessTargetAlreadyOccupied = (input.existingBusinessFields ?? []).some(
-    (field) => field.irisCode === "3101" && field.column === "Total Amount",
+    (field) => (field.irisCode === "3101" || field.irisCode === "3128") && field.column === "Total Amount",
   );
 
   const mappedIncomeRows: Array<{
@@ -136,7 +136,10 @@ export function buildServicesPortalMappings(input: {
         invoice,
         amountCents,
         evidenceReference: resolution.mapping.evidenceReference,
-      });
+        // stash resolved code/character so the later grouping can split 3101 vs 3128
+        irisCode: (resolution.mapping as any).irisCode,
+        incomeCharacter: (resolution.mapping as any).incomeCharacter,
+      } as any);
       mappedIncomeCents.set(
         subcategory,
         (mappedIncomeCents.get(subcategory) ?? 0) + amountCents,
@@ -158,34 +161,47 @@ export function buildServicesPortalMappings(input: {
   }
 
   if (mappedIncomeRows.length > 0) {
-    const amountCents = mappedIncomeRows.reduce((sum, row) => sum + row.amountCents, 0);
-    businessFields.push({
-      ourCategory: "SERVICES_TECHNICAL_PROFESSIONAL_FEE",
-      ourDescription:
-        "Human-confirmed technical/professional Services income, recognized under the selected accounting method",
-      ourAmount: pkr(amountCents),
-      irisCode: "3101",
-      irisDescription: "Fee for Technical / Professional Services",
-      portalArea: "Business",
-      section: "Other Revenues",
-      column: "Total Amount",
-      isTaxField: false,
-      rowDescriptionIncludes: "Fee for Technical / Professional Services",
-      sourceEntryCount: mappedIncomeRows.length,
-      servicesMappingKind: "SERVICES_INCOME",
-      servicesInvoiceEvidenceIds: mappedIncomeRows.map((row) => row.invoice.id),
-      servicesEvidenceDocumentIds: unique(
-        mappedIncomeRows.map((row) => row.invoice.sourceDocumentId),
-      ),
-      servicesSubcategories: unique(
-        mappedIncomeRows.map((row) => row.invoice.subcategory),
-      ),
-      servicesIncomeCharacter: "TECHNICAL_PROFESSIONAL_FEE",
-      servicesHumanReviewConfirmed: true,
-      sourceEvidenceReferences: unique(
-        mappedIncomeRows.map((row) => row.evidenceReference),
-      ),
-    });
+    // Group by resolved IRIS code so 3101 (TECHNICAL_PROFESSIONAL_FEE) and
+    // 3128 (IT/ITES export fallback) never collapse into one write.
+    const byCode = new Map<string, typeof mappedIncomeRows>();
+    for (const row of mappedIncomeRows) {
+      const code = (row as any).irisCode as string || "3101";
+      const bucket = byCode.get(code) ?? [];
+      bucket.push(row);
+      byCode.set(code, bucket);
+    }
+    for (const [code, rows] of byCode) {
+      const amountCents = rows.reduce((sum, row) => sum + row.amountCents, 0);
+      const isOthers = code === "3128";
+      businessFields.push({
+        ourCategory: isOthers ? "SERVICES_IT_ITES_EXPORT" : "SERVICES_TECHNICAL_PROFESSIONAL_FEE",
+        ourDescription: isOthers
+          ? "Human-confirmed IT/ITES export Services income (1b-service-it-ites), recognized under the selected accounting method — PSEB 154A eligible"
+          : "Human-confirmed technical/professional Services income, recognized under the selected accounting method",
+        ourAmount: pkr(amountCents),
+        irisCode: code,
+        irisDescription: isOthers ? "Others" : "Fee for Technical / Professional Services",
+        portalArea: "Business",
+        section: "Other Revenues",
+        column: "Total Amount",
+        isTaxField: false,
+        rowDescriptionIncludes: isOthers ? "Others" : "Fee for Technical / Professional Services",
+        sourceEntryCount: rows.length,
+        servicesMappingKind: "SERVICES_INCOME",
+        servicesInvoiceEvidenceIds: rows.map((row) => row.invoice.id),
+        servicesEvidenceDocumentIds: unique(
+          rows.map((row) => row.invoice.sourceDocumentId),
+        ),
+        servicesSubcategories: unique(
+          rows.map((row) => row.invoice.subcategory),
+        ),
+        servicesIncomeCharacter: rows[0] && (rows[0] as any).incomeCharacter ? (rows[0] as any).incomeCharacter : "TECHNICAL_PROFESSIONAL_FEE",
+        servicesHumanReviewConfirmed: true,
+        sourceEvidenceReferences: unique(
+          rows.map((row) => row.evidenceReference),
+        ),
+      });
+    }
   }
 
   const incomeGaps: UnmappedServiceAmount[] = [];

@@ -348,6 +348,28 @@ function sandbox(names, extras = {}) {
       "checkTakenOverEntry",
     ];
   }
+  // runRealIrisAutofill reads the pension entry hold through the shipped
+  // pension-guard module (a module-scope const in main.js, not an extracted
+  // function), so the sandbox context must be given the real helper too.
+  // The tax-deduction grid map is likewise a frozen module-scope const in
+  // main.js (not an extracted function), so sandboxes need the real map.
+  if (names.includes("runRealIrisAutofill")) {
+    if (!("pensionEntryHold" in extras)) {
+      extras = {
+        ...extras,
+        pensionEntryHold: require("../electron-connect/pension-guard").pensionEntryHold,
+      };
+    }
+    if (!("TAX_DEDUCTION_GRID_BY_CODE" in extras)) {
+      extras = {
+        ...extras,
+        TAX_DEDUCTION_GRID_BY_CODE: Object.freeze({
+          "64020004": "Adjustable Tax",
+          "64020007": "Final Tax",
+        }),
+      };
+    }
+  }
   // ...and the employer step: the shipped driver is pure for an empty employer
   // list, so it is given as is; the opt-in switch needs a `process` to read.
   const runsAutofill = names.includes("runRealIrisAutofill");
@@ -1586,6 +1608,7 @@ test("TY2026 autofill passes only code 64020004 to the Adjustable Tax readiness 
       summarise: (results) => ({ total: results.length, filled: results.length, skipped: 0 }),
       describeFillSummary: () => "summary",
       SUCCESS_STATUSES: new Set(["filled", "already_correct"]),
+      packetPromisedIrisCodes: () => [],
       snapshotIrisRows: async () => [],
       findUnexpectedPrefill: () => [],
       fillIrisRows: async (_win, fields) => {
@@ -1670,6 +1693,7 @@ test("an unapproved extra tax-deduction code keeps the whole group untouched", a
       summarise: (results) => ({ total: results.length, filled: 0, skipped: results.length }),
       describeFillSummary: () => "summary",
       SUCCESS_STATUSES: new Set(["filled", "already_correct"]),
+      packetPromisedIrisCodes: () => [],
       snapshotIrisRows: async () => [],
       findUnexpectedPrefill: () => [],
       fillIrisRows: async () => {
@@ -1700,6 +1724,145 @@ test("an unapproved extra tax-deduction code keeps the whole group untouched", a
       (field) => field.sectionStatus === "unsupported_tax_deduction_scope",
     ),
   );
+});
+
+// Combined Salary+Pension (31-Oct-2026, live job cmvw9kui5005v8mhhqm5cva8c):
+// one tax_deductions group spans salary 64020004 ("Adjustable Tax") and
+// pension 64020007 ("Final Tax"). Every field names its grid, so the filler
+// fills one grid at a time — the path a single-source filing takes — instead
+// of holding figures whose targets are known. The pension source below is
+// the guard's final_above_10m contract for a PKR 12,000,000 pension.
+const SPLIT_PENSION_SOURCE = {
+  version: "pension-source-v1",
+  documentId: "doc-pension",
+  fingerprint: "a".repeat(64),
+  annualPension: 12000000,
+  grossAnnual: 12000000,
+  medicalAnnual: 0,
+  netAnnual: 11900000,
+  reviewNote: "",
+  ledgerPension: 11900000,
+  taxDeducted: 100000,
+  taxAlreadyInLedger: 0,
+  overlapNote: null,
+  creditToAdd: 100000,
+  treatment: "final_above_10m",
+  ageBracket: "BELOW_70",
+  baseTax: 100000,
+  surcharge: 10000,
+  taxDue: 110000,
+};
+const SPLIT_COMBINED_FIELDS = [
+  { irisCode: "1009", column: "Total Amount", value: 4800000 },
+  { irisCode: "1008", column: "Total Amount", value: 12000000 },
+  { irisCode: "1008", column: "Subject to Final Tax", value: 2000000 },
+  { irisCode: "1008", column: "Subject to Exemption", value: 10000000 },
+  { irisCode: "64020004", column: "Tax Collected / Deducted", value: 600000 },
+  { irisCode: "64020007", column: "Taxable Amount", value: 2000000 },
+  { irisCode: "64020007", column: "Tax Deducted", value: 100000 },
+  // The pension guard's contract includes the 4AB surcharge row; a real
+  // packet always carries it (its fill target is the Computations section,
+  // which this tour deliberately does not offer, so it stays unfilled here).
+  { irisCode: "923184", column: "Total Income", value: 10000 },
+];
+function splitRun(packetFields, taxDeductionTourRows) {
+  const tour = {
+    sections: [
+      { id: "salary", rows: [{ code: "1009" }, { code: "1008" }], mappingVerified: true },
+      {
+        id: "tax_deductions",
+        rows: taxDeductionTourRows || [{ code: "64020004" }, { code: "64020007" }],
+        mappingVerified: true,
+      },
+    ],
+  };
+  const navigationCalls = [];
+  const filledCodes = [];
+  const ctx = sandbox(["runRealIrisAutofill"], {
+    ensureWorkerWindow: async () => ({
+      isDestroyed: () => false,
+      webContents: {
+        executeJavaScript: async () => ({ returnWorkspace: true, inputs: 12 }),
+      },
+    }),
+    launchState: { accountReference: "1234567890123" },
+    activeJobExecutionLog: null,
+    pushStatus: () => {},
+    captureWindowScreenshot: async () => null,
+    lastSectionTour: tour,
+    irisNavigation: {
+      ...navigation,
+      navigateToSection: async (_win, options) => {
+        navigationCalls.push(options);
+        return {
+          ok: true,
+          status: options.requiredGridTitle ? "grid_ready" : "switched",
+          gridTitle: options.requiredGridTitle || undefined,
+        };
+      },
+    },
+    irisRowFiller: {
+      FILL_STATUS: { FILLED: "filled", ROW_NOT_FOUND: "row_not_found" },
+      summarise: (results) => ({ total: results.length, filled: results.length, skipped: 0 }),
+      describeFillSummary: () => "summary",
+      SUCCESS_STATUSES: new Set(["filled", "already_correct"]),
+      packetPromisedIrisCodes: () => [],
+      snapshotIrisRows: async () => [],
+      findUnexpectedPrefill: () => [],
+      fillIrisRows: async (_win, fields) => {
+        filledCodes.push(...fields.map((field) => field.irisCode));
+        return { results: fields.map((field) => ({ ...field, status: "filled" })), summary: {} };
+      },
+    },
+  });
+  return ctx.runRealIrisAutofill(
+    {
+      filingPacket: {
+        taxYear: 2026,
+        snapshot: {
+          filing: { incomeSources: ["salary", "pension"] },
+          pension: SPLIT_PENSION_SOURCE,
+          portalFieldMapDetailed: {
+            computationHints: { pensionSourceFingerprint: SPLIT_PENSION_SOURCE.fingerprint },
+            mappingGaps: {},
+          },
+          portalFieldMap: packetFields,
+        },
+      },
+    },
+    { id: "job-1" },
+    "dry",
+  ).then((outcome) => ({ outcome, navigationCalls, filledCodes }));
+}
+
+test("combined salary+pension fills Adjustable Tax and Final Tax one grid at a time", async () => {
+  const { outcome, navigationCalls, filledCodes } = await splitRun(SPLIT_COMBINED_FIELDS);
+  const tdCalls = navigationCalls
+    .filter((call) => call.sectionId === "tax_deductions")
+    .map((call) => ({ grid: call.requiredGridTitle, codes: call.requiredRowCodes }));
+  assert.deepEqual(tdCalls, [
+    { grid: "Adjustable Tax", codes: ["64020004"] },
+    { grid: "Final Tax", codes: ["64020007", "64020007"] },
+  ]);
+  assert.deepEqual(filledCodes, ["1009", "1008", "1008", "1008", "64020004", "64020007", "64020007"]);
+  assert.ok(
+    outcome.result.results.every((field) => field.sectionStatus !== "unsupported_tax_deduction_scope"),
+    "no figure may be held for scope on a fully mapped combined packet",
+  );
+});
+
+test("a no-grid code beside known grids still holds the whole tax_deductions group", async () => {
+  const fields = [...SPLIT_COMBINED_FIELDS, { irisCode: "64020005", column: "Tax Deducted", value: 1000 }];
+  // The tour must SHOW 64020005 in this section, or the planner never puts
+  // it in the group at all (unseen codes are reported, never grouped).
+  const tourRows = [{ code: "64020004" }, { code: "64020007" }, { code: "64020005" }];
+  const { outcome, navigationCalls, filledCodes } = await splitRun(fields, tourRows);
+  assert.equal(navigationCalls.filter((call) => call.sectionId === "tax_deductions").length, 0);
+  assert.ok(!filledCodes.includes("64020004") && !filledCodes.includes("64020007"));
+  const held = outcome.result.results.filter((field) =>
+    ["64020004", "64020007", "64020005"].includes(field.irisCode),
+  );
+  assert.ok(held.length === 4 && held.every((field) => field.sectionStatus === "unsupported_tax_deduction_scope"));
 });
 
 test("Phase 2a: a section that will not open leaves its fields untouched", async () => {

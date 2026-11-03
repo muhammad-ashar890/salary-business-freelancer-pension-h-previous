@@ -1,3 +1,4 @@
+import { parseBankOwnershipDecisions, type BankOwnershipDecision } from "@/lib/tax/business-bank-ownership";
 import { sanitizeBusinessActivities, type BusinessActivity } from "@/lib/tax/business-activity";
 import { TY2026_RATE_CARD_RULES } from "./catalog";
 import type { RateCardRule } from "../rate-card-types";
@@ -153,6 +154,7 @@ export type Ty2026SelectionUserDetails = {
    * and business vehicles (3304); see lib/tax/business-balance-details.ts.
    */
   businessBankAccounts?: BusinessBankAccount[];
+  businessBankOwnershipDecisions?: BankOwnershipDecision[];
   businessVehicles?: BusinessVehicle[];
   /** Business land / building properties (IRIS Balance Sheet 3301 / 3302). */
   businessProperties?: BusinessProperty[];
@@ -810,6 +812,12 @@ function sanitizeSelectionDetails(
       details.businessDocumentFactKeys = [...new Set(entry)] as string[];
       continue;
     }
+    if (key === "businessBankOwnershipDecisions") {
+      const parsed = parseBankOwnershipDecisions(entry);
+      if (!parsed.ok) return { ok: false, error: "Invalid bank ownership confirmations" };
+      details.businessBankOwnershipDecisions = parsed.decisions;
+      continue;
+    }
     if (key === "businessActivities") {
       const activities = sanitizeBusinessActivities(entry);
       if (!activities) return { ok: false, error: "Invalid business activities" };
@@ -820,25 +828,25 @@ function sanitizeSelectionDetails(
       const schedule = sanitizeDepreciationSchedule(entry);
       if (!schedule.ok)
         return { ok: false, error: (schedule as { error: string }).error };
-      if (schedule.rows.length) details.businessDepreciationSchedule = schedule.rows;
+      details.businessDepreciationSchedule = schedule.rows;
       continue;
     }
     if (key === BUSINESS_BANK_ACCOUNTS_DETAIL_KEY) {
       const banks = sanitizeBusinessBankAccounts(entry);
       if (!banks.ok) return { ok: false, error: (banks as { error: string }).error };
-      if (banks.rows.length) details.businessBankAccounts = banks.rows;
+      details.businessBankAccounts = banks.rows;
       continue;
     }
     if (key === BUSINESS_VEHICLES_DETAIL_KEY) {
       const vehicles = sanitizeBusinessVehicles(entry);
       if (!vehicles.ok) return { ok: false, error: (vehicles as { error: string }).error };
-      if (vehicles.rows.length) details.businessVehicles = vehicles.rows;
+      details.businessVehicles = vehicles.rows;
       continue;
     }
     if (key === BUSINESS_PROPERTIES_DETAIL_KEY) {
       const properties = sanitizeBusinessProperties(entry);
       if (!properties.ok) return { ok: false, error: (properties as { error: string }).error };
-      if (properties.rows.length) details.businessProperties = properties.rows;
+      details.businessProperties = properties.rows;
       continue;
     }
     if (key === BUSINESS_IDENTITY_DETAIL_KEY) {
@@ -850,19 +858,19 @@ function sanitizeSelectionDetails(
     if (key === BUSINESS_TAX_DEDUCTIONS_DETAIL_KEY) {
       const deductions = sanitizeBusinessTaxDeductions(entry);
       if (!deductions.ok) return { ok: false, error: (deductions as { error: string }).error };
-      if (deductions.rows.length) details.businessTaxDeductions = deductions.rows;
+      details.businessTaxDeductions = deductions.rows;
       continue;
     }
     if (key === BUSINESS_ADD_BACKS_DETAIL_KEY) {
       const addBacks = sanitizeBusinessAddBacks(entry);
       if (!addBacks.ok) return { ok: false, error: (addBacks as { error: string }).error };
-      if (addBacks.rows.length) details.businessAddBacks = addBacks.rows;
+      details.businessAddBacks = addBacks.rows;
       continue;
     }
     if (key === BUSINESS_LOSSES_BY_YEAR_DETAIL_KEY) {
       const losses = sanitizeBusinessLossesByYear(entry);
       if (!losses.ok) return { ok: false, error: (losses as { error: string }).error };
-      if (losses.rows.length) details.businessLossesByYear = losses.rows;
+      details.businessLossesByYear = losses.rows;
       continue;
     }
     // Phase 3c (D3): the only text answer; it must be one of the listed ids.
@@ -1151,6 +1159,10 @@ export function parsePersistedSelectionUserDetails(
     const picked: Ty2026SelectionUserDetails = {};
     let found = false;
     if (Array.isArray(raw.businessDocumentFactKeys) && raw.businessDocumentFactKeys.every(v => typeof v === "string" && /^(businessIdentity\.(businessName|brandName|principalActivity|startDate|endDate)|business(SalesExcludeIndirectTax|Turnover100mEarlierYear|MinimumTaxCategory|BankAccounts|Vehicles|Properties|DepreciationSchedule|TaxDeductions|AddBacks|LossesByYear|UnabsorbedDepreciation|AssetSaleBookGain|AssetSaleBookLoss))$/.test(v))) { picked.businessDocumentFactKeys = raw.businessDocumentFactKeys; found = true; }
+    if (Array.isArray(raw.businessBankOwnershipDecisions)) {
+      const parsed = parseBankOwnershipDecisions(raw.businessBankOwnershipDecisions);
+      if (parsed.ok) { picked.businessBankOwnershipDecisions = parsed.decisions; found = true; }
+    }
     const activities = sanitizeBusinessActivities(raw.businessActivities);
     if (activities?.length) { picked.businessActivities = activities; found = true; }
     for (const key of DETAIL_KEYS) {
@@ -1176,7 +1188,7 @@ export function parsePersistedSelectionUserDetails(
     const schedule = sanitizeDepreciationSchedule(
       (raw as Record<string, unknown>)[DEPRECIATION_SCHEDULE_DETAIL_KEY],
     );
-    if (schedule.ok && schedule.rows.length) {
+    if (schedule.ok && Array.isArray(raw.businessDepreciationSchedule)) {
       picked.businessDepreciationSchedule = schedule.rows;
       found = true;
     }
@@ -1184,21 +1196,21 @@ export function parsePersistedSelectionUserDetails(
     const banks = sanitizeBusinessBankAccounts(
       (raw as Record<string, unknown>)[BUSINESS_BANK_ACCOUNTS_DETAIL_KEY],
     );
-    if (banks.ok && banks.rows.length) {
+    if (banks.ok && Array.isArray(raw.businessBankAccounts)) {
       picked.businessBankAccounts = banks.rows;
       found = true;
     }
     const vehicles = sanitizeBusinessVehicles(
       (raw as Record<string, unknown>)[BUSINESS_VEHICLES_DETAIL_KEY],
     );
-    if (vehicles.ok && vehicles.rows.length) {
+    if (vehicles.ok && Array.isArray(raw.businessVehicles)) {
       picked.businessVehicles = vehicles.rows;
       found = true;
     }
     const properties = sanitizeBusinessProperties(
       (raw as Record<string, unknown>)[BUSINESS_PROPERTIES_DETAIL_KEY],
     );
-    if (properties.ok && properties.rows.length) {
+    if (properties.ok && Array.isArray(raw.businessProperties)) {
       picked.businessProperties = properties.rows;
       found = true;
     }
@@ -1213,7 +1225,7 @@ export function parsePersistedSelectionUserDetails(
     const deductions = sanitizeBusinessTaxDeductions(
       (raw as Record<string, unknown>)[BUSINESS_TAX_DEDUCTIONS_DETAIL_KEY],
     );
-    if (deductions.ok && deductions.rows.length) {
+    if (deductions.ok && Array.isArray(raw.businessTaxDeductions)) {
       picked.businessTaxDeductions = deductions.rows;
       found = true;
     }
@@ -1221,7 +1233,7 @@ export function parsePersistedSelectionUserDetails(
     const addBacks = sanitizeBusinessAddBacks(
       (raw as Record<string, unknown>)[BUSINESS_ADD_BACKS_DETAIL_KEY],
     );
-    if (addBacks.ok && addBacks.rows.length) {
+    if (addBacks.ok && Array.isArray(raw.businessAddBacks)) {
       picked.businessAddBacks = addBacks.rows;
       found = true;
     }
@@ -1229,7 +1241,7 @@ export function parsePersistedSelectionUserDetails(
     const losses = sanitizeBusinessLossesByYear(
       (raw as Record<string, unknown>)[BUSINESS_LOSSES_BY_YEAR_DETAIL_KEY],
     );
-    if (losses.ok && losses.rows.length) {
+    if (losses.ok && Array.isArray(raw.businessLossesByYear)) {
       picked.businessLossesByYear = losses.rows;
       found = true;
     }

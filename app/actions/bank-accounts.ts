@@ -232,7 +232,55 @@ export async function getBankAccountsAction(draftId: string) {
         currency: true,
       },
     });
-    return { success: true, accounts };
+    // Self-heal for statements mapped before the IBAN was written back to the
+    // account: the IBAN sits on the mapped statement document, and every
+    // reader of the account (the wizard's pipeline gate included) asks the
+    // account for it. Adopting it here frees drafts that were stuck on the
+    // Documents step with every document mapped but Continue disabled and
+    // no Save IBAN button (that button only shows when the statement itself
+    // has no IBAN). A valid IBAN already on the account is never replaced.
+    const healed = await Promise.all(
+      accounts.map(async (account) => {
+        if (validatePakistaniIban(account.iban).valid) return account;
+        const statementDocument = await prisma.document.findFirst({
+          where: {
+            filingDraftId: draft.id,
+            userId: draft.userId,
+            bankAccountId: account.id,
+            documentType: "bank_statement",
+            extractionStatus: "MAPPED",
+          },
+          orderBy: { createdAt: "desc" },
+          select: { extractedData: true },
+        });
+        if (!statementDocument?.extractedData) return account;
+        let ibanValue: string | null = null;
+        try {
+          const parsed = JSON.parse(statementDocument.extractedData) as {
+            fields?: Array<{ label?: unknown; value?: unknown }>;
+          };
+          const field = (parsed.fields ?? []).find((entry) =>
+            /(^|_)iban(_|$)/.test(
+              String(entry.label ?? "")
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "_")
+                .replace(/^_+|_+$/g, ""),
+            ),
+          );
+          if (field) ibanValue = String(field.value ?? "");
+        } catch {
+          return account;
+        }
+        const validation = validatePakistaniIban(ibanValue);
+        if (!validation.valid) return account;
+        await prisma.bankAccount.update({
+          where: { id: account.id },
+          data: { iban: validation.iban },
+        });
+        return { ...account, iban: validation.iban };
+      }),
+    );
+    return { success: true, accounts: healed };
   } catch (error) {
     console.error("Error fetching bank accounts:", error);
     return {

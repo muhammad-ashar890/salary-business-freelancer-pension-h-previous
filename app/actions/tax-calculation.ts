@@ -877,10 +877,22 @@ export async function calculateTaxAction(
               ? `This filing selects ${unroutedSources.join(", ")}, for which no TY2026 route is implemented yet. Confirmed rules are required before those sources can be included in an estimate.`
               : null);
 
+    // A stop the taxpayer can clear themselves (a missing answer, figure,
+    // evidence or reviewed decision) is NOT a missing rule. Only sources
+    // with no implemented TY2026 route keep NEEDS_RULES; everything else
+    // reports NEEDS_USER_INPUT so the taxpayer is asked for their homework
+    // instead of being told the rules do not exist.
+    const blockedByUserInput =
+      pensionSourceProblem !== null ||
+      activityDetailProblems.length > 0 ||
+      flatRoutesNeedingSplit.length > 0 ||
+      servicesAllocationProblem !== null ||
+      (businessProfitProblem !== null &&
+        businessProfitProblem !== SECTION_113_TEXT.cottonGinner);
     const result: TaxCalculationResult = blockedNote
       ? {
           ...estimate,
-          status: "NEEDS_RULES",
+          status: blockedByUserInput ? "NEEDS_USER_INPUT" : "NEEDS_RULES",
           taxableIncome: null,
           baseTax: null,
           surcharge: null,

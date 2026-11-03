@@ -47,7 +47,6 @@ export type SetupStepKey =
   | "structure"
   | "income"
   | "bank_accounts"
-  | "salary_split"
   | "tax_year"
   | "filer_status"
   | "residency"
@@ -61,7 +60,6 @@ type WizardSetupStepProps = Readonly<{
   businessStructure: string | null;
   incomeSources: TaxIncomeSource[];
   bankAccounts: DraftBankAccount[];
-  salaryPercentage: "over_50" | "under_50" | null;
   taxYear: number;
   filerStatus: "ATL" | "LATE_FILER" | "NON_ATL" | null;
   residencyStatus: "resident" | "non_resident" | null;
@@ -77,7 +75,6 @@ type WizardSetupStepProps = Readonly<{
   onBusinessStructureChange: (value: string) => void;
   onIncomeSourceToggle: (value: TaxIncomeSource) => void;
   onBankAccountsChange: (accounts: DraftBankAccount[]) => void;
-  onSalaryPercentageChange: (value: "over_50" | "under_50") => void;
   onTaxYearChange: (value: number) => void;
   onFilerStatusChange: (value: "ATL" | "LATE_FILER" | "NON_ATL") => void;
   onResidencyStatusChange: (value: "resident" | "non_resident") => void;
@@ -155,7 +152,6 @@ export function WizardSetupStep({
   businessStructure,
   incomeSources,
   bankAccounts,
-  salaryPercentage,
   taxYear,
   filerStatus,
   residencyStatus,
@@ -171,7 +167,6 @@ export function WizardSetupStep({
   onBusinessStructureChange,
   onIncomeSourceToggle,
   onBankAccountsChange,
-  onSalaryPercentageChange,
   onTaxYearChange,
   onFilerStatusChange,
   onResidencyStatusChange,
@@ -357,30 +352,6 @@ export function WizardSetupStep({
         <Button type="button" variant="outline" onClick={addAccount}>
           + Add another bank account
         </Button>
-      </div>
-    );
-  }
-
-  if (currentStepKey === "salary_split") {
-    return (
-      <div className="space-y-6">
-        <StepHeading title="Is salary more than 50% of your income?" />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <BigChoiceCard
-            icon={BriefcaseBusiness}
-            title="Yes — Salary is majority"
-            description="Salaried path — simplified workflow"
-            selected={salaryPercentage === "over_50"}
-            onClick={() => onSalaryPercentageChange("over_50")}
-          />
-          <BigChoiceCard
-            icon={BadgeDollarSign}
-            title="No — Other sources dominate"
-            description="More review steps"
-            selected={salaryPercentage === "under_50"}
-            onClick={() => onSalaryPercentageChange("under_50")}
-          />
-        </div>
       </div>
     );
   }

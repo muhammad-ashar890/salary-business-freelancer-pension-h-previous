@@ -134,7 +134,7 @@ const PROPERTY_DIALOG_TITLES = Object.freeze([
 
 /** Dialog inputs by placeholder [PROVEN, popups 3320 / 3304]. */
 const FIELD_PLACEHOLDERS = Object.freeze({
-  bank: Object.freeze({ iban: "IBAN" }),
+  bank: Object.freeze({ iban: Object.freeze(["IBAN", "IBAN/Mobile Wallet No. *"]) }),
   vehicle: Object.freeze({
     registrationNo: "Vehicle Registration No.",
     chassisNo: "Chassis No",
@@ -260,13 +260,16 @@ function balancePageOp(step) {
   const buttonsOf = (dialog) =>
     Array.from(dialog.querySelectorAll("mat-dialog-actions button, .dialog-footer button"));
   const buttonLabel = (button) => norm(button.textContent);
-  const inputByPlaceholder = (dialog, placeholder) =>
-    Array.from(dialog.querySelectorAll("input")).filter(
-      (input) => (input.getAttribute("placeholder") || "") === placeholder,
+  const inputByPlaceholder = (dialog, placeholder) => {
+    const allowed = Array.isArray(placeholder) ? placeholder : [placeholder];
+    return Array.from(dialog.querySelectorAll("input")).filter(
+      (input) => allowed.includes(input.getAttribute("placeholder") || ""),
     );
+  };
   const checkboxState = (dialog, label) => {
+    const labels = (Array.isArray(label) ? label : [label]).map(norm);
     const boxes = Array.from(dialog.querySelectorAll("mat-checkbox")).filter(
-      (box) => norm(box.textContent) === norm(label),
+      (box) => labels.includes(norm(box.textContent)),
     );
     if (boxes.length !== 1) return boxes.length ? "ambiguous" : "absent";
     const input = boxes[0].querySelector('input[type="checkbox"]');
@@ -630,11 +633,11 @@ function balancePageOp(step) {
     };
     const state = { status: "ok", addEnabled: addEnabled(dialog) };
     if (step.kind === "bank") {
-      state.iban = valueOf("IBAN");
+      state.iban = valueOf(CFG.placeholders.bank.iban);
       state.accountTitle = valueOf("Account Title");
       state.bankName = valueOf("Bank Name");
       state.joint = checkboxState(dialog, "Joint Account");
-      state.foreignCurrency = checkboxState(dialog, "Foreign Currency/Others");
+      state.foreignCurrency = checkboxState(dialog, ["Foreign Currency/Others", "Foreign Currency Account"]);
     } else {
       const fields = CFG.placeholders.vehicle;
       state.registrationNo = valueOf(fields.registrationNo);
@@ -1266,7 +1269,7 @@ async function runBalanceSheetDriver(windowInstance, fields, options = {}) {
     if (before.joint !== "unchecked" || before.foreignCurrency !== "unchecked") {
       note(
         "bank_dialog_unexpected",
-        `Bank Account dialog opened with Joint Account = ${before.joint}, Foreign Currency/Others = ${before.foreignCurrency}; closed without adding ${field.iban}.`,
+        `Bank Account dialog opened with Joint Account = ${before.joint}, Foreign Currency = ${before.foreignCurrency}; closed without adding ${field.iban}.`,
       );
       await abandon("bank");
       return { failure: "bank_dialog_checkbox_state" };

@@ -92,7 +92,6 @@ export const stepLabels: Record<StepKey, string> = {
   structure: "Business type",
   income: "Income sources",
   bank_accounts: "Bank accounts",
-  salary_split: "Salary share",
   tax_year: "Tax year",
   filer_status: "Filer status",
   residency: "Residency status",

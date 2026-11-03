@@ -240,7 +240,7 @@ const goodsTooHeavy = estimate("goods-transport-vehicle", 0, { ladenWeightKg: 90
 check(
   "Per-kg goods above 8,120 kg is refused",
   goodsTooHeavy.status,
-  "NEEDS_RULES",
+  "NEEDS_USER_INPUT",
 );
 check(
   "The refusal names the fixed-charge card",
@@ -255,7 +255,7 @@ const goodsTooLight = estimate(
 check(
   "Fixed goods at 8,120 kg or below is refused",
   goodsTooLight.status,
-  "NEEDS_RULES",
+  "NEEDS_USER_INPUT",
 );
 check(
   "The refusal names the per-kg card",
@@ -298,7 +298,7 @@ for (const [subcategory, attributes, fragment] of [
   check(
     `${subcategory} without declared figures is refused`,
     result.status,
-    "NEEDS_RULES",
+    "NEEDS_USER_INPUT",
   );
   check(
     `${subcategory} refusal names the missing figure`,
@@ -316,7 +316,7 @@ const noSubcategory = calculateTaxEstimate({
   isBankProfitRoute: false,
   incomeSources: [{ route: "advance_tax", income: 10_000 }],
 });
-check("Advance tax without a category is refused", noSubcategory.status, "NEEDS_RULES");
+check("Advance tax without a category is refused", noSubcategory.status, "NEEDS_USER_INPUT");
 
 const bogus = estimate("not-a-category", 10_000, {});
 check("An unknown category is refused", bogus.status, "NEEDS_RULES");
@@ -347,7 +347,7 @@ check("Non-cc fixed below Rs 5m is refused", belowFloorFixed.status, "NEEDS_RULE
 
 // The fixed row needs completed whole years since first registration.
 const missingYears = estimate("motor-vehicle-non-cc-fixed", 6_000_000, {});
-check("Non-cc fixed without years is refused", missingYears.status, "NEEDS_RULES");
+check("Non-cc fixed without years is refused", missingYears.status, "NEEDS_USER_INPUT");
 const fractionalYears = estimate(
   "motor-vehicle-non-cc-fixed",
   6_000_000,
@@ -356,7 +356,7 @@ const fractionalYears = estimate(
 check(
   "Non-cc fixed with fractional years is refused",
   fractionalYears.status,
-  "NEEDS_RULES",
+  "NEEDS_USER_INPUT",
 );
 
 // Late filers appear on ATL, so the Tenth Schedule uplift does not hit them.

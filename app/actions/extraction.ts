@@ -43,6 +43,10 @@ import {
   storedDocumentReviewRequiredErrors,
 } from "@/lib/tax/document-review-required";
 import {
+  parsePreviousReturnFields,
+  previousReturnCnicMismatch,
+} from "@/lib/tax/previous-return-fields";
+import {
   applyPreviousReturnTextParse,
   parseIrisPreviousReturnText,
 } from "@/lib/tax/previous-return-text";
@@ -1180,6 +1184,25 @@ export async function approveAndMapExtractedDocumentAction(documentId: string) {
       );
       if (requiredErrors.length)
         return { success: false, error: requiredErrors.join(" ") };
+
+      if (document.documentType === "previous_return") {
+        // Catch a wrong taxpayer's return HERE, on the Documents step where
+        // it is approved — not three steps later on Bank Intelligence. The
+        // completeness gate keeps the same check as a backstop for the case
+        // where the profile CNIC is only set after this approval.
+        const profile = await prisma.user.findUnique({
+          where: { id: document.userId },
+          select: { cnic: true },
+        });
+        const snapshot = parsePreviousReturnFields(fields, reviewDraft.taxYear);
+        if (previousReturnCnicMismatch(snapshot, profile?.cnic)) {
+          return {
+            success: false,
+            error:
+              "Previous Year Tax Return: its Registration No does not match this taxpayer's CNIC on the profile; replace it with this taxpayer's own previous-year return.",
+          };
+        }
+      }
     }
 
     const listErrors = businessListFieldErrors(fields);

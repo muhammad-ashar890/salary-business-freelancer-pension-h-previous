@@ -1,0 +1,16 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const ts = require('typescript');
+const vm = require('node:vm');
+const source = fs.readFileSync('lib/tax/document-slot-count.ts', 'utf8');
+const js = ts.transpileModule(source, {compilerOptions: {module: ts.ModuleKind.CommonJS}}).outputText;
+const sandbox = {exports: {}}; vm.runInNewContext(js, sandbox);
+const count = sandbox.exports.countUploadedDocumentSlots;
+const slots = ['cnic','salary_certificate','business_books','business_balance_sheet','previous_return','business_support'].map(documentType => ({documentType})).concat([{documentType:'bank_statement',slotKey:'bank_statement:1'}]);
+const uploaded = Object.fromEntries(slots.map(s => [s.slotKey || s.documentType, 'file.pdf']));
+test('all seven slots include both optional documents', () => assert.equal(count(slots,uploaded),7));
+test('missing optional documents are not counted', () => { const x={...uploaded}; delete x.previous_return; delete x.business_support; assert.equal(count(slots,x),5); });
+test('bank accounts counted by individual slot keys', () => {const s=[{documentType:'bank_statement',slotKey:'bank_statement:1'},{documentType:'bank_statement',slotKey:'bank_statement:2'}]; assert.equal(count(s,{'bank_statement:1':'one.pdf'}),1); assert.equal(count(s,{'bank_statement:1':'one.pdf','bank_statement:2':'two.pdf'}),2);});
+test('unrelated or removed uploads do not inflate count', () => assert.equal(count(slots,{...uploaded, unrelated:'x.pdf', previous_return:''}),6));
+test('sidebar and review both use slot count; required gating remains separate', () => { const wizard=fs.readFileSync('components/tax/filing/filing-wizard.tsx','utf8'); const review=fs.readFileSync('components/tax/filing/wizard-review-step.tsx','utf8'); const summary=fs.readFileSync('app/actions/filing-summary.ts','utf8'); assert.match(wizard,/uploadedCount = countUploadedDocumentSlots\(documentSlots, uploadedDocuments\)/); assert.match(wizard,/uploadedDocumentCount=\{countUploadedDocumentSlots\(documentSlots, uploadedDocuments\)\}/); assert.match(review,/\{uploadedDocumentCount\} document\(s\)/); assert.match(summary,/pendingDocumentCount: latestRequiredDocuments/); });

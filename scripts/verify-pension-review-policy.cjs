@@ -53,7 +53,7 @@ function render(fields, status = "COMPLETED") {
 const labelElement = (doc, label) => [...doc.querySelectorAll("label")].find((node) => node.textContent.includes(label));
 const approveButton = (doc) => [...doc.querySelectorAll("button")].find((node) => node.textContent === "Save & Approve Map");
 function assertTaxHeld(result) {
-  assert.equal(result.status, "NEEDS_RULES");
+  assert.equal(result.status, "NEEDS_USER_INPUT");
   for (const key of ["taxableIncome", "baseTax", "surcharge", "taxDue", "taxPayable", "refundDue"]) assert.equal(result[key], null, key);
 }
 
@@ -329,7 +329,7 @@ test("12M fixture covers PDF bytes -> approval/calculation/automated packet/PDF/
   const filePart = h.state.modelCalls[0].find((part) => part.inlineData);
   assert.equal(filePart.inlineData.data, pdfBytes.toString("base64"));
   assert.equal(extracted.extracted.fields.some((f) => reviewLabels.includes(f.label)), false);
-  assert.equal((await h.calculate()).result.status, "NEEDS_RULES"); // Human approval still required.
+  assert.equal((await h.calculate()).result.status, "NEEDS_USER_INPUT"); // Human approval still required.
   assert.equal((await h.approve()).success, true);
   const calc = await h.calculate();
   assert.equal(calc.result.taxDue, 110_000);

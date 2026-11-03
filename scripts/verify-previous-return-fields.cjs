@@ -417,7 +417,7 @@ test("previous_return Phase 3b wiring: packet carries 703002 expectation; agent 
   assert.match(main, /snapshot\?\.wealthExpectations\?\.previousYearNetAssets/);
   assert.match(main, /previous_wealth_check_differs/);
   assert.match(main, /The agent left IRIS exactly as it is/);
-  assert.match(main, /const AGENT_BUILD_TAG = "wealth-recon-20261027f"/);
+  assert.match(main, /const AGENT_BUILD_TAG = "pension-wht-64020004-base-20261030b"/);
 
   const report = fs.readFileSync(path.join(root, "electron-connect/job-report.js"), "utf8");
   assert.match(report, /describePreviousWealthCheck/);

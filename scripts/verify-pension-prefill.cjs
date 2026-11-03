@@ -285,7 +285,7 @@ test("prefilled but unapproved pension still blocks completeness and tax calcula
   assert.match(complete.blockers.join(" "), /pension/i);
   const result = await h.calculate();
   assert.equal(result.success, true, result.error);
-  assert.equal(result.result.status, "NEEDS_RULES");
+  assert.equal(result.result.status, "NEEDS_USER_INPUT");
   assert.equal(result.result.taxDue, null);
   assert.equal(result.pensionSource, null);
   assert.equal((await h.generate()).success, false);
@@ -578,7 +578,7 @@ test("real React hook hydrates prefilled fields, keeps human edits and saves wit
       "2100000",
     );
     assert.equal(h.state.ledgerWrites.length, 0);
-    assert.equal((await h.calculate()).result.status, "NEEDS_RULES");
+    assert.equal((await h.calculate()).result.status, "NEEDS_USER_INPUT");
   });
 });
 

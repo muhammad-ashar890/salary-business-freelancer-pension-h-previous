@@ -108,10 +108,10 @@ for (const [name, value] of [
     const r = await h.approve();
     assert.equal(r.success, true, r.error);
     assert.equal(h.state.documents[0].extractionStatus, "MAPPED");
-    // A blocked pension calculation persists as NEEDS_RULES, never ESTIMATE.
+    // A blocked pension calculation persists as NEEDS_USER_INPUT, never ESTIMATE.
     const calc = await h.calculate();
     assert.equal(calc.pensionSource, null);
-    assert.equal(calc.result.status, "NEEDS_RULES");
+    assert.equal(calc.result.status, "NEEDS_USER_INPUT");
     assert.match(calc.result.note, /Approved Pension Amount/i);
   });
 }
@@ -152,7 +152,7 @@ for (const value of [null, ""]) {
     assert.equal(r.success, true, r.error);
     const calc = await h.calculate();
     assert.equal(calc.pensionSource, null);
-    assert.equal(calc.result.status, "NEEDS_RULES");
+    assert.equal(calc.result.status, "NEEDS_USER_INPUT");
     assert.match(calc.result.note, /not stated|Unknown withholding/i);
   });
   test(`${coveredLabel} ${JSON.stringify(value)} with nil deduction reads as zero already-ledgered`, async () => {
@@ -284,7 +284,7 @@ test("printed DOB/profile mismatch blocks approval and tax instead of overwritin
   assert.match(r.error, /DOB differs/i);
   h.state.documents[0].extractionStatus = "MAPPED";
   const c = await calculated(h);
-  assert.equal(c.result.status, "NEEDS_RULES");
+  assert.equal(c.result.status, "NEEDS_USER_INPUT");
   assert.equal(c.result.taxDue, null);
   assert.equal(
     h.state.user.dateOfBirth.toISOString().slice(0, 10),
@@ -312,7 +312,7 @@ test("a printed DOB does not silently fill an unknown profile DOB", async () => 
   });
   assert.equal((await h.approve()).success, true);
   const r = await calculated(h);
-  assert.equal(r.result.status, "NEEDS_RULES");
+  assert.equal(r.result.status, "NEEDS_USER_INPUT");
   assert.equal(r.result.taxDue, null);
   assert.equal(h.state.user.dateOfBirth, null);
   assert.equal((await h.generate()).success, false);
@@ -328,7 +328,7 @@ for (const status of ["PENDING", "PROCESSING", "FAILED", "COMPLETED"]) {
       extractionStatus: status,
     });
     const r = await calculated(h);
-    assert.equal(r.result.status, "NEEDS_RULES");
+    assert.equal(r.result.status, "NEEDS_USER_INPUT");
     assert.equal(r.result.taxDue, null);
     assert.equal((await h.completeness()).success, false);
     assert.equal((await h.approve()).success, false);
@@ -345,14 +345,14 @@ test("missing or malformed mapped statement blocks tax even when old bank credit
     const h = harness();
     h.state.documents[0].extractedData = raw;
     const r = await calculated(h);
-    assert.equal(r.result.status, "NEEDS_RULES");
+    assert.equal(r.result.status, "NEEDS_USER_INPUT");
     assert.equal(r.result.taxDue, null);
   }
   const h = harness();
   h.state.documents = h.state.documents.filter(
     (d) => d.documentType !== "pension_statement",
   );
-  assert.equal((await calculated(h)).result.status, "NEEDS_RULES");
+  assert.equal((await calculated(h)).result.status, "NEEDS_USER_INPUT");
 });
 
 for (const [answer, expectedExemption] of [
@@ -485,7 +485,7 @@ for (const [deducted, covered, ledger] of [
     });
     assert.equal((await h.approve()).success, false);
     h.state.documents[0].extractionStatus = "MAPPED";
-    assert.equal((await calculated(h)).result.status, "NEEDS_RULES");
+    assert.equal((await calculated(h)).result.status, "NEEDS_USER_INPUT");
   });
 }
 
@@ -1043,7 +1043,7 @@ test("unresolved pension statement cannot bypass review for Yes or any plausible
       }),
     });
     const calculation = await calculated(h);
-    assert.equal(calculation.result.status, "NEEDS_RULES");
+    assert.equal(calculation.result.status, "NEEDS_USER_INPUT");
     assert.equal(calculation.result.taxDue, null);
   }
 });
@@ -1154,7 +1154,7 @@ test("actual replacement upload immediately invalidates pension even before extr
     h.state.documents.some((d) => d.id === "qa-pension-doc"),
     false,
   );
-  assert.equal((await calculated(h)).result.status, "NEEDS_RULES");
+  assert.equal((await calculated(h)).result.status, "NEEDS_USER_INPUT");
 });
 
 test("pension recalculation cancels already-running work pinned to its earlier revision", async () => {

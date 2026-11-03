@@ -238,6 +238,17 @@ export function isRefundOrReversalDescription(description: string) {
 
 export const CLASSIFICATION_RULES = [
   {
+    // Property tax (& rates) is a provincial levy, NOT federal income tax
+    // withheld at source: it is an expense (IRIS wealth 7087) and must never
+    // become a TAX_PAYMENT, which the withholding total counts as tax
+    // already deducted. This rule sits first so the generic "tax" rule
+    // below cannot capture it.
+    keywords: ["property tax"],
+    entryType: "EXPENSE",
+    category: "OTHER_EXPENSE",
+    confidence: 0.9,
+  },
+  {
     keywords: ["tax", "withholding", "fbr", "fed", "federal excise"],
     entryType: "EXPENSE",
     category: "TAX_PAYMENT",

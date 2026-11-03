@@ -16,6 +16,10 @@ import {
   getFinalApprovalBlockers,
   getPipelineStartIndex as getCentralPipelineStartIndex,
 } from "@/lib/tax/filing-status";
+import {
+  normalizeTaxpayerListStatus,
+  type TaxpayerListStatus,
+} from "@/lib/tax/filer-status";
 import { prisma } from "@/lib/prisma";
 import { validateFilingCompleteness } from "@/lib/tax/filing-completeness";
 import { invalidatePensionCalculation, pensionInputKey } from "@/lib/tax/pension-invalidation";
@@ -89,6 +93,7 @@ type ParsedFilingDraftInput = {
   businessStructure: string | null;
   salaryPercentage: string | null;
   residencyStatus: "resident" | "non_resident" | null;
+  taxpayerListStatus: TaxpayerListStatus | null;
   incomeSources: string[];
   incomeSubcategorySelections: Ty2026IncomeSelectionInput[];
   readinessCompleted: string[];
@@ -178,6 +183,9 @@ function parseFilingDraftInput(
     filerType: filerTypeValue || null,
     businessStructure: businessStructureValue || null,
     salaryPercentage: salaryPercentageValue || null,
+    taxpayerListStatus: normalizeTaxpayerListStatus(
+      formData.get("taxpayerListStatus"),
+    ),
     residencyStatus:
       residencyStatusValue === "resident" ||
       residencyStatusValue === "non_resident"
@@ -409,6 +417,16 @@ async function upsertFilingDraft(
             businessStructure: input.businessStructure,
             salaryPercentage: input.salaryPercentage,
             residencyStatus: input.residencyStatus,
+            // The Filer status answer given on the setup step travels with
+            // every draft snapshot (it used to be saved only when a draft id
+            // already existed, so the answer never survived draft creation).
+            ...(input.taxpayerListStatus
+              ? {
+                  taxpayerListStatus: input.taxpayerListStatus,
+                  taxpayerListStatusSource: "USER_DECLARED",
+                  taxpayerListStatusCheckedAt: new Date(),
+                }
+              : {}),
             incomeSources: JSON.stringify(input.incomeSources),
             readinessChecks: JSON.stringify(input.readinessCompleted),
             currentStep,
@@ -426,6 +444,13 @@ async function upsertFilingDraft(
             businessStructure: input.businessStructure,
             salaryPercentage: input.salaryPercentage,
             residencyStatus: input.residencyStatus,
+            ...(input.taxpayerListStatus
+              ? {
+                  taxpayerListStatus: input.taxpayerListStatus,
+                  taxpayerListStatusSource: "USER_DECLARED",
+                  taxpayerListStatusCheckedAt: new Date(),
+                }
+              : {}),
             incomeSources: JSON.stringify(input.incomeSources),
             readinessChecks: JSON.stringify(input.readinessCompleted),
             currentStep,
@@ -563,15 +588,6 @@ export async function createFilingDraftAction(formData: FormData) {
     );
     if (needsIncomeSourceSelection && selectedIncomeSources.length === 0) {
       return { success: false, error: "Select at least one income source" };
-    }
-
-    if (
-      needsIncomeSourceSelection &&
-      selectedIncomeSources.includes("salary") &&
-      selectedIncomeSources.length >= 2 &&
-      !input.salaryPercentage
-    ) {
-      return { success: false, error: "Specify the salary share" };
     }
 
     const userId = await getCurrentUserId();
@@ -1330,6 +1346,7 @@ export type FilingDraftUpdateInput = Readonly<{
   businessStructure?: string | null;
   salaryPercentage?: string | null;
   residencyStatus?: "resident" | "non_resident" | null;
+  taxpayerListStatus?: string | null;
   currentStep?: number;
   wizardCompletionStep?: number;
   incomeSources?: string[];
@@ -1392,6 +1409,24 @@ export async function updateFilingDraftAction(
         };
       }
       dataToUpdate.residencyStatus = formData.residencyStatus || null;
+    }
+    if (formData.taxpayerListStatus !== undefined) {
+      const normalized = normalizeTaxpayerListStatus(
+        formData.taxpayerListStatus,
+      );
+      if (formData.taxpayerListStatus && !normalized) {
+        return {
+          success: false,
+          error: "Filer status must be Filer, Filer (late), or Non-filer",
+        };
+      }
+      if (normalized) {
+        Object.assign(dataToUpdate, {
+          taxpayerListStatus: normalized,
+          taxpayerListStatusSource: "USER_DECLARED",
+          taxpayerListStatusCheckedAt: new Date(),
+        });
+      }
     }
     if (formData.currentStep !== undefined) {
       if (!Number.isInteger(formData.currentStep) || formData.currentStep < 0) {

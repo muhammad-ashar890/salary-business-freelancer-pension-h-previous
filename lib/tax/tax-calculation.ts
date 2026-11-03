@@ -168,7 +168,7 @@ export type TaxIncomeSource = {
 };
 
 export type TaxCalculationResult = {
-  status: "ESTIMATE" | "NEEDS_RULES";
+  status: "ESTIMATE" | "NEEDS_RULES" | "NEEDS_USER_INPUT";
   taxYear: number;
   filerStatus: Extract<TaxpayerListStatus, "ATL" | "NON_ATL" | "LATE_FILER">;
   taxableIncome: number | null;
@@ -240,7 +240,15 @@ type RouteComputation = {
   note: string;
 };
 
-type RouteFailure = { error: string };
+type RouteFailure = {
+  error: string;
+  /**
+   * True when the taxpayer can clear this stop themselves (a missing
+   * category choice, declared figure or confirmed fact such as age).
+   * Those stops surface as NEEDS_USER_INPUT, never as missing rules.
+   */
+  userInput?: boolean;
+};
 
 function isRouteFailure(
   value: RouteComputation | RouteFailure,
@@ -692,6 +700,7 @@ function computePensionRoute(input: {
   }
   if (input.pensionerAgeBelow70 !== true) {
     return {
+      userInput: true,
       error:
         input.pensionerAgeReason ??
         "Pension above PKR 10,000,000 needs a confirmed age: below 70 it is charged at 5% plus surcharge, at 70 or above it is exempt. Confirm the pensioner's age.",
@@ -809,6 +818,7 @@ function computeFlatRoute(input: {
   if (!subcategory) {
     if (definition.subcategories.length !== 1) {
       return {
+        userInput: true,
         error:
           `TY2026 ${label} is charged at a different rate for each catalogued category, ` +
           `so the selected category is required before this route can be priced.`,
@@ -868,6 +878,7 @@ function computeFlatRoute(input: {
         matchesAmountCondition(candidate, amountCondition.field, input.income),
     );
     return {
+      userInput: true,
       error:
         `The selected TY2026 ${label} category "${subcategory}" is only catalogued for a different amount band, ` +
         `so it cannot price PKR ${Math.round(input.income).toLocaleString()}.` +
@@ -904,6 +915,7 @@ function computeFlatRoute(input: {
     );
     if (missing) {
       return {
+        userInput: true,
         error:
           `The TY2026 ${label} category "${subcategory}" is charged as ${rate.formula}, ` +
           `so declare the debt-derived and equity-derived portions on the card before it can be priced.`,
@@ -915,6 +927,7 @@ function computeFlatRoute(input: {
     );
     if (Math.abs(declared - input.income) > 0.01) {
       return {
+        userInput: true,
         error:
           `The declared TY2026 ${label} split adds up to PKR ${Math.round(declared).toLocaleString()} ` +
           `but the dividend income is PKR ${Math.round(input.income).toLocaleString()}. ` +
@@ -989,6 +1002,7 @@ function computeAdvanceTaxRoute(input: {
 
   if (!subcategory) {
     return {
+      userInput: true,
       error:
         "TY2026 advance tax is charged at a different rate for each transaction category, " +
         "so the selected category is required before this route can be priced.",
@@ -1077,6 +1091,7 @@ function computeAdvanceTaxRoute(input: {
       cc < 1
     ) {
       return {
+        userInput: true,
         error:
           `Engine capacity in cc is required to select the vehicle band for "${subcategory}". ` +
           `Non-cc/electric vehicles use the non-cc card.`,
@@ -1094,6 +1109,7 @@ function computeAdvanceTaxRoute(input: {
       count < 1
     ) {
       return {
+        userInput: true,
         error: `${what} is required before "${subcategory}" can be priced.`,
       };
     }
@@ -1201,6 +1217,7 @@ function computeAdvanceTaxRoute(input: {
       years < 0
     ) {
       return {
+        userInput: true,
         error:
           "Completed whole years since first registration in Pakistan are required " +
           "before the non-cc transfer charge can be priced (0 for the first year).",
@@ -1243,12 +1260,14 @@ function computeAdvanceTaxRoute(input: {
     const kg = attributes.ladenWeightKg;
     if (kg === undefined || !Number.isFinite(kg) || kg <= 0) {
       return {
+        userInput: true,
         error:
           "Laden weight in kg is required before Section 234 goods transport can be priced.",
       };
     }
     if (kg > 8_120) {
       return {
+        userInput: true,
         error:
           "Above 8,120 kg laden weight the rate card charges a fixed Rs 1,200 instead of the per-kg rate. " +
           "Select the goods-transport-vehicle-above-8120kg category and recalculate.",
@@ -1281,6 +1300,7 @@ function computeAdvanceTaxRoute(input: {
     }
     if (kg <= 8_120) {
       return {
+        userInput: true,
         error:
           `The fixed Rs 1,200 row covers laden weight above 8,120 kg only. ` +
           `For ${kg.toLocaleString()} kg select the goods-transport-vehicle (per-kg) category and recalculate.`,
@@ -1301,6 +1321,7 @@ function computeAdvanceTaxRoute(input: {
       seats < 1
     ) {
       return {
+        userInput: true,
         error:
           "The seat/person count is required before Section 234 passenger transport can be priced.",
       };
@@ -1785,6 +1806,7 @@ function computeMobileImportRoute(input: {
   const usd = input.attributes?.cfValueUsd;
   if (usd === undefined || !Number.isFinite(usd) || usd <= 0) {
     return {
+      userInput: true,
       error:
         `C&F value in USD is required before "${input.subcategory}" can be priced. ` +
         `The Ordinance bands the fixed charge by the handset's C&F value.`,
@@ -1796,6 +1818,7 @@ function computeMobileImportRoute(input: {
   // both low bands pay nothing — the distinction no longer matters.
   if (isCbu && usd <= 30 && input.attributes?.isSmartphone === undefined) {
     return {
+      userInput: true,
       error:
         `A C&F value up to $30 falls in different bands for smartphones and other phones. ` +
         `Confirm whether the handset is a smartphone before "mobile-pct-8517-1219" can be priced.`,
@@ -2171,6 +2194,10 @@ export function calculateTaxEstimate(input: {
   const needsRules = (note: string): TaxCalculationResult => ({
     status: "NEEDS_RULES",
     taxYear: input.taxYear,
+    // NEEDS_RULES is reserved for coverage the engine genuinely does not
+    // implement. Anything the taxpayer can fix (a missing answer, figure or
+    // reviewed decision) is reported as NEEDS_USER_INPUT by the caller, so
+    // the taxpayer never sees a "rules missing" stop for their own homework.
     filerStatus: input.filerStatus,
     taxableIncome: null,
     baseTax: null,
@@ -2188,6 +2215,11 @@ export function calculateTaxEstimate(input: {
     mixedExcessWithholding: 0,
     collectionBreakdown: [],
     collectionTaxDue: 0,
+  });
+
+  const needsUserInput = (note: string): TaxCalculationResult => ({
+    ...needsRules(note),
+    status: "NEEDS_USER_INPUT",
   });
 
   if (input.taxYear !== TY2026_TAX_YEAR) {
@@ -2290,7 +2322,7 @@ export function calculateTaxEstimate(input: {
   );
   if (emptyRoutes.length > 0) {
     const labels = emptyRoutes.map((source) => ROUTE_LABELS[source.route]);
-    return needsRules(
+    return needsUserInput(
       emptyRoutes.some((source) => source.route === "bank_profit")
         ? "Add an income ledger entry categorized as BANK_PROFIT before calculating this route."
         : `No income was recorded for ${labels.join(" and ")}. Add the ledger entries for that income before calculating.`,
@@ -2361,7 +2393,9 @@ export function calculateTaxEstimate(input: {
             note: "The business shows no taxable profit for the year (a loss, or a profit used up by a brought-forward loss), so no income tax is estimated on it. IRIS works out the loss to carry forward.",
           };
     if (isRouteFailure(computed)) {
-      return needsRules(computed.error);
+      return computed.userInput
+        ? needsUserInput(computed.error)
+        : needsRules(computed.error);
     }
     const combinedBase = Math.max(0, Math.round(computed.baseTax));
     const combinedSurcharge = Math.max(0, Math.round(computed.surcharge));
@@ -2456,7 +2490,9 @@ export function calculateTaxEstimate(input: {
     }
 
     if (isRouteFailure(computed)) {
-      return needsRules(computed.error);
+      return computed.userInput
+        ? needsUserInput(computed.error)
+        : needsRules(computed.error);
     }
 
     const lineBaseTax = Math.max(0, Math.round(computed.baseTax));

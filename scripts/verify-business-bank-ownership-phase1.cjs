@@ -1,0 +1,32 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),ts=require('typescript');
+const root=path.resolve(__dirname,'..'),original=Module._resolveFilename;
+Module._resolveFilename=function(r,...rest){return original.call(this,r.startsWith('@/')?path.join(root,r.slice(2)):r,...rest)};
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText,f);
+const {checkBankOwnership,parseBankOwnershipDecisions}=require('../lib/tax/business-bank-ownership.ts');
+const a={id:'account-a',iban:'PK36SCBL0000001123456702'},b={id:'account-b',iban:'PK35HABB0018067900476803'};
+const dec=(account,ownership='personal')=>({bankAccountId:account.id,iban:account.iban,ownership,confirmed:true});
+const run=(accounts,decisions,reviewedBusinessIbans)=>checkBankOwnership({accounts,decisions,reviewedBusinessIbans});
+const has=(result,code)=>result.issues.some(i=>i.code===code);
+test('all current accounts require an explicit answer; mixed remains held',()=>{assert.ok(has(run([a,b],[dec(a)]),'missing_confirmation'));assert.ok(has(run([a],[dec(a,'mixed')]),'mixed_requires_review'));assert.equal(run([a,b],[dec(a),dec(b,'business')],[b.iban]).ready,true)});
+test('empty business evidence is not automatically a personal answer',()=>{assert.ok(has(run([a],[],[]),'missing_confirmation'));assert.equal(run([a],[dec(a)],[]).ready,true)});
+test('documents and explicit choices cannot contradict',()=>{assert.ok(has(run([a],[dec(a,'personal')],[a.iban]),'business_evidence_conflict'));assert.ok(has(run([a],[dec(a,'business')],[]),'business_evidence_conflict'));assert.equal(run([a],[dec(a,'business')],undefined).ready,true)});
+test('IBAN replacement invalidates prior confirmation and whitespace/case normalize',()=>{assert.ok(has(run([{...a,iban:b.iban}],[dec(a)]),'iban_changed'));assert.equal(run([{...a,iban:'pk36 scbl 0000001123456702'}],[dec(a)]).ready,true)});
+test('duplicate, missing, foreign and invalid decisions are rejected',()=>{assert.ok(has(run([a],[dec(a),dec(a)]),'duplicate_decision'));assert.ok(has(run([a],[dec(a),dec(b)]),'unknown_account'));assert.equal(parseBankOwnershipDecisions([{...dec(a),confirmed:false}]).ok,false);assert.equal(parseBankOwnershipDecisions([{...dec(a),ownership:'invented'}]).ok,false);assert.equal(parseBankOwnershipDecisions([{...dec(a),iban:'PK00INVALID'}]).ok,false)});
+test('duplicate accounts and duplicate IBANs hold; invalid account is not skipped',()=>{assert.ok(has(run([a,a],[dec(a)]),'duplicate_account'));assert.ok(has(run([a,{...b,iban:a.iban}],[dec(a),dec({...b,iban:a.iban})]),'duplicate_iban'));assert.ok(has(run([{id:'x',iban:null}],[]),'invalid_account'))});
+test('packet and review use the same fail-closed validator',()=>{for(const file of ['app/actions/packet.ts','app/actions/business-intake.ts'])assert.ok(fs.readFileSync(path.join(root,file),'utf8').includes('checkBankOwnership'),file)});
+test('personal 7030 eligibility is narrow and refuses all uncertain or overlapping evidence',()=>{
+ const {confirmedPersonalBankForWealth:eligible}=require('../lib/tax/business-bank-ownership.ts');
+ const good={accountId:a.id,iban:a.iban,decisions:[dec(a)],businessSheetBank:0,businessSheetGaps:[],declaredBusinessIbans:[],hasUnscopedBusinessEntries:false};
+ assert.equal(eligible(good),true);
+ for(const x of [{businessSheetBank:null},{businessSheetBank:1},{businessSheetGaps:['gap']},{declaredBusinessIbans:[a.iban]},{hasUnscopedBusinessEntries:true},{decisions:[]},{decisions:[dec(a,'business')]},{decisions:[dec(a,'mixed')]},{iban:b.iban},{decisions:[dec(a),dec(a)]}])assert.equal(eligible({...good,...x}),false,JSON.stringify(x));
+});
+test('reviewed business IBAN without a registered owned account is held',()=>{assert.ok(has(run([],[],[a.iban]),'business_evidence_unregistered'));});
+test('real wealth map: confirmed personal account with business activity routes once to matching 7030, business account never duplicates it',()=>{
+ const {businessBankAccountRoute:route}=require('../lib/tax/business-bank-ownership.ts');
+ const {buildPortalFieldMap}=require('../lib/tax/portal-field-map.ts');
+ const base={account:a,declaredBusinessIbans:[],linkedBusinessActivity:true,hasUnscopedBusinessEntries:false,decisions:[dec(a)],businessSheetBank:0,businessSheetGaps:[]};
+ const build=(x)=>{const decision=route(x);return buildPortalFieldMap({taxYear:2026,filerType:'myself',taxpayerListStatus:null,ledgerEntries:[],bankAccounts:decision==='business'?[]:[{iban:a.iban,bankName:'Test',accountLabel:'Personal',closingBalance:2600000,ownershipReviewRequired:decision==='held'}]})};
+ const personal=build(base), rows=personal.wealthFields.filter(f=>f.irisCode==='7030');assert.equal(rows.length,1);assert.equal(rows[0].rowDescriptionIncludes,a.iban);assert.equal(rows[0].ourAmount,2600000);
+ const held=build({...base,hasUnscopedBusinessEntries:true});assert.equal(held.wealthFields.filter(f=>f.irisCode==='7030').length,0);assert.ok(held.mappingGaps.unmappedCategories.some(g=>g.category.startsWith('BUSINESS_BANK_OWNERSHIP')));
+ const business=build({...base,declaredBusinessIbans:[a.iban],decisions:[dec(a,'business')],businessSheetBank:2600000});assert.equal(business.wealthFields.filter(f=>f.irisCode==='7030').length,0);
+});

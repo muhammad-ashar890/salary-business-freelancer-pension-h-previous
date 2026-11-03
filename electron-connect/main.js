@@ -61,6 +61,7 @@ const irisNavigation = require("./iris-navigation");
 const { pensionEntryHold, PENSION_GUARD_BUILD_TAG } = require("./pension-guard");
 const irisRowFiller = require("./iris-row-filler");
 const irisWealthDriver = require("./iris-wealth-driver");
+const irisBankCrossSectionGuard = require("./iris-bank-cross-section-guard");
 const cashBaselineStore = require("./cash-baseline-store");
 const irisEmployerDriver = require("./iris-employer-driver");
 const {
@@ -207,6 +208,7 @@ function assertNavigatorBuild() {
     // dangerous as a stale navigator, and it ships as a loose file too.
     ["iris-row-filler.js", irisRowFiller.BUILD_TAG],
     ["iris-wealth-driver.js", irisWealthDriver.BUILD_TAG],
+    ["iris-bank-cross-section-guard.js", irisBankCrossSectionGuard.BUILD_TAG],
     ["iris-employer-driver.js", irisEmployerDriver.BUILD_TAG],
     ["job-report.js", JOB_REPORT_BUILD_TAG],
     ["iris-business-row-driver.js", irisBusinessRowDriver.BUILD_TAG],
@@ -3813,7 +3815,7 @@ async function runLocalIrisNavigationCheck(jobContext, job) {
   const windowInstance = await ensureWorkerWindow();
   const incomeSources = servicesRoute.incomeSources;
   const hasBusiness = incomeSources.includes("business");
-  if (hasBusiness && !["business-entry-v1", "business-entry-v2"].includes(snapshot.business?.version) && snapshot.business?.version !== "business-entry-v3" && snapshot.business?.version !== "business-entry-v4" && snapshot.business?.version !== "business-entry-v5" && snapshot.business?.version !== "business-entry-v6" && snapshot.business?.version !== "business-entry-v7" && snapshot.business?.version !== "business-entry-v8") {
+  if (hasBusiness && !["business-entry-v1", "business-entry-v2"].includes(snapshot.business?.version) && snapshot.business?.version !== "business-entry-v3" && snapshot.business?.version !== "business-entry-v4" && snapshot.business?.version !== "business-entry-v5" && snapshot.business?.version !== "business-entry-v6" && snapshot.business?.version !== "business-entry-v7" && snapshot.business?.version !== "business-entry-v8" && snapshot.business?.version !== "business-entry-v9") {
     const message = "This old business packet has no verified business payload. Regenerate and approve a new packet before entry. Nothing was changed in FBR.";
     return { paused: true, pauseAction: "portal_state_confirmation", pauseMessage: message,
       executionLog: [], result: { requiredAction: "portal_state_confirmation", message, submitted: false, businessCoverage: "missing_payload" } };
@@ -4463,6 +4465,28 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     Number(packet.taxYear || snapshot.filing?.taxYear) || undefined;
   const taxpayerIdentifier = launchState.accountReference || "";
 
+  // Before ANY autofill: the packet cannot see bank rows already saved in IRIS.
+  // Compare both sections by exact IBAN, and pause rather than move/delete rows.
+  if (snapshot.business?.version === "business-entry-v9") {
+    if (!snapshot.businessBankOwnershipStamp) {
+      const pauseMessage = "Business bank review stamp is missing. Regenerate and approve the packet; nothing was entered.";
+      return {paused:true,pauseAction:"portal_state_confirmation",pauseMessage,executionLog,result:{mode,summary:{total:0,filled:0,skipped:0,byStatus:{}},results:[],reviewRequired:true,message:pauseMessage}};
+    }
+    const personalIbans = wealthPrepared.filter(f => String(f.irisCode) === "7030").map(f => f.rowDescriptionIncludes);
+    const businessIbans = (snapshot.business?.balanceDetails?.agentFields ?? []).filter(f => f.kind === "bank" && String(f.irisCode) === "3320").map(f => f.iban);
+    const crossCheck = await irisBankCrossSectionGuard.checkBankCrossSection({
+      windowInstance, personalIbans, businessIbans,
+      navigate:(sectionId)=>irisNavigation.navigateToSection(windowInstance,{sectionId,taxYear,taxpayerIdentifier}),
+      beforeStep:()=>ensureNavigationJobActive(job.id,String(taxpayerIdentifier||"").trim().replace(/[ -]/g,"")),
+    });
+    if (!crossCheck.ok) {
+      const pauseMessage = crossCheck.reason;
+      onStep("real_autofill_bank_cross_section_hold",pauseMessage);
+      return {paused:true,pauseAction:"portal_state_confirmation",pauseMessage,executionLog,result:{mode,summary:{total:0,filled:0,skipped:0,byStatus:{}},results:[],reviewRequired:true,message:pauseMessage}};
+    }
+    onStep("real_autofill_bank_cross_section_checked","Both bank sections checked by IBAN; no opposite-section conflict was found.");
+  }
+
   let results = [];
   const unexpectedPrefill = [];
   // Phase 1 (fix46): the agent no longer stops at the first figure it cannot
@@ -4767,6 +4791,44 @@ async function runRealIrisAutofill(jobContext, job, mode) {
           ),
         )
       : [];
+    // Combined filings put more than one known grid in this one group
+    // (salary 64020004 in "Adjustable Tax" beside pension 64020007 in
+    // "Final Tax"). Every field names its grid, so fill one grid at a
+    // time — exactly the path a single-source filing takes — instead of
+    // holding figures whose targets are known. A field with NO known
+    // grid still holds the whole group below: nothing is ever typed
+    // under a guessed header.
+    if (
+      isTaxDeductionGroup &&
+      taxDeductionGridTitles.length > 1 &&
+      taxDeductionGridTitles.every((title) => title)
+    ) {
+      onStep(
+        "real_autofill_section_split",
+        `tax_deductions: packet rows span ${taxDeductionGridTitles.length} known grids (${taxDeductionGridTitles.join(", ")}); filling one grid at a time.${passNote}`,
+      );
+      const byKey = new Map();
+      for (const gridTitle of taxDeductionGridTitles) {
+        if (stopped) break;
+        const fields = group.fields.filter(
+          (field) =>
+            TAX_DEDUCTION_GRID_BY_CODE[String(field.irisCode || "").trim()] ===
+            gridTitle,
+        );
+        const filled = await fillGroup({ ...group, fields }, pass);
+        for (const entry of filled) byKey.set(autofillItemKey(entry), entry);
+      }
+      return group.fields.map((field) => {
+        const entry = byKey.get(autofillItemKey(field));
+        if (entry) return entry;
+        return {
+          ...field,
+          status: irisRowFiller.FILL_STATUS.ROW_NOT_FOUND,
+          sectionId: group.sectionId,
+          sectionStatus: "safety_stop",
+        };
+      });
+    }
     if (
       isTaxDeductionGroup &&
       (taxDeductionGridTitles.length !== 1 || !taxDeductionGridTitles[0])
@@ -5248,7 +5310,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
   // amounts through the same verified row filler (readback, overwrite guard).
   // A row it cannot create is reported on that item.
   const balancePlan =
-    ["business-entry-v4", "business-entry-v5", "business-entry-v6", "business-entry-v7", "business-entry-v8"].includes(snapshot.business?.version) &&
+    ["business-entry-v4", "business-entry-v5", "business-entry-v6", "business-entry-v7", "business-entry-v8", "business-entry-v9"].includes(snapshot.business?.version) &&
     Array.isArray(snapshot.business?.balanceDetails?.agentFields)
       ? snapshot.business.balanceDetails
       : null;
@@ -5324,7 +5386,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
   // tick, ADD), types Taxable Amount / Tax Deducted (and Attributable Taxable
   // Income where IRIS asks for it) with readback, and never deletes a row.
   const taxDeductionPlan =
-    ["business-entry-v5", "business-entry-v6", "business-entry-v7", "business-entry-v8"].includes(snapshot.business?.version) &&
+    ["business-entry-v5", "business-entry-v6", "business-entry-v7", "business-entry-v8", "business-entry-v9"].includes(snapshot.business?.version) &&
     snapshot.business?.taxDeductions?.version === "tax-deductions-v1" &&
     Array.isArray(snapshot.business?.taxDeductions?.agentFields)
       ? snapshot.business.taxDeductions
@@ -5407,7 +5469,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
   // before the dialog's SAVE, checks the saved table row and returns to the
   // Data tab. It never edits or removes a saved business.
   const businessDetailsPlan =
-    ["business-entry-v4", "business-entry-v5", "business-entry-v6", "business-entry-v7", "business-entry-v8"].includes(snapshot.business?.version) &&
+    ["business-entry-v4", "business-entry-v5", "business-entry-v6", "business-entry-v7", "business-entry-v8", "business-entry-v9"].includes(snapshot.business?.version) &&
     snapshot.business?.businessDetails?.version === "business-details-v1"
       ? snapshot.business.businessDetails
       : null;
@@ -5450,7 +5512,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
   // computes Initial Allowance, Depreciation and WDV (CF) itself; those are
   // compared after the tab switch below.
   const depreciationPlan =
-    ["business-entry-v3", "business-entry-v4", "business-entry-v5", "business-entry-v6", "business-entry-v7", "business-entry-v8"].includes(snapshot.business?.version) &&
+    ["business-entry-v3", "business-entry-v4", "business-entry-v5", "business-entry-v6", "business-entry-v7", "business-entry-v8", "business-entry-v9"].includes(snapshot.business?.version) &&
     Array.isArray(snapshot.business?.depreciation?.fields)
       ? snapshot.business.depreciation
       : null;

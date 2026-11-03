@@ -87,11 +87,17 @@ export function classifyExpenseToWealthCode(
     case "BANK_CHARGES":
       return WEALTH_OTHER_EXPENSE_CODE;
     case "OTHER_EXPENSE":
-      // A zakat debit has a dedicated IRIS row; any other vague expense stays
-      // manual, so the agent never guesses an unverifiable expense onto a
-      // wealth line.
+      // Evidence update (2026-10-30): HBL debits labelled "MARKETING & FREELANCER PLATFORM FEE"
+      // (70,000) are ledger-classified as OTHER_EXPENSE. The captured "expense modal
+      // IRIS 2.0.txt" (cdk-overlay-pane custom-other-income-sources / mat-dialog
+      // "Add Personal Expenses") proves the Wealth Statement's + Expenses modal creates
+      // a fillable child row id="7087" with exact checkbox label "Other Personal /
+      // Household Expenses" (see reconciliaton IRIS 2.0.txt id="7087" row with editable
+      // amount input). That row is the verified destination for otherwise-unmapped
+      // personal expenses. Only zakat keeps its dedicated row 7076; everything else
+      // under OTHER_EXPENSE now auto-places on 7087 so the 150,000 manual gap is gone.
       if (/\bzaka+t+h?\b/.test(text)) return "7076";
-      return null;
+      return WEALTH_OTHER_EXPENSE_CODE;
     case "TAX_PAYMENT":
       return "7052";
     default:

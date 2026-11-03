@@ -15,7 +15,9 @@ const annual={'Business Name':'TEST ONLY','Tax Year':2026,'Currency':'PKR','Repo
 const profile={[L.businessName]:'TEST ONLY',[L.brandName]:'TEST BRAND',[L.principalActivity]:'Services',[L.startDate]:'2024-07-01',[L.businessSalesExcludeIndirectTax]:true,[L.businessTurnover100mEarlierYear]:false,[L.businessBankAccounts]:JSON.stringify([{iban:'PK35HABB0018067900476803',balance:1700000}])};
 const balance=Object.fromEntries(Object.values(B).map(label=>[label,0]));Object.assign(balance,{[B.businessName]:'TEST ONLY',[B.taxYear]:2026,[B.currency]:'PKR',[B.closingDate]:'2026-06-30',[B.totalAssets]:1700000,[B.totalEquityLiabilities]:1700000,[B.capital]:1700000,[B.bank]:1700000});
 const draft={id:'draft-test',userId:'owner',filerType:'myself',taxYear:2026,incomeSources:'["business"]'};
-function database(documents,details={},overrides={}){return{user:{findUnique:async()=>({id:'owner'})},filingDraft:{findFirst:async arg=>{assert.equal(arg.where.userId,'owner');assert.equal(arg.where.id,'draft-test');return draft}},document:{findMany:async arg=>{assert.equal(arg.where.userId,'owner');return documents}},filingIncomeSelection:{findFirst:async()=>({detailsJson:JSON.stringify({userDetails:details})})},bankStatement:{findMany:async()=>[{closingBalance:1700000,bankAccount:{iban:'PK35HABB0018067900476803'}}]},...overrides};}
+const defaultAccount={id:'acct-one',iban:'PK35HABB0018067900476803'};
+const defaultConfirmation={bankAccountId:defaultAccount.id,iban:defaultAccount.iban,ownership:'business',confirmed:true};
+function database(documents,details={},overrides={}){details={businessBankOwnershipDecisions:[defaultConfirmation],...details};return{user:{findUnique:async()=>({id:'owner'})},filingDraft:{findFirst:async arg=>{assert.equal(arg.where.userId,'owner');assert.equal(arg.where.id,'draft-test');return draft}},document:{findMany:async arg=>{assert.equal(arg.where.userId,'owner');return documents}},filingIncomeSelection:{findFirst:async()=>({detailsJson:JSON.stringify({userDetails:details})})},bankStatement:{findMany:async()=>[{closingBalance:1700000,bankAccount:{iban:'PK35HABB0018067900476803'}}]},bankAccount:{findMany:async()=>[defaultAccount]},...overrides};}
 const sources=()=>[doc('books','business_books',annual),doc('balance','business_balance_sheet',balance),doc('profile','business_support',profile)];
 test('only reviewed/mapped sources auto-fill; absence remains unknown, not zero',()=>{const r=readReviewedBusinessFacts([doc('unreviewed','business_support',profile,'COMPLETED')]);assert.equal(r.details.businessIdentity,undefined);assert.equal(r.details.businessSalesExcludeIndirectTax,undefined);assert.equal(r.details.businessUnabsorbedDepreciation,undefined)});
 test('canonical identity, declarations and own-bank detail auto-fill with document provenance',()=>{const r=readReviewedBusinessFacts([doc('profile','business_support',profile)]);assert.equal(r.issues.length,0);assert.equal(r.details.businessIdentity.brandName,'TEST BRAND');assert.equal(r.details.businessTurnover100mEarlierYear,false);assert.equal(r.details.businessBankAccounts[0].iban,'PK35HABB0018067900476803');assert.deepEqual(r.provenance['businessIdentity.brandName'],['profile'])});
@@ -29,7 +31,7 @@ test('complete facts inside Books/BS need no separate profile certificate',async
 test('missing profile => only identity/declarations/bank exceptions, never all-zero completion',async()=>{db=database(sources().slice(0,2));const r=await getBusinessDocumentIntakeAction('draft-test');assert.equal(r.ready,false);assert.ok(r.issues.some(i=>i.key==='businessIdentity'));assert.ok(r.issues.some(i=>i.key==='businessSalesExcludeIndirectTax'));assert.equal(r.details.businessGrossSales,2400000)});
 test('no documents => manual-source requirements remain enforced',async()=>{db=database([]);const r=await getBusinessDocumentIntakeAction('draft-test');assert.equal(r.ready,false);assert.ok(r.issues.some(i=>/Business Books/.test(i.text)));assert.ok(r.issues.some(i=>/balance record/.test(i.text)));assert.equal(r.details.businessGrossSales,undefined)});
 test('unmapped supporting upload cannot silently bypass its review',async()=>{const docs=sources();docs[2].extractionStatus='COMPLETED';db=database(docs,readReviewedBusinessFacts(sources()).details);const r=await getBusinessDocumentIntakeAction('draft-test');assert.equal(r.ready,false);assert.ok(r.issues.some(i=>/uploaded supporting/.test(i.text)))});
-test('explicit manual missing-fact candidate completes document-plus-manual path',async()=>{db=database(sources().slice(0,2));const manual=readReviewedBusinessFacts([doc('manual','business_support',profile)]).details;delete manual.businessDocumentFactKeys;const r=await getBusinessDocumentIntakeAction('draft-test',manual);assert.equal(r.ready,true,JSON.stringify(r.issues))});
+test('explicit manual missing-fact candidate completes document-plus-manual path',async()=>{db=database(sources().slice(0,2));const manual=readReviewedBusinessFacts([doc('manual','business_support',profile)]).details;delete manual.businessDocumentFactKeys;manual.businessBankOwnershipDecisions=[defaultConfirmation];const r=await getBusinessDocumentIntakeAction('draft-test',manual);assert.equal(r.ready,true,JSON.stringify(r.issues))});
 test('positive expenses without head-wise evidence stay incomplete, not falsely green',async()=>{db=database([doc('books','business_books',Object.fromEntries(Object.entries(annual).filter(([label])=>!['Business Rent','Administrative Salaries','Business Utilities','Business Communication','Business Marketing','Business Transport','Bank Charges'].includes(label)))),...sources().slice(1)]);const r=await getBusinessDocumentIntakeAction('draft-test');assert.equal(r.ready,false);assert.ok(r.issues.some(i=>i.key==='businessOperatingExpenses'))});
 test('manual source action rejects missing declaration, unknown zeros, unsupported record kind',async()=>{db=database([]);for(const [kind,f,confirmed]of [['business_books',fields(annual),false],['business_books',fields({...annual,'Depreciation':null}),true],['bank_statement',fields(annual),true]]){const r=await saveManualBusinessRecordAction('draft-test',kind,f,confirmed);assert.equal(r.success,false)}});
 test('manual financial artifact is truthful, reviewed-not-auto-mapped, invalidates approvals and creates no transactions',async()=>{let created;const tx={document:{findFirst:async()=>null,create:async({data})=>{created=data;return{id:'manual-record'}}},filingPacket:{updateMany:async({data})=>assert.equal(data.status,'SUPERSEDED')},filingDraft:{update:async({data})=>assert.equal(data.packetApprovalConfirmed,false)}};db=database([],{},{$transaction:async(cb,options)=>{assert.equal(options.isolationLevel,'Serializable');return cb(tx)}});const r=await saveManualBusinessRecordAction('draft-test','business_books',fields(annual),true);assert.equal(r.success,true,JSON.stringify(r));assert.equal(created.extractionStatus,'COMPLETED');assert.equal(created.extractionProvider,'USER_DECLARED');assert.equal(JSON.parse(created.extractedData).sourceMode,'USER_DECLARED');assert.ok(!JSON.parse(created.extractedData).transactions);const file=path.join(root,'uploads',created.fileUrl);assert.ok(fs.readFileSync(file).subarray(0,4).equals(Buffer.from('%PDF')));fs.unlinkSync(file)});
@@ -56,3 +58,51 @@ test('packet freshness guard rejects changed/withdrawn profile facts and conflic
 const {mergeReviewedBusinessSchedules}=require('../lib/tax/business-reviewed-schedules.ts');
 test('supporting head-wise expense schedule fills missing Books breakdown without changing the original source',async()=>{const labels=['Business Rent','Administrative Salaries','Business Utilities','Business Communication','Business Marketing','Business Transport','Bank Charges'];const docs=sources();const heads=Object.fromEntries(Object.entries(annual).filter(([label])=>labels.includes(label)));docs[0]=doc('books','business_books',Object.fromEntries(Object.entries(annual).filter(([label])=>!labels.includes(label))));docs[2]=doc('profile','business_support',{...profile,...heads});const original=docs[0].extractedData;db=database(docs);const r=await getBusinessDocumentIntakeAction('draft-test');assert.equal(r.ready,true,JSON.stringify(r.issues));assert.equal(docs[0].extractedData,original);assert.deepEqual(r.provenance['schedule.rent'],['profile']);const merged=mergeReviewedBusinessSchedules([docs[0]],docs);assert.ok(JSON.parse(merged.books[0].extractedData).reviewedScheduleSourceDocumentIds.includes('profile'))});
 test('conflicting sales totals and head-wise figures across reviewed sources block auto-completion',async()=>{for(const duplicate of [{'Sales for the year':100},{'Business Rent':100}]){const docs=sources();docs[2]=doc('profile','business_support',{...profile,...duplicate});db=database(docs);const r=await getBusinessDocumentIntakeAction('draft-test');assert.equal(r.ready,false);assert.ok(r.issues.some(i=>/Conflicting/.test(i.text)))}});
+
+test('explicit empty business lists survive save and resume and do not create false packet freshness errors',()=>{
+ const emptyLabels=[L.businessBankAccounts,L.businessVehicles,L.businessProperties,L.businessDepreciationSchedule,L.businessTaxDeductions,L.businessAddBacks,L.businessLossesByYear];
+ const d=doc('profile-nil','business_support',Object.fromEntries(emptyLabels.map(label=>[label,'[]'])));
+ const initial=readReviewedBusinessFacts([d]);
+ const validated=resolveTy2026IncomeSelections({incomeSources:['business'],selections:[{source:'business',subcategory:'profit-return',details:initial.details}],requireComplete:false});
+ assert.equal(validated.success,true,JSON.stringify(validated));
+ const saved=parsePersistedSelectionUserDetails(JSON.stringify({userDetails:validated.selections[0].details}));
+ for(const key of initial.details.businessDocumentFactKeys) assert.deepEqual(saved[key],[],key);
+ assert.deepEqual(reviewedBusinessEvidenceProblems([d],saved),[]);
+ const changed=doc('profile-nil','business_support',{...Object.fromEntries(emptyLabels.map(label=>[label,'[]'])),[L.businessUnabsorbedDepreciation]:100});
+ assert.ok(reviewedBusinessEvidenceProblems([changed],saved).some(i=>i.key==='businessUnabsorbedDepreciation'));
+ const removed=doc('profile-nil','business_support',{});
+ assert.ok(reviewedBusinessEvidenceProblems([removed],saved).some(i=>i.key==='businessBankAccounts'));
+});
+test('legacy stored missing lists still trigger guard rather than silently guessing a nil declaration',()=>{
+ const d=doc('profile-nil','business_support',{[L.businessBankAccounts]:'[]'});
+ const saved={businessDocumentFactKeys:['businessBankAccounts']};
+ assert.ok(reviewedBusinessEvidenceProblems([d],saved).some(i=>i.key==='businessBankAccounts'));
+});
+
+test('bank ownership is mandatory in business intake and explicit business choice passes ownership gate',async()=>{
+ const account={id:'acct-one',iban:'PK35HABB0018067900476803'};
+ db=database(sources(),{businessBankOwnershipDecisions:[]}, {bankAccount:{findMany:async args=>{assert.equal(args.where.userId,'owner');assert.equal(args.where.filingDraftId,'draft-test');return [account]}}});
+ const missing=await getBusinessDocumentIntakeAction('draft-test');
+ assert.equal(missing.ready,false);assert.ok(missing.issues.some(i=>i.key==='businessBankOwnership'));
+ const candidate={...missing.details,businessBankOwnershipDecisions:[{bankAccountId:account.id,iban:account.iban,ownership:'business',confirmed:true}]};
+ const checked=await getBusinessDocumentIntakeAction('draft-test',candidate);
+ assert.equal(checked.success,true,JSON.stringify(checked));assert.ok(!checked.issues.some(i=>i.key==='businessBankOwnership'),JSON.stringify(checked.issues));
+ const normalized=resolveTy2026IncomeSelections({incomeSources:['business'],selections:[{source:'business',subcategory:'profit-return',details:checked.details}],requireComplete:false});
+ assert.equal(normalized.success,true); const reloaded=parsePersistedSelectionUserDetails(JSON.stringify({userDetails:normalized.selections[0].details}));
+ assert.deepEqual(reloaded.businessBankOwnershipDecisions,candidate.businessBankOwnershipDecisions);
+});
+test('mixed and conflicting account decisions stay blocked in server review',async()=>{
+ const account={id:'acct-one',iban:'PK35HABB0018067900476803'};
+ db=database(sources(),{}, {bankAccount:{findMany:async()=>[account]}});
+ const intake=await getBusinessDocumentIntakeAction('draft-test');
+ for(const ownership of ['mixed','personal']){
+  const next={...intake.details,businessBankOwnershipDecisions:[{bankAccountId:account.id,iban:account.iban,ownership,confirmed:true}]};
+  const r=await getBusinessDocumentIntakeAction('draft-test',next);
+  assert.equal(r.ready,false);assert.ok(r.issues.some(i=>i.key==='businessBankOwnership'),JSON.stringify(r));
+ }
+});
+test('ownership choices are shown in business review for each account',()=>{
+ const React=require('react'),{renderToStaticMarkup}=require('react-dom/server'),{WizardBusinessProfitStep}=require('../components/tax/filing/wizard-business-profit-step.tsx');
+ const html=renderToStaticMarkup(React.createElement(WizardBusinessProfitStep,{selections:[{source:'business',subcategory:'profit-return',details:{}}],onToggle:()=>{},onDetailsChange:()=>{},intakeIssues:[{key:'businessBankOwnership',text:'Choose ownership.'}],bankAccounts:[{id:'a',iban:'PK35HABB0018067900476803',bankName:'Test Bank',accountLabel:'Account 1'}]}));
+ assert.match(html,/Confirm bank account ownership/);assert.match(html,/Mixed \/ unsure/);assert.match(html,/Personal/);assert.match(html,/Business/);
+});

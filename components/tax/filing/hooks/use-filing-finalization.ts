@@ -192,8 +192,17 @@ export function useFilingFinalization({
     // authoritative state locally, including the parent-owned rail state.
     setWithholdingWarning(result.withholdingWarning ?? null);
     setTaxCalculationNote(
-      result.result?.status === "NEEDS_RULES" ? result.result.note || null : null,
+      result.result?.status === "NEEDS_RULES" ||
+        result.result?.status === "NEEDS_USER_INPUT"
+        ? result.result.note || null
+        : null,
     );
+    // taxCalculatedInSession only counts when a real estimate landed: the
+    // wizard's Review gate tests it alongside the persisted ESTIMATE
+    // status, and a held (NEEDS_RULES / NEEDS_USER_INPUT) result must not
+    // unlock Continue just because a calculation was attempted in this
+    // session.
+    setTaxCalculatedInSession(result.result?.status === "ESTIMATE");
     setApprovalConfirmed(false);
     setFilingPacket(null);
     onDownstreamInvalidated();

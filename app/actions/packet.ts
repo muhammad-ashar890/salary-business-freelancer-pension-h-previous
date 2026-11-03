@@ -1,5 +1,7 @@
 "use server";
 import { mergeReviewedBusinessSchedules } from "@/lib/tax/business-reviewed-schedules";
+import { currentBusinessOwnershipStamp, businessOwnershipPacketValidationError } from "@/lib/tax/business-ownership-packet-validation";
+import { checkBankOwnership, businessBankAccountRoute } from "@/lib/tax/business-bank-ownership";
 import { reviewedBusinessEvidenceProblems } from "@/lib/tax/business-document-intake";
 import { parsePersistedSelectionUserDetails, TY2026_PENSION_FORMER_EMPLOYER_SUBCATEGORY, resolvePensionFormerEmployerAnswer } from "@/lib/tax/rules/ty2026/subcategories";
 import { resolveApprovedPensionSource, type PensionSource } from "@/lib/tax/pension-source";
@@ -12,6 +14,7 @@ import {
 } from "@/lib/tax/business-bank-categories";
 import {
   buildBusinessPacket,
+  readBusinessBalanceSheet,
   buildServicesTaxDeductionPacket,
   businessCoverageSummary,
   visibleBusinessPendingItems,
@@ -415,18 +418,15 @@ export async function getLatestFilingPacketAction(draftId: string) {
     let mappingGaps: unknown = null;
     let businessCoverage: ReturnType<typeof businessCoverageSummary> = null;
     if (packet) {
-      try {
-        const snapshot = JSON.parse(packet.snapshotJson) as {
-          portalFieldMap?: { mappingGaps?: unknown };
-          business?: BusinessPacket | ServicesTaxDeductionPacket;
-        };
-        const pensionError = await pensionPacketValidationError(snapshot, draft.id, draft.userId, { allowManual: true });
-        if (pensionError) return { success: false, error: pensionError };
-        businessCoverage = businessCoverageSummary(snapshot.business);
-        mappingGaps = snapshot.portalFieldMap?.mappingGaps ?? null;
-      } catch {
-        mappingGaps = null;
-      }
+      let snapshot: {portalFieldMap?: {mappingGaps?:unknown}; business?: BusinessPacket | ServicesTaxDeductionPacket};
+      try { snapshot = JSON.parse(packet.snapshotJson); }
+      catch { return {success:false,error:"Invalid packet snapshot. Generate a fresh packet."}; }
+      const ownershipError = await businessOwnershipPacketValidationError(snapshot,draft.id,draft.userId);
+      if (ownershipError) return {success:false,error:ownershipError};
+      const pensionError = await pensionPacketValidationError(snapshot, draft.id, draft.userId, { allowManual: true });
+      if (pensionError) return { success: false, error: pensionError };
+      businessCoverage = businessCoverageSummary(snapshot.business);
+      mappingGaps = snapshot.portalFieldMap?.mappingGaps ?? null;
     }
 
     return {
@@ -461,6 +461,8 @@ export async function generateFilingPacketAction(
 ) {
   try {
     const draft = await getOwnedDraft(draftId);
+    const initialOwnership = await currentBusinessOwnershipStamp(draft.id, draft.userId);
+    if (initialOwnership.error) return { success: false, error: initialOwnership.error };
     const [
       draftData,
       documents,
@@ -928,6 +930,15 @@ export async function generateFilingPacketAction(
             : "Review the business schedules before generating a new packet.",
       };
     }
+    // Revalidate against authoritative owned accounts and current business evidence;
+    // the browser's review screen alone must never authorize a packet.
+    if (draftData.taxYear === 2026 && draftData.filerType === "myself" && parsedIncomeSources.includes("business")) {
+      const selected = businessSelections.find(selection => selection.source === "business" && selection.subcategory === "profit-return");
+      const details = parsePersistedSelectionUserDetails(selected?.detailsJson ?? null) ?? {};
+      const review = checkBankOwnership({accounts:bankAccountsForPacket, decisions:details.businessBankOwnershipDecisions ?? [],
+        reviewedBusinessIbans: (business?.balanceDetails?.banks ?? []).map(row=>row.iban)});
+      if (!review.ready) return {success:false,error:"Confirm each bank account's ownership in Business data review and resolve mixed or conflicting accounts before generating a packet."};
+    }
     const businessBankEntries = ledgerEntries.filter((entry) =>
       isBusinessBankCategory(entry.category),
     );
@@ -980,16 +991,22 @@ export async function generateFilingPacketAction(
     const declaredBusinessIbans = new Set(
       (business?.balanceDetails?.banks ?? []).map((row) => normalizeIban(row.iban)),
     );
-    const isDeclaredBusinessAccount = (iban: string | null | undefined) =>
-      Boolean(iban) && declaredBusinessIbans.has(normalizeIban(iban));
-    const ownershipStillOpen =
-      unscopedBusinessBankEntries ||
-      [...businessBankAccountIds].some(
-        (id) =>
-          !isDeclaredBusinessAccount(
-            bankAccountsForPacket.find((candidate) => candidate.id === id)?.iban,
-          ),
-      );
+    // A personal balance used for business payments is safe for 7030 only in
+    // the narrow explicitly-confirmed, fully reviewed zero-business-bank case.
+    // Anything less certain preserves the original hold, never a guessed split.
+    const businessOwnershipDetails = parsePersistedSelectionUserDetails(
+      businessSelections.find(selection => selection.source === "business" && selection.subcategory === "profit-return")?.detailsJson ?? null,
+    );
+    let businessSheetForOwnership: ReturnType<typeof readBusinessBalanceSheet> | null = null;
+    if (businessBalanceSheet?.extractionStatus === "MAPPED") {
+      try { businessSheetForOwnership = readBusinessBalanceSheet(businessBalanceSheet.extractedData, draftData.taxYear); } catch { /* keep hold */ }
+    }
+    const bankRoute = (account: {id:string;iban:string|null} | undefined) => account ? businessBankAccountRoute({
+      account, declaredBusinessIbans:[...declaredBusinessIbans], linkedBusinessActivity:businessBankAccountIds.has(account.id),
+      hasUnscopedBusinessEntries:unscopedBusinessBankEntries, decisions:businessOwnershipDetails?.businessBankOwnershipDecisions ?? [],
+      businessSheetBank:businessSheetForOwnership?.amounts.bank ?? null, businessSheetGaps:businessSheetForOwnership?.gaps ?? ["unreviewed"],
+    }) : "held";
+    const ownershipStillOpen = unscopedBusinessBankEntries || [...businessBankAccountIds].some(id => bankRoute(bankAccountsForPacket.find(account => account.id === id)) === "held");
     const businessDepreciationAdditionsTotal = totalDepreciationAdditions(
       business?.depreciation?.schedule ?? [],
     );
@@ -1111,7 +1128,7 @@ export async function generateFilingPacketAction(
               const account = bankAccountsForPacket.find(
                 (candidate) => candidate.id === balance.bankAccountId,
               );
-              return account?.iban && !isDeclaredBusinessAccount(account.iban)
+              return account?.iban && bankRoute(account) !== "business"
                 ? [
                     {
                       iban: account.iban,
@@ -1119,8 +1136,7 @@ export async function generateFilingPacketAction(
                       accountLabel: balance.accountLabel,
                       closingBalance: balance.closingBalance,
                       ownershipReviewRequired:
-                        unscopedBusinessBankEntries ||
-                        businessBankAccountIds.has(balance.bankAccountId),
+                        bankRoute(account) === "held",
                     },
                   ]
                 : [];
@@ -1264,8 +1280,12 @@ export async function generateFilingPacketAction(
         }
       : coverageGate.coverage;
 
+    const latestOwnership = await currentBusinessOwnershipStamp(draft.id, draft.userId);
+    if (latestOwnership.error || JSON.stringify(latestOwnership.stamp) !== JSON.stringify(initialOwnership.stamp))
+      return { success: false, error: latestOwnership.error ?? "Business bank evidence changed during packet generation. Please try again." };
     const snapshot = {
       generatedAt: new Date().toISOString(),
+      ...(initialOwnership.stamp ? { businessBankOwnershipStamp: initialOwnership.stamp } : {}),
       filing: {
         ...draftData,
         status:
@@ -1315,7 +1335,9 @@ export async function generateFilingPacketAction(
             },
           }
         : {}),
-      business: businessSnapshot,
+      // v9 means the desktop must perform a read-only 3320/7030 cross-check.
+      // Older agents refuse unknown versions rather than skipping that guard.
+      business: business ? { ...business, version: "business-entry-v9" as const } : businessSnapshot,
       coverage,
     };
 
@@ -1438,6 +1460,7 @@ export async function generateFilingPacketPdfAction(draftId: string) {
         error: "Generate a current packet snapshot first",
       };
     }
+    { let ownershipSnapshot:any=null; try { ownershipSnapshot=JSON.parse(packet.snapshotJson); } catch {} const ownershipError=await businessOwnershipPacketValidationError(ownershipSnapshot,draft.id,draft.userId); if (ownershipError) return {success:false,error:ownershipError}; }
     { let parsedSnapshot:any=null; try{parsedSnapshot=JSON.parse(packet.snapshotJson)}catch{} const pensionError = await pensionPacketValidationError(parsedSnapshot, draft.id, draft.userId, { allowManual: true }); if (pensionError) return { success: false, error: pensionError }; }
 
     const pdfBuffer = await buildPacketPdf(packet.snapshotJson);

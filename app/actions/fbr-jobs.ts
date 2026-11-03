@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/app/actions/notifications";
 import { getNextFbrPilotPhase } from "@/lib/tax/fbr-job-resume";
 import { JOB_STATUSES, JOB_TYPES } from "@/lib/tax/fbr-desktop";
+import { businessOwnershipPacketValidationError } from "@/lib/tax/business-ownership-packet-validation";
 import { visibleBusinessPendingLabels } from "@/lib/tax/business-filing";
 
 async function getOwnedDraft(draftId: string) {
@@ -45,6 +46,11 @@ export async function queueDryRunJobAction(draftId: string) {
         error: "No approved packet. Generate packet first.",
       };
     }
+
+    let ownershipSnapshot: unknown;
+    try { ownershipSnapshot = JSON.parse(latestPacket.snapshotJson); } catch { return {success:false,error:"Invalid packet snapshot. Generate a fresh packet."}; }
+    const ownershipError = await businessOwnershipPacketValidationError(ownershipSnapshot,draft.id,draft.userId);
+    if (ownershipError) return {success:false,error:ownershipError};
 
     // Check if there's already a running job
     const existingRunning = await prisma.localAgentJob.findFirst({
@@ -153,6 +159,11 @@ export async function queueAssistedFilingJobAction(draftId: string) {
         error: "No approved packet. Generate packet first.",
       };
     }
+
+    let ownershipSnapshot: unknown;
+    try { ownershipSnapshot = JSON.parse(latestPacket.snapshotJson); } catch { return {success:false,error:"Invalid packet snapshot. Generate a fresh packet."}; }
+    const ownershipError = await businessOwnershipPacketValidationError(ownershipSnapshot,draft.id,draft.userId);
+    if (ownershipError) return {success:false,error:ownershipError};
 
     // Check for existing running job
     const existingRunning = await prisma.localAgentJob.findFirst({

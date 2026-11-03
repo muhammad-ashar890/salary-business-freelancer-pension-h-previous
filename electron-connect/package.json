@@ -46,6 +46,7 @@
       "iris-save-draft.js",
       "iris-depreciation-driver.js",
       "iris-balance-sheet-driver.js",
+      "iris-bank-cross-section-guard.js",
       "iris-business-details-driver.js",
       "iris-tax-deduction-driver.js",
       "iris-computations-driver.js",

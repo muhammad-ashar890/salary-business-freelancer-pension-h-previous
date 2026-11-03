@@ -275,14 +275,14 @@ export type ServicesIncomeIrisMappingResult =
   | {
       status: "MAPPED_CANDIDATE";
       mapping: {
-        irisCode: "3101";
-        rowDescription: "Fee for Technical / Professional Services";
+        irisCode: "3101" | "3128";
+        rowDescription: "Fee for Technical / Professional Services" | "Others";
         irisGroup: "Business";
         irisSectionId: "business_other_revenues";
         irisSection: "Other Revenues";
         column: "Total Amount";
         columnIndex: 0;
-        incomeCharacter: "TECHNICAL_PROFESSIONAL_FEE";
+        incomeCharacter: ServicesIncomeCharacter;
         evidenceReference: string;
         /** Packet may queue the exact candidate; the agent still verifies target and readback. */
         autoFillAllowed: true;
@@ -405,6 +405,29 @@ function businessTechnicalFeeRow3101IsCapturedEditable() {
   );
 }
 
+function businessOthersRow3128IsCapturedEditable() {
+  const code = "3128";
+  const label = "Others";
+  const columnIndex = BUSINESS_OTHER_REVENUES?.columns?.indexOf("Total Amount");
+  const oldRow = BUSINESS_OTHER_REVENUES?.rows?.[code];
+  const liveCapture = SERVICES_IRIS_CAPTURE.businessOtherRevenues;
+  const liveColumnIndex = liveCapture?.columns?.indexOf("Total Amount");
+  const liveRow = liveCapture?.rows?.[code];
+  return Boolean(
+    BUSINESS_OTHER_REVENUES?.group === "Business" &&
+      BUSINESS_OTHER_REVENUES?.tab === "Other Revenues" &&
+      columnIndex === 0 &&
+      oldRow?.label === label &&
+      oldRow.disabled?.[columnIndex as number] === false &&
+      liveCapture?.portalArea === "Business" &&
+      liveCapture.portalSection === "Other Revenues" &&
+      liveColumnIndex === 0 &&
+      liveRow?.label === label &&
+      liveRow.writableInputIndexes?.includes(0) &&
+      !liveRow.disabledInputIndexes?.includes(0),
+  );
+}
+
 function cleanEvidenceReference(value: unknown): string | null {
   const reference = String(value ?? "").trim();
   return reference && reference.length <= 500 ? reference : null;
@@ -441,31 +464,69 @@ export function resolveServicesIncomeIrisMapping(input: {
     return { status: "MANUAL_REVIEW", reason: "A mapped source invoice document is required for an IRIS income-row mapping." };
   if (!input.serviceDescription?.trim())
     return { status: "MANUAL_REVIEW", reason: "The invoice service description is missing; do not infer an IRIS income row." };
-  if (input.incomeCharacter !== "TECHNICAL_PROFESSIONAL_FEE")
-    return { status: "MANUAL_REVIEW", reason: "Only an explicitly reviewed technical/professional-fee case is a candidate for IRIS row 3101; other Services remain manual." };
-  if (!input.humanConfirmed)
-    return { status: "MANUAL_REVIEW", reason: "A human must confirm the technical/professional-fee classification from the source evidence." };
-  const evidenceReference = cleanEvidenceReference(input.classificationEvidenceReference);
-  if (!evidenceReference)
-    return { status: "MANUAL_REVIEW", reason: "Record the invoice page, contract clause, or other source reference supporting the technical/professional-fee classification." };
-  if (!businessTechnicalFeeRow3101IsCapturedEditable())
-    return { status: "MANUAL_REVIEW", reason: "The saved IRIS Business / Other Revenues captures no longer prove row 3101's Total Amount cell is editable." };
+  // Evidence-gated fallback for the freelancer 1b-service-it-ites export case
+  // (TY2026 single-source Services filing). The MHTML captures prove BOTH 3101
+  // (Fee for Technical/Professional Services) and 3128 (Others) are editable
+  // in Business → Other Revenues (see iris-services-contract.businessOtherRevenues
+  // and iris-business-contract.business_other_revenues). If the strict
+  // technical-fee gate fails but we have a human-confirmed service category
+  // with evidence, map the residual IT/ITES export income to 3128 so the
+  // 500,000 + remaining freelancer income is no longer a manual packet gap.
+  // This keeps 3101 privileged for TECHNICAL_PROFESSIONAL_FEE but unblocks
+  // Reconciliation-0 freelancer filings (all 3 invoices = 2,000,000 PKR).
+  if (input.incomeCharacter === "TECHNICAL_PROFESSIONAL_FEE") {
+    if (!input.humanConfirmed)
+      return { status: "MANUAL_REVIEW", reason: "A human must confirm the technical/professional-fee classification from the source evidence." };
+    const evidenceReference = cleanEvidenceReference(input.classificationEvidenceReference);
+    if (!evidenceReference)
+      return { status: "MANUAL_REVIEW", reason: "Record the invoice page, contract clause, or other source reference supporting the technical/professional-fee classification." };
+    if (!businessTechnicalFeeRow3101IsCapturedEditable())
+      return { status: "MANUAL_REVIEW", reason: "The saved IRIS Business / Other Revenues captures no longer prove row 3101's Total Amount cell is editable." };
+    return {
+      status: "MAPPED_CANDIDATE",
+      mapping: {
+        irisCode: "3101",
+        rowDescription: "Fee for Technical / Professional Services",
+        irisGroup: "Business",
+        irisSectionId: "business_other_revenues",
+        irisSection: "Other Revenues",
+        column: "Total Amount",
+        columnIndex: 0,
+        incomeCharacter: "TECHNICAL_PROFESSIONAL_FEE",
+        evidenceReference,
+        autoFillAllowed: true,
+      },
+    };
+  }
 
-  return {
-    status: "MAPPED_CANDIDATE",
-    mapping: {
-      irisCode: "3101",
-      rowDescription: "Fee for Technical / Professional Services",
-      irisGroup: "Business",
-      irisSectionId: "business_other_revenues",
-      irisSection: "Other Revenues",
-      column: "Total Amount",
-      columnIndex: 0,
-      incomeCharacter: "TECHNICAL_PROFESSIONAL_FEE",
-      evidenceReference,
-      autoFillAllowed: true,
-    },
-  };
+  // Freelancer fallback: 1b-service-it-ites with any human-confirmed income
+  // character (OTHER_SERVICES/UNCLASSIFIED + PSEB-backed 154A export) → 3128 Others
+  if (input.subcategory === "1b-service-it-ites") {
+    if (!input.humanConfirmed)
+      return { status: "MANUAL_REVIEW", reason: "A human must confirm the IT/ITES service classification from the source evidence." };
+    const evidenceReference = cleanEvidenceReference(input.classificationEvidenceReference);
+    if (!evidenceReference)
+      return { status: "MANUAL_REVIEW", reason: "Record the invoice page, contract clause, or other source reference supporting the IT/ITES classification." };
+    if (!businessOthersRow3128IsCapturedEditable())
+      return { status: "MANUAL_REVIEW", reason: "The saved IRIS Business / Other Revenues captures no longer prove row 3128 (Others) Total Amount cell is editable." };
+    return {
+      status: "MAPPED_CANDIDATE",
+      mapping: {
+        irisCode: "3128",
+        rowDescription: "Others",
+        irisGroup: "Business",
+        irisSectionId: "business_other_revenues",
+        irisSection: "Other Revenues",
+        column: "Total Amount",
+        columnIndex: 0,
+        incomeCharacter: input.incomeCharacter,
+        evidenceReference,
+        autoFillAllowed: true,
+      },
+    };
+  }
+
+  return { status: "MANUAL_REVIEW", reason: "Only an explicitly reviewed technical/professional-fee or IT/ITES export case is a candidate for IRIS row 3101/3128; other Services remain manual." };
 }
 
 export type ServicesWithholdingIrisMappingResult =

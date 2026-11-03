@@ -558,7 +558,7 @@ const noSubcategory = estimate([{ route: "services", income: 5_000_000 }]);
 check(
   "A multi-rate route without a category is refused",
   noSubcategory.status,
-  "NEEDS_RULES",
+  "NEEDS_USER_INPUT",
 );
 check(
   "The refusal explains that the category decides the rate",
@@ -613,7 +613,7 @@ check(
 const zeroIncome = estimate([
   { route: "services", income: 0, subcategory: "1b-service-it-ites" },
 ]);
-check("A route with no income is refused", zeroIncome.status, "NEEDS_RULES");
+check("A route with no income is refused", zeroIncome.status, "NEEDS_USER_INPUT");
 
 // ---------------------------------------------------------------------------
 // 5 — two categories under one route stay separate
@@ -881,7 +881,7 @@ const proportionalAttempt = estimate([
 check(
   "Pricing the proportional row is refused",
   proportionalAttempt.status,
-  "NEEDS_RULES",
+  "NEEDS_USER_INPUT",
 );
 check(
   "The whole dividend is not priced at a single rate instead",
@@ -930,7 +930,7 @@ const proportionalMismatch = estimate([
 check(
   "A split that does not add up is refused",
   proportionalMismatch.status,
-  "NEEDS_RULES",
+  "NEEDS_USER_INPUT",
 );
 check(
   "The refusal names the mismatch",
@@ -1016,7 +1016,7 @@ const unknownType = estimate([
 check(
   "Unconfirmed handset type at $25 is refused",
   unknownType.status,
-  "NEEDS_RULES",
+  "NEEDS_USER_INPUT",
 );
 check(
   "The refusal asks the smartphone question",
@@ -1047,7 +1047,7 @@ check("CKD at $25 pays nothing", cheapCkdNoFlag.collectionTaxDue, 0);
 const noUsd = estimate([
   { route: "imports", income: 0, subcategory: "mobile-pct-8517-1219" },
 ]);
-check("Mobile without a C&F value is refused", noUsd.status, "NEEDS_RULES");
+check("Mobile without a C&F value is refused", noUsd.status, "NEEDS_USER_INPUT");
 check(
   "The refusal names the missing value",
   noUsd.note.includes("C&F value in USD"),
@@ -1105,7 +1105,7 @@ const wrongBandLow = estimate([
 check(
   "A Sukuk return above the band cannot use the below-1m row",
   wrongBandLow.status,
-  "NEEDS_RULES",
+  "NEEDS_USER_INPUT",
 );
 check(
   "The refusal points at the correct band",
@@ -1123,7 +1123,7 @@ const wrongBandHigh = estimate([
 check(
   "A Sukuk return below the band cannot use the above-1m row",
   wrongBandHigh.status,
-  "NEEDS_RULES",
+  "NEEDS_USER_INPUT",
 );
 check(
   "The refusal points at the other band",
@@ -1143,7 +1143,7 @@ for (const subcategory of [
   check(
     `Exactly 1m is refused for ${subcategory}`,
     atBoundary.status,
-    "NEEDS_RULES",
+    "NEEDS_USER_INPUT",
   );
 }
 

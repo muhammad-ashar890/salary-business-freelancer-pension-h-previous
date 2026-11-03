@@ -149,7 +149,7 @@ const pensionUnknownAge = pensionEstimate(15_000_000);
 check(
   "Pension above 10m without confirmed age needs rules",
   pensionUnknownAge.status,
-  "NEEDS_RULES",
+  "NEEDS_USER_INPUT",
 );
 check(
   "Pension above 10m without confirmed age has no tax figure",
@@ -362,7 +362,7 @@ const emptyBankProfit = bankProfitEstimate(0);
 check(
   "Bank profit route with no income needs rules",
   emptyBankProfit.status,
-  "NEEDS_RULES",
+  "NEEDS_USER_INPUT",
 );
 
 // Every successful estimate must cite the catalog rows it used.
@@ -490,7 +490,7 @@ const pensionSeventyPlus = pensionEstimate(15_000_000, {
 check(
   "Pension 15m for a 70-year-old needs rules",
   pensionSeventyPlus.status,
-  "NEEDS_RULES",
+  "NEEDS_USER_INPUT",
 );
 check(
   "Pension 70-or-above explains why",
@@ -1053,7 +1053,7 @@ const zeroIncomeRoute = multiEstimate([
 check(
   "A route with no income stops the estimate",
   zeroIncomeRoute.status,
-  "NEEDS_RULES",
+  "NEEDS_USER_INPUT",
 );
 check(
   "The message names the empty route",
