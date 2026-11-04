@@ -1,0 +1,4 @@
+﻿electron-connect/iris-bank-cross-section-guard.js
+electron-connect/iris-wealth-driver.js
+scripts/verify-bank-cross-section.cjs
+scripts/verify-bank-iban-add.cjs

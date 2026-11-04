@@ -9,7 +9,7 @@ async function run({personal=fixture('personal.html'),business=fixture('business
 const removeChild=(html,code)=>html.replace(new RegExp(`<div(?=[^>]*\\bid=["']${code}["'])[^>]*>(?:(?!<div class="row).)*PK36SCBL0000001123456702[\\s\\S]*`, 'i'),'');
 test('actual sanitized IRIS captures: same IBAN in 7030 and 3320 blocks either direction',async()=>{for(const options of [{personalIbans:[iban]},{businessIbans:[iban]}]){const r=await run(options);assert.equal(r.ok,false,JSON.stringify(r));assert.match(r.reason,/opposite IRIS section/i)}});
 test('unrelated account is permitted only after both stable, recognizable sections are read',async()=>{const r=await run({personalIbans:[other]});assert.equal(r.ok,true,JSON.stringify(r));});
-test('missing or unready sections, unexpected dialogs and wrong IBAN hold closed',async()=>{for(const opts of [{personal:''},{personal:fixture('personal.html').replaceAll('id="7030"','id="not7030"')},{business:''},{navigateOk:false},{personalIbans:['not-an-iban']},{business:'<mat-dialog-container role="dialog"><h6>Open</h6></mat-dialog-container>'+fixture('business.html')}]){const r=await run({personalIbans:[other],...opts});assert.equal(r.ok,false,JSON.stringify(r));}});
+test('missing or unready sections, unexpected dialogs and wrong IBAN hold closed',async()=>{for(const opts of [{personal:''},{business:''},{navigateOk:false},{personalIbans:['not-an-iban']},{business:'<mat-dialog-container role="dialog"><h6>Open</h6></mat-dialog-container>'+fixture('business.html')}]){const r=await run({personalIbans:[other],...opts});assert.equal(r.ok,false,JSON.stringify(r));}});
 test('conflicting packet destinations and unreadable rows are held',async()=>{for(const opts of [{personalIbans:[iban],businessIbans:[iban]},{personalIbans:[iban,iban]},{personalIbans:[other],business:fixture('business.html').replace(iban,'MISSING-IBAN')}]){const r=await run(opts);assert.equal(r.ok,false,JSON.stringify(r));}});
 test('no planned bank writes requires no navigation',async()=>{const r=await guard.checkBankCrossSection({windowInstance:null,navigate:()=>{throw Error('unexpected')},personalIbans:[],businessIbans:[]});assert.equal(r.ok,true)});
 test('business-entry-v9 requires the updated guarded desktop and guard ships in agent package',()=>{const main=fs.readFileSync(path.join(__dirname,'../electron-connect/main.js'),'utf8'),p=JSON.parse(fs.readFileSync(path.join(__dirname,'../electron-connect/package.json')));assert.ok(main.includes('checkBankCrossSection'));assert.ok(main.includes('business-entry-v9'));assert.ok(p.build.files.includes('iris-bank-cross-section-guard.js'));});
@@ -25,10 +25,31 @@ test('actual desktop autofill entry point holds BEFORE any write for both cross-
  }
 });
 
-test('empty 7030 summary only passes with positive Angular stability and no visible loader',async()=>{
- const empty=fixture('personal.html').replace(/id="7030"/g,'id="not7030"');
- assert.equal((await run({personal:empty,businessIbans:[other]})).ok,false);
- assert.equal((await run({personal:empty,businessIbans:[other],angularStable:false})).ok,false);
- const stable=await run({personal:empty,businessIbans:[other],angularStable:true});assert.equal(stable.ok,true,JSON.stringify(stable));
- assert.equal((await run({personal:empty+'<div class="loading-overlay">loading</div>',businessIbans:[other],angularStable:true})).ok,false);
+// A fresh TY2026 return has NO 7030 row at all, and the business Balance Sheet
+// may be briefly empty right after a section switch. Both are legitimate, but
+// only when the tab is demonstrably settled. The 2026-11-03 live captures showed
+// the old single getAllAngularTestabilities() probe holding a normal return.
+test('empty bank sections pass only with positive settle evidence',async()=>{
+ const emptyPersonal=fixture('personal.html').replace(/id="7030"/g,'id="not7030"');
+ const anchor=(id,label)=>`<div class="row v-padding-5 tableRows dataRow" id="${id}"><span class="row-description-text">${label}</span><input disabled></div>`;
+ const emptyBusiness=anchor('3349','Total Assets')+anchor('3399','Total Equity / Liabilities');
+ // DOM fallback: production IRIS builds do not always expose the Angular API.
+ const fallback=await run({personal:emptyPersonal,businessIbans:[other]});assert.equal(fallback.ok,true,JSON.stringify(fallback));
+ // Positive Angular stability still passes.
+ const stable=await run({personal:emptyPersonal,businessIbans:[other],angularStable:true});assert.equal(stable.ok,true,JSON.stringify(stable));
+ // IRIS 2.0 keeps NgZone unstable FOREVER (polling timers). Live 2026-11-03
+ // evidence: 6/6 probes angular=unstable but readyState=complete, busy=false,
+ // dialogs=0, paintedRows=23, status=ok. Repeated IDENTICAL DOM evidence is
+ // therefore accepted; a still-changing DOM, a loader or an unpainted page hold.
+ const unstableSettled=await run({personal:emptyPersonal,businessIbans:[other],angularStable:false});
+ assert.equal(unstableSettled.ok,true,JSON.stringify(unstableSettled));
+ const changing=await run({personal:emptyPersonal,businessIbans:[other],angularStable:false,
+  mutate:page=>page.evaluate(()=>{const d=document.createElement('div');d.className='tableRows dataRow';d.id='probe-'+Math.random().toString(36).slice(2);document.body.appendChild(d);})});
+ assert.equal(changing.ok,false,JSON.stringify(changing));
+ assert.equal((await run({personal:emptyPersonal+'<div class="loading-overlay">loading</div>',businessIbans:[other],angularStable:true})).ok,false);
+ assert.equal((await run({personal:'',businessIbans:[other]})).ok,false);
+ // The same evidence is required before accepting an empty 3320 section.
+ const bsFallback=await run({business:emptyBusiness,personalIbans:[other]});assert.equal(bsFallback.ok,true,JSON.stringify(bsFallback));
+ const bsUnstable=await run({business:emptyBusiness,personalIbans:[other],angularStable:false});assert.equal(bsUnstable.ok,true,JSON.stringify(bsUnstable));
+ assert.equal((await run({business:'',personalIbans:[other]})).ok,false);
 });

@@ -308,7 +308,22 @@ function wealthPageOp(step) {
       if (!box) {
         outcome[label] = "checkbox_not_found";
       } else if (box.disabled) {
-        outcome[label] = box.checked ? "already_present" : "disabled";
+        // IRIS 2.0 (captured 2026-11-03) renders an already-selected, disabled
+        // checkbox with the state in Angular Material classes. The native
+        // `checked` property can be absent in a serialized/re-painted view, so
+        // read both signals before calling it "disabled": treating an account
+        // that is already present as a failure would make the driver abandon
+        // the dialog instead of reusing the row IRIS holds.
+        const checked =
+          box.checked ||
+          box.classList.contains("mdc-checkbox--selected") ||
+          Boolean(
+            box.closest("mat-checkbox") &&
+              box
+                .closest("mat-checkbox")
+                .classList.contains("mat-mdc-checkbox-checked"),
+          );
+        outcome[label] = checked ? "already_present" : "disabled";
       } else if (box.checked) {
         outcome[label] = "already_checked";
       } else {
@@ -331,6 +346,17 @@ function wealthPageOp(step) {
     if (step.field !== "iban" && !selector)
       return { status: "unsupported_field" };
     let el = selector ? dialog.querySelector(selector) : null;
+    if (step.field === "iban" && !el) {
+      // IRIS 2.0 labels this box "IBAN/Mobile Wallet No. *". Try the exact
+      // shapes we have captured first; the label scan below stays as a fallback
+      // for older/other IRIS builds.
+      el =
+        (CFG.ibanPlaceholders || [])
+          .map((placeholder) =>
+            dialog.querySelector(`input[placeholder="${placeholder}"]`),
+          )
+          .find(Boolean) || null;
+    }
     if (step.field === "iban" && !el) {
       // IRIS does not always paint placeholder="IBAN": the label may live on the
       // mat-label, the formcontrolname or the aria-label instead. Look for the
@@ -386,13 +412,51 @@ function wealthPageOp(step) {
       const el = dialog.querySelector(selector);
       return el ? String(el.value || "") : "";
     };
+    // IRIS sometimes paints these as Material LABELS with no placeholder at all
+    // (30-Oct-2026 live evidence). Fall back to the field's own label text.
+    const labelledValue = (pattern) => {
+      const fieldText = (el) => {
+        const holder =
+          el.closest(".mat-mdc-form-field") ||
+          el.closest("mat-form-field") ||
+          el.parentElement;
+        return [
+          el.getAttribute("placeholder"),
+          el.getAttribute("formcontrolname"),
+          el.getAttribute("aria-label"),
+          el.getAttribute("name"),
+          holder ? holder.textContent : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+      };
+      const el = Array.from(
+        dialog.querySelectorAll(
+          'input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), textarea',
+        ),
+      ).find((input) => pattern.test(fieldText(input)));
+      return el ? String(el.value || "") : "";
+    };
+    const searchButtons = Array.from(
+      dialog.querySelectorAll(".mat-mdc-form-field-icon-suffix button"),
+    ).filter((button) => /search/i.test(button.textContent));
     return {
       status: "ok",
       addEnabled: addEnabled(dialog),
       saveEnabled: saveEnabled(dialog),
-      accountTitle: valueOf('input[placeholder="Account Title"]'),
-      bankName: valueOf('input[placeholder="Bank Name"]'),
-      iban: valueOf('input[placeholder="IBAN"]'),
+      // IRIS paints the search icon only AFTER the IBAN has a value. Read-only
+      // evidence so the driver can WAIT for it and then click exactly once.
+      searchReady: searchButtons.length === 1 && !searchButtons[0].disabled,
+      accountTitle:
+        valueOf('input[placeholder="Account Title"]') ||
+        labelledValue(/account\s*title/i),
+      bankName:
+        valueOf('input[placeholder="Bank Name"]') ||
+        labelledValue(/bank\s*name/i),
+      iban:
+        valueOf('input[placeholder="IBAN"]') ||
+        valueOf('input[placeholder="IBAN/Mobile Wallet No. *"]') ||
+        labelledValue(/iban/i),
       description: valueOf('textarea[formcontrolname="description"]'),
       donorId: valueOf('input[formcontrolname="idNumber"]'),
       donorName: valueOf('input[formcontrolname="name"]'),
@@ -422,6 +486,9 @@ const PAGE_CFG = Object.freeze({
   rowSelector: ".tableRows.dataRow[id]",
   cellSelector: ".data-middle-child-wapper",
   descriptionSelector: ".row-description-text",
+  // Verified 2026-11-03 on the live IRIS 2.0 Wealth "Bank Account" modal:
+  // the IBAN box is placeholder="IBAN/Mobile Wallet No. *", not "IBAN".
+  ibanPlaceholders: ["IBAN", "IBAN/Mobile Wallet No. *"],
 });
 
 /** Refuses anything outside the documented click surface BEFORE it reaches the page. */
@@ -686,8 +753,8 @@ async function runWealthDriver(windowInstance, fields, options = {}) {
     const script = buildPageScript(step);
     return windowInstance.webContents.executeJavaScript(script);
   };
-  const waitFor = async (producer, accept) => {
-    const deadline = Date.now() + timeoutMs;
+  const waitForMs = async (producer, accept, budgetMs) => {
+    const deadline = Date.now() + budgetMs;
     let last;
     do {
       last = await producer();
@@ -696,6 +763,7 @@ async function runWealthDriver(windowInstance, fields, options = {}) {
     } while (Date.now() < deadline);
     return { ok: false, value: last };
   };
+  const waitFor = (producer, accept) => waitForMs(producer, accept, timeoutMs);
   const failAll = (group, status, setupStatus, extra = {}) => {
     for (const field of group)
       results.push({ ...field, status, setupStatus, ...extra });
@@ -1521,23 +1589,55 @@ async function runWealthDriver(windowInstance, fields, options = {}) {
       await abandon(DIALOG_TITLES.bank, "CLOSE");
       return `bank_iban_${set.status}`;
     }
-    const searched = await run({
-      op: "dialog_search",
-      title: DIALOG_TITLES.bank,
-    });
-    if (searched.status !== "clicked") {
-      await abandon(DIALOG_TITLES.bank, "CLOSE");
-      return `bank_search_${searched.status}`;
+    // IRIS paints the search icon only after Angular has seen the typed IBAN
+    // (captured 2026-11-03: 0 buttons in the empty dialog, 1 after typing).
+    // Wait on a READ-ONLY state probe, then click once. A dispatched click is
+    // never retried blindly: every retry re-reads the dialog state first.
+    const searchAttempts = 3;
+    const resolveMs = Math.max(timeoutMs, 20_000);
+    let resolved = { ok: false, value: null };
+    for (let attempt = 1; attempt <= searchAttempts && !resolved.ok; attempt++) {
+      const searchReady = await waitFor(
+        () => run({ op: "dialog_state", title: DIALOG_TITLES.bank }),
+        (state) => state.status === "ok" && state.searchReady === true,
+      );
+      if (!searchReady.ok) {
+        note(
+          "bank_search_button_missing",
+          "The Bank Account dialog opened and the IBAN was typed, but the Search button never became available; the dialog was closed and nothing was added.",
+        );
+        await abandon(DIALOG_TITLES.bank, "CLOSE");
+        return "bank_search_button_not_found";
+      }
+      const searched = await run({
+        op: "dialog_search",
+        title: DIALOG_TITLES.bank,
+      });
+      if (searched.status !== "clicked") {
+        await abandon(DIALOG_TITLES.bank, "CLOSE");
+        return `bank_search_${searched.status}`;
+      }
+      // FBR's IBAN lookup can be slower than the normal 8s UI budget, and IRIS
+      // sometimes paints Account Title / Bank Name as Material labels with no
+      // placeholder. The portal's own ADD state is the strongest signal.
+      resolved = await waitForMs(
+        () => run({ op: "dialog_state", title: DIALOG_TITLES.bank }),
+        (state) =>
+          state.status === "ok" &&
+          Boolean(state.accountTitle || state.bankName || state.addEnabled),
+        resolveMs,
+      );
+      if (!resolved.ok && attempt < searchAttempts) {
+        note(
+          "bank_lookup_retry",
+          `IBAN ${iban} lookup attempt ${attempt} of ${searchAttempts} has not resolved yet; the Search button will be pressed once more.`,
+        );
+      }
     }
-    const resolved = await waitFor(
-      () => run({ op: "dialog_state", title: DIALOG_TITLES.bank }),
-      (state) =>
-        state.status === "ok" && state.accountTitle && state.addEnabled,
-    );
     if (!resolved.ok) {
       note(
         "bank_iban_unresolved",
-        `IRIS did not return an account title for IBAN ${iban}; dialog closed, nothing added. Check the IBAN against the bank statement.`,
+        `IRIS did not enable ADD for IBAN ${iban} after ${searchAttempts} searches; dialog closed, nothing added. Check the IBAN against the bank statement.`,
       );
       await abandon(DIALOG_TITLES.bank, "CLOSE");
       return "bank_iban_not_resolved";
@@ -1561,7 +1661,7 @@ async function runWealthDriver(windowInstance, fields, options = {}) {
     if (!appeared.ok) return "bank_row_not_created";
     note(
       "bank_added",
-      `Added bank account ${iban} (${resolved.value.accountTitle}).`,
+      `Added bank account ${iban} (${resolved.value.accountTitle || resolved.value.bankName || "IRIS-resolved account"}).`,
     );
     return null;
   }

@@ -220,3 +220,57 @@ test("the pause message carries the same instruction", () => {
   assert.match(text, /press Continue/i);
   assert.doesNotMatch(text, /IRIS did not let the agent add this row/i);
 });
+
+// ── 4. IRIS 2.0 live captures, 2026-11-03 ─────────────────────────────────
+// The real "Bank Account" modal labels the box
+// placeholder="IBAN/Mobile Wallet No. *" and paints the Search icon only AFTER
+// the IBAN has a value. The driver must type into that box, WAIT on a read-only
+// state probe, and only then click Search once.
+test("IRIS 2.0 placeholder IBAN/Mobile Wallet No. * is typed correctly", () => {
+  const window = bankDialog('placeholder="IBAN/Mobile Wallet No. *"');
+  const out = typeIban(window);
+  assert.equal(out.status, "set", JSON.stringify(out));
+  assert.equal(out.readback, IBAN);
+});
+
+test("dialog_state reports searchReady and reads the IRIS 2.0 IBAN value", () => {
+  const stateOf = (window) =>
+    window.eval(
+      driver.buildPageScript({ op: "dialog_state", title: BANK_TITLE }),
+    );
+  const before = bankDialog('placeholder="IBAN/Mobile Wallet No. *"');
+  assert.equal(stateOf(before).searchReady, false);
+
+  const after = bankDialog(
+    'placeholder="IBAN/Mobile Wallet No. *"',
+    '<div class="mat-mdc-form-field-icon-suffix"><button>search</button></div>',
+  );
+  assert.equal(stateOf(after).searchReady, true);
+  after.document.querySelector(
+    'input[placeholder="IBAN/Mobile Wallet No. *"]',
+  ).value = IBAN;
+  assert.equal(stateOf(after).iban, IBAN);
+});
+
+test("the driver waits for the Search button and gates each retry on dialog state", () => {
+  const src = fs.readFileSync(
+    path.join(root, "electron-connect/iris-wealth-driver.js"),
+    "utf8",
+  );
+  const waitIdx = src.indexOf("const searchReady = await waitFor(");
+  const clickIdx = src.indexOf("const searched = await run({", waitIdx);
+  assert.ok(waitIdx > 0, "the read-only wait for the Search button is missing");
+  assert.ok(clickIdx > waitIdx, "the Search click must come after the wait");
+  const between = src.slice(waitIdx, clickIdx);
+  assert.match(between, /searchReady === true/);
+  assert.match(between, /bank_search_button_not_found/);
+  assert.match(between, /abandon\(DIALOG_TITLES\.bank, "CLOSE"\)/);
+  // Bounded, state-gated retries (never a blind repeat of a click), a longer
+  // budget for FBR's lookup, and the portal's own ADD state as proof.
+  assert.match(src, /const searchAttempts = 3;/);
+  assert.match(src, /const resolveMs = Math\.max\(timeoutMs, 20_000\);/);
+  assert.match(
+    src,
+    /Boolean\(state\.accountTitle \|\| state\.bankName \|\| state\.addEnabled\)/,
+  );
+});
