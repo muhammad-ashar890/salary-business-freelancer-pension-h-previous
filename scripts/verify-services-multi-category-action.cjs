@@ -224,7 +224,7 @@ test("an unmatched Services bank credit stops calculation rather than being omit
     invoices: [invoiceForReceipt(serviceLedger[0], "1b-service-it-ites")],
   });
   assert.equal(output.success, true, JSON.stringify(output));
-  assert.equal(output.result.status, "NEEDS_RULES");
+  assert.equal(output.result.status, "NEEDS_USER_INPUT");
   assert.equal(output.result.taxableIncome, null);
   assert.match(output.result.note, /allocated exactly once/);
   assert.equal(output.result.breakdown.length, 0);
@@ -256,7 +256,7 @@ test("a one-paisa bank-credit mismatch blocks the entire Services estimate", asy
     ],
   });
   assert.equal(output.success, true, JSON.stringify(output));
-  assert.equal(output.result.status, "NEEDS_RULES");
+  assert.equal(output.result.status, "NEEDS_USER_INPUT");
   assert.match(output.result.note, /bank credit 600000 PKR; allocated 599999\.99 PKR/);
 });
 
@@ -272,7 +272,7 @@ test("duplicate invoice-to-ledger links cannot double-count a bank credit", asyn
     invoices: [duplicatedInvoice, verifiedInvoices[1]],
   });
   assert.equal(output.success, true, JSON.stringify(output));
-  assert.equal(output.result.status, "NEEDS_RULES");
+  assert.equal(output.result.status, "NEEDS_USER_INPUT");
   assert.match(output.result.note, /duplicate link to the same bank credit/);
 });
 
@@ -283,7 +283,7 @@ test("a stale payout link is rejected when its bank credit leaves the Services l
     invoices: verifiedInvoices,
   });
   assert.equal(output.success, true, JSON.stringify(output));
-  assert.equal(output.result.status, "NEEDS_RULES");
+  assert.equal(output.result.status, "NEEDS_USER_INPUT");
   assert.match(output.result.note, /does not point to a Services bank-ledger credit/);
 });
 
@@ -339,7 +339,7 @@ test("a Services invoice from a document that is no longer mapped blocks calcula
     ],
   });
   assert.equal(output.success, true, JSON.stringify(output));
-  assert.equal(output.result.status, "NEEDS_RULES");
+  assert.equal(output.result.status, "NEEDS_USER_INPUT");
   assert.match(output.result.note, /changed since it was mapped/);
 });
 
@@ -353,9 +353,9 @@ test("Services ledger entries are not silently dropped when Freelancer is not se
   assert.match(output.error, /Freelancer to be selected as an income source/);
 });
 
-test("the merged evidence route stays closed for combined sources and non-Myself filings", async () => {
+test("the merged evidence route stays closed for unsupported combinations and non-Myself filings", async () => {
   for (const input of [
-    { sources: ["services", "salary"], filerType: "myself" },
+    { sources: ["services", "salary", "property_rent"], filerType: "myself" },
     { sources: ["services"], filerType: "my_business" },
   ]) {
     const { output, writes } = await runCalculation({
@@ -365,8 +365,8 @@ test("the merged evidence route stays closed for combined sources and non-Myself
       invoices: verifiedInvoices,
     });
     assert.equal(output.success, true, JSON.stringify(output));
-    assert.equal(output.result.status, "NEEDS_RULES");
-    assert.match(output.result.note, /only income source is Freelancer \/ Services/);
+    assert.equal(output.result.status, "NEEDS_USER_INPUT");
+    assert.match(output.result.note, /Services alone or exactly Salary \+ Services/);
     assert.equal(output.result.breakdown.length, 0);
     assert.equal(
       writes.some((write) => write.model === "filingTaxCalculationLine" && write.method === "createMany"),
@@ -435,6 +435,6 @@ test("non-Services multi-category safeguards remain unchanged", async () => {
     ],
   });
   assert.equal(output.success, true, JSON.stringify(output));
-  assert.equal(output.result.status, "NEEDS_RULES");
+  assert.equal(output.result.status, "NEEDS_USER_INPUT");
   assert.match(output.result.note, /more than one category/);
 });

@@ -154,7 +154,7 @@ test("other Services income and incomplete classification remain visible manual 
   assert.equal(otherServices.businessFields.length, 0);
   assert.equal(otherServices.incomeGaps.length, 1);
   assert.equal(otherServices.incomeGaps[0].totalAmount, 725);
-  assert.match(otherServices.incomeGaps[0].reason, /only evidenced, human-confirmed technical\/professional fees/i);
+  assert.match(otherServices.incomeGaps[0].reason, /PSEB registration and the applicable IRIS treatment/i);
 
   const unconfirmedCategory = build({
     invoice: serviceInvoice({

@@ -2600,24 +2600,25 @@ export function FilingWizard({
   }
 
   function renderDocuments() {
-    const combinedServicesSelection =
-      taxYear === 2026 &&
-      filerType === "myself" &&
+    const unsupportedServicesSelection =
       selectedIncomeSources.includes("services") &&
-      selectedIncomeSources.length > 1;
+      !isSingleFreelancerServicesFiling({
+        taxYear,
+        filerType,
+        incomeSources: selectedIncomeSources,
+      });
     return (
       <div className="space-y-6">
-        {combinedServicesSelection && (
+        {unsupportedServicesSelection && (
           <div
             role="alert"
             className="rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-sm text-amber-950 dark:text-amber-200"
           >
-            <p className="font-semibold">Freelancer / Services evidence is single-source only for now</p>
+            <p className="font-semibold">This Services source combination is not supported yet</p>
             <p className="mt-1 text-xs leading-relaxed">
-              This filing also has another income source, so the new Services
-              invoice-evidence route stays blocked and the invoice summary
-              cannot be mapped yet. Combined-source Services support is
-              deferred; it is not treated as complete.
+              Services may be filed alone or with Salary in this TY2026 Myself
+              route. Other source combinations remain blocked; do not treat
+              their Services evidence as complete.
             </p>
           </div>
         )}

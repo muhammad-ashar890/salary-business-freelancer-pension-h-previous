@@ -369,11 +369,18 @@ async function runCensusTour(windowInstance, options = {}) {
     hosts = navigation.DEFAULT_HOSTS,
     settleTimeoutMs = 8000,
     pollMs = 250,
+    // Optional narrow readback mode. When supplied, visit only these exact
+    // Data-tab views and do not inspect unrelated IRIS sections or top tabs.
+    onlyViews = null,
   } = options;
+  const requestedViews = Array.isArray(onlyViews)
+    ? Array.from(new Set(onlyViews.map((view) => String(view || "").trim()).filter(Boolean)))
+    : null;
   const started = Date.now();
   const tour = {
     label,
     build: BUILD_TAG,
+    requestedViews,
     startedAt: new Date(started).toISOString(),
     views: [],
     complete: false,
@@ -495,6 +502,11 @@ async function runCensusTour(windowInstance, options = {}) {
       state = await run(frame, { op: "read" });
     }
     for (const panel of state.panels || []) {
+      const tabsToVisit = (panel.tabs || []).filter((tab) => {
+        const key = `${panel.label} > ${tab.label}`;
+        return !requestedViews || requestedViews.includes(key);
+      });
+      if (requestedViews && !tabsToVisit.length) continue;
       const opened = await click({ op: "click_panel", label: panel.label });
       if (!["clicked", "already_active"].includes(opened)) {
         tour.views.push({ key: panel.label, kind: "panel", ok: false, reason: `panel_${opened}` });
@@ -506,7 +518,7 @@ async function runCensusTour(windowInstance, options = {}) {
         continue;
       }
       if (opened === "clicked") await delay(300);
-      for (const tab of panel.tabs || []) {
+      for (const tab of tabsToVisit) {
         const status = await click({ op: "click_left", panel: panel.label, label: tab.label });
         if (status === "dialog_open") {
           tour.stoppedReason = "dialog_open";
@@ -518,9 +530,10 @@ async function runCensusTour(windowInstance, options = {}) {
         record(`${panel.label} > ${tab.label}`, "left", { panel: panel.label, tab: tab.label }, settled, status);
       }
     }
-    // 2) Every top tab other than Data.
+    // 2) In scoped mode the caller asked for exact Data views only. The broad
+    // census continues to visit every other top tab as before.
     for (const top of state.topTabs || []) {
-      if (top.label === "Data") continue;
+      if (top.label === "Data" || requestedViews) continue;
       const status = await click({ op: "click_top", label: top.label });
       if (status === "dialog_open") {
         tour.stoppedReason = "dialog_open";
@@ -531,7 +544,16 @@ async function runCensusTour(windowInstance, options = {}) {
         : { ok: false, reason: `top_tab_${status}`, ms: 0, state: null };
       record(`Top: ${top.label}`, "top", { tab: top.label }, settled, status);
     }
-    tour.complete = true;
+    if (requestedViews) {
+      const confirmed = new Set(
+        tour.views.filter((view) => view.ok).map((view) => view.key),
+      );
+      const missing = requestedViews.filter((view) => !confirmed.has(view));
+      tour.complete = missing.length === 0;
+      if (missing.length) tour.stoppedReason = `required_views_not_confirmed: ${missing.join(", ")}`;
+    } else {
+      tour.complete = true;
+    }
   } catch (error) {
     tour.stoppedReason = `aborted: ${error && error.message ? error.message : String(error)}`;
     onStep("census_tour_aborted", `${label}: ${tour.stoppedReason}. Nothing further was clicked.`);
@@ -686,6 +708,10 @@ function compareIrisTotals(detailed, expectations) {
  * Returns one entry per input entry that was typed or found correct:
  *   { key, irisCode, status: "match" | "mismatch" | "not_seen", afterTabValue, view }
  */
+function entryKey(entry) {
+  return String(entry?.key || `${String(entry?.irisCode || "")}|${String(entry?.rowDescriptionIncludes || "")}`);
+}
+
 function compareTypedEntries(tour, entries) {
   const out = [];
   for (const entry of entries || []) {
@@ -715,7 +741,7 @@ function compareTypedEntries(tour, entries) {
     }
     if (hits.length !== 1) {
       out.push({
-        key: entry.key,
+        key: entryKey(entry),
         irisCode: code,
         status: "not_seen",
         detail: hits.length ? "row_not_unique" : "row_not_seen",
@@ -730,12 +756,12 @@ function compareTypedEntries(tour, entries) {
         : -1;
     const cell = index >= 0 ? cells[index] : null;
     if (!cell) {
-      out.push({ key: entry.key, irisCode: code, status: "not_seen", detail: "cell_not_seen", view: hits[0].view });
+      out.push({ key: entryKey(entry), irisCode: code, status: "not_seen", detail: "cell_not_seen", view: hits[0].view });
       continue;
     }
     const seen = digitsOf(cell.value);
     out.push({
-      key: entry.key,
+      key: entryKey(entry),
       irisCode: code,
       status: seen === planned ? "match" : "mismatch",
       afterTabValue: cell.value,
@@ -744,6 +770,20 @@ function compareTypedEntries(tour, entries) {
     });
   }
   return out;
+}
+
+/** Save is eligible only when every entered figure has exactly one matching readback. */
+function allEnteredEntriesReadBack(entries, checks) {
+  const expected = (entries || []).filter(
+    (entry) => ["filled", "already_correct"].includes(entry?.status) && !entry.dryRun,
+  );
+  const actual = Array.isArray(checks) ? checks : [];
+  if (!expected.length || actual.length !== expected.length) return false;
+  const expectedKeys = expected.map(entryKey);
+  const checkKeys = actual.map((check) => String(check.key || ""));
+  if (new Set(checkKeys).size !== checkKeys.length) return false;
+  if (expectedKeys.some((key) => !checkKeys.includes(key))) return false;
+  return actual.every((check) => check.status === "match");
 }
 
 module.exports = {
@@ -758,5 +798,6 @@ module.exports = {
   parseIrisAmount,
   pickTotalColumn,
   compareTypedEntries,
+  allEnteredEntriesReadBack,
   digitsOf,
 };

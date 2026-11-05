@@ -227,7 +227,7 @@ test("save refuses unselected categories and requires every selected category to
 test("save is Freelancer-only and does not alter tax rules or other income sources", async () => {
   const { result, writes } = await runSave({ incomeSources: ["salary"] });
   assert.equal(result.success, false);
-  assert.match(result.error, /only income source is Freelancer \/ Services/);
+  assert.match(result.error, /Services alone or exactly Salary \+ Services/);
   assert.equal(writes.length, 0);
 });
 

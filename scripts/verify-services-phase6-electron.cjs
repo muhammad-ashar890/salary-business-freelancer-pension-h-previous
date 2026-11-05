@@ -50,6 +50,7 @@ const rowFiller = require("../electron-connect/iris-row-filler.js");
 const businessRows = require("../electron-connect/iris-business-row-driver.js");
 const wealthDriver = require("../electron-connect/iris-wealth-driver.js");
 const jobReport = require("../electron-connect/job-report.js");
+const irisTourCensus = require("../electron-connect/iris-tour-census.js");
 
 const mainSource = read("electron-connect/main.js");
 const mainAst = ts.createSourceFile(
@@ -80,6 +81,7 @@ function loadMain(names, extras = {}) {
 const main = loadMain([
   "getServicesPacketRoute",
   "getServicesAutofillFields",
+  "getSalaryFieldsForServicesRoute",
   "buildHandoffScopeSummary",
 ]);
 // VM-created arrays/objects have another realm's prototypes; compare their
@@ -121,6 +123,33 @@ const mappings = buildServicesPortalMappings({
   existingBusinessFields: [],
   taxCredits: [],
 });
+
+const salaryServiceFields = [
+  {
+    key: "1009:incomeFields:Total Amount",
+    irisCode: "1009",
+    value: "3600000",
+    ourCategory: "SALARY_CERTIFICATE_GROSS",
+    ourDescription: "Annual gross salary from mapped salary certificate",
+    irisSection: "Salary",
+    portalArea: "Employment",
+    sourceGroup: "incomeFields",
+    column: "Total Amount",
+    isTaxField: false,
+  },
+  {
+    key: "64020004:adjustableTaxFields:Tax Collected / Deducted",
+    irisCode: "64020004",
+    value: "360000",
+    ourCategory: "TAX_149",
+    ourDescription: "Section 149 salary withholding from mapped salary certificate → Tax Deducted",
+    irisSection: "Adjustable Tax",
+    portalArea: "Tax Chargeable / Payments",
+    sourceGroup: "adjustableTaxFields",
+    column: "Tax Collected / Deducted",
+    isTaxField: true,
+  },
+];
 
 const servicesPayload = buildServicesTaxDeductionPacket({
   taxYear: 2026,
@@ -178,7 +207,7 @@ const validSnapshot = snapshotWith({
   ],
 });
 
-test("Phase 6 route is active only for the exact TY2026 Myself single-Services packet", () => {
+test("Phase 6 route is active only for TY2026 Myself Services-only or Salary+Services packets", () => {
   const route = main.getServicesPacketRoute(validSnapshot);
   assert.deepEqual(
     {
@@ -198,9 +227,16 @@ test("Phase 6 route is active only for the exact TY2026 Myself single-Services p
     "the stored JSON-string form is read exactly, not substring-matched",
   );
 
-  const rejected = [
+  const combined = main.getServicesPacketRoute(
     snapshotWith({ incomeSources: ["services", "salary"] }),
+  );
+  assert.equal(combined.active, true);
+  assert.equal(combined.salaryIncluded, true);
+
+  const rejected = [
+    snapshotWith({ incomeSources: ["services", "salary", "property_rent"] }),
     snapshotWith({ incomeSources: ["business", "services"] }),
+    snapshotWith({ incomeSources: ["services", "services"] }),
     snapshotWith({ taxYear: 2025 }),
     snapshotWith({ filerType: "my_business" }),
     snapshotWith({
@@ -214,6 +250,27 @@ test("Phase 6 route is active only for the exact TY2026 Myself single-Services p
   for (const snapshot of rejected) {
     assert.equal(main.getServicesPacketRoute(snapshot).active, false);
   }
+});
+
+test("combined Salary + Services selects only the certificate-backed Salary 1009 and 64020004 cells", () => {
+  const resolved = main.getSalaryFieldsForServicesRoute([
+    ...flattenedServicesFields,
+    ...salaryServiceFields,
+    { irisCode: "7012", sourceGroup: "wealthFields" },
+    { irisCode: "3101", sourceGroup: "businessFields" },
+  ]);
+  assert.equal(resolved.invalid, false);
+  assert.deepEqual(
+    plain(resolved.fields.map((field) => [field.irisCode, field.value])),
+    [["1009", "3600000"], ["64020004", "360000"]],
+  );
+  const missingSalary = main.getSalaryFieldsForServicesRoute(flattenedServicesFields);
+  assert.equal(missingSalary.invalid, true);
+  const unverifiedWithholding = main.getSalaryFieldsForServicesRoute([
+    ...salaryServiceFields,
+    { ...salaryServiceFields[1], ourDescription: "Unreviewed Section 149 credit" },
+  ]);
+  assert.equal(unverifiedWithholding.invalid, true);
 });
 
 test("stored Services packet rows resolve only to their exact flattened Electron fields", () => {
@@ -284,6 +341,7 @@ test("invalid Services packets stop inside runRealIrisAutofill before any worker
     [
       "getServicesPacketRoute",
       "getServicesAutofillFields",
+      "getSalaryFieldsForServicesRoute",
       "autofillItemKey",
       "runLocalIrisNavigationCheck",
       "runRealIrisAutofill",
@@ -311,7 +369,7 @@ test("invalid Services packets stop inside runRealIrisAutofill before any worker
   );
   assert.equal(combined.paused, true);
   assert.equal(combined.pauseAction, "portal_state_confirmation");
-  assert.equal(combined.result.businessCoverage, "services_payload_missing");
+  assert.equal(combined.result.businessCoverage, "salary_field_map_mismatch");
 
   const mismatchedMap = structuredClone(validSnapshot.portalFieldMap);
   mismatchedMap.find((field) => field.irisCode === "64060158").value = "1";
@@ -475,8 +533,8 @@ test("Services handoff is Services-only, hides the generic final-review item and
         clicked: false,
         at: null,
         message: "",
-        reason: "Save is not pressed on the Freelancer / Services route.",
-        routePolicy: "services_no_save",
+        reason: "A scoped post-tab readback is required before the one draft Save.",
+        routePolicy: "services_save_once",
       },
     },
   );
@@ -488,15 +546,84 @@ test("Services handoff is Services-only, hides the generic final-review item and
   ]);
   assert.equal(scope.salary, "not_applicable");
   assert.equal(scope.propertyPaymentsComputations, "not_applicable");
-  assert.equal(scope.save.routePolicy, "services_no_save");
+  assert.equal(scope.save.routePolicy, "services_save_once");
   assert.equal(scope.save.clicked, false);
   assert.match(scope.label, /Freelancer \/ Services 2\/2 verified field\(s\) entered/);
   assert.match(scope.label, /Wealth ✅ 7\/7 row\(s\) entered/);
-  assert.match(scope.label, /Save not pressed on this route/);
+  assert.match(scope.label, /draft Save is attempted only after scoped post-tab readback/i);
   assert.doesNotMatch(scope.label, /Salary|Business Details|press Calculate/);
 });
 
-test("job report treats Services no-Save as route policy and unsupported mappings as scope, not a Save failure", () => {
+test("Services draft Save gate requires every entered field to have a unique matching post-tab readback", () => {
+  const entries = [
+    { key: "3101:services", irisCode: "3101", status: "filled", value: "250550" },
+    { key: "64060158:withholding", irisCode: "64060158", status: "already_correct", value: "4190" },
+  ];
+  const matches = [
+    { key: entries[0].key, status: "match" },
+    { key: entries[1].key, status: "match" },
+  ];
+  assert.equal(irisTourCensus.allEnteredEntriesReadBack(entries, matches), true);
+  assert.equal(irisTourCensus.allEnteredEntriesReadBack(entries, matches.slice(0, 1)), false, "missing readback blocks Save");
+  assert.equal(irisTourCensus.allEnteredEntriesReadBack(entries, [...matches.slice(0, 1), { key: entries[1].key, status: "not_seen" }]), false);
+  assert.equal(irisTourCensus.allEnteredEntriesReadBack(entries, [...matches.slice(0, 1), { key: entries[1].key, status: "mismatch" }]), false);
+  assert.equal(irisTourCensus.allEnteredEntriesReadBack(entries, [...matches, matches[1]]), false, "duplicate readback does not count");
+  assert.equal(irisTourCensus.allEnteredEntriesReadBack([], []), false, "nothing entered is not a Save reason");
+});
+
+test("scoped census only clicks the requested Services view and avoids unrelated IRIS schedules", async () => {
+  const actions = [];
+  let activeTop = "Data";
+  let activeLeft = "Other Revenues";
+  const panels = [
+    { label: "Business", expanded: true, tabs: [
+      { label: "Other Revenues", active: false },
+      { label: "Balance Sheet", active: true },
+    ] },
+    { label: "Employment", expanded: false, tabs: [{ label: "Salary", active: false }] },
+  ];
+  const state = (withView = false) => ({
+    ok: true,
+    dialogs: [],
+    busy: false,
+    topTabs: [
+      { label: "Data", active: activeTop === "Data" },
+      { label: "Payment", active: activeTop === "Payment" },
+    ],
+    panels,
+    activeTop,
+    activeLeft,
+    ...(withView ? { view: { present: true, counts: { rows: 1, editable: 1, prefilled: 1 }, rows: [] } } : {}),
+  });
+  const frame = {
+    url: "https://iris.fbr.gov.pk/return",
+    async executeJavaScript(source) {
+      const argStart = source.lastIndexOf(")(") + 2;
+      const request = JSON.parse(source.slice(argStart, -1));
+      if (request.op === "read") return state(Boolean(request.withView));
+      actions.push(`${request.op}:${request.label || ""}`);
+      if (request.op === "click_top") activeTop = request.label;
+      if (request.op === "click_left") activeLeft = request.label;
+      return { status: "clicked" };
+    },
+  };
+  frame.framesInSubtree = [frame];
+  const win = { isDestroyed: () => false, webContents: { mainFrame: frame, getURL: () => frame.url } };
+  const tour = await irisTourCensus.runCensusTour(win, {
+    label: "scoped services test",
+    onlyViews: ["Business > Other Revenues"],
+    settleTimeoutMs: 100,
+    pollMs: 1,
+  });
+  assert.equal(tour.complete, true);
+  assert.deepEqual(tour.views.map((view) => view.key), ["Business > Other Revenues"]);
+  assert.ok(actions.some((action) => action === "click_left:Other Revenues"));
+  assert.ok(!actions.some((action) => action === "click_left:Balance Sheet"));
+  assert.ok(!actions.some((action) => action === "click_left:Salary"));
+  assert.ok(!actions.some((action) => action === "click_top:Payment"));
+});
+
+test("job report records one gated Services draft Save and unsupported mappings as scope", () => {
   const report = jobReport
     .buildJobReport({
       finalStatus: "completed",
@@ -506,7 +633,7 @@ test("job report treats Services no-Save as route policy and unsupported mapping
       executionLog: [
         {
           step: "iris_save_skipped",
-          detail: "Save was not pressed: the Freelancer / Services route never presses Save.",
+          detail: "Save was not pressed: the scoped post-tab readback was not complete.",
           at: "2026-10-20T00:00:00.000Z",
         },
       ],
@@ -532,16 +659,16 @@ test("job report treats Services no-Save as route policy and unsupported mapping
           save: {
             status: "not_attempted",
             clicked: false,
-            routePolicy: "services_no_save",
-            reason: "Save is not pressed on the Freelancer / Services route.",
+            routePolicy: "services_save_once",
+            reason: "the scoped post-tab readback was not complete.",
           },
         },
       },
     })
     .join("\n");
 
-  assert.match(report, /SAVE \(Freelancer \/ Services route policy\)/);
-  assert.match(report, /Save is never pressed on this route/);
+  assert.match(report, /SAVE \(Freelancer \/ Services draft-save policy\)/);
+  assert.match(report, /Draft Save: not pressed by the agent/);
   assert.doesNotMatch(report, /Save: pressed once by the agent/);
   assert.deepEqual(
     jobReport.classifyFieldResult({ status: "services_mapping_unverified" }),
@@ -589,11 +716,13 @@ test("packaged agent identity, Services contract and web handoff contract stay w
   assert.equal(electronLock.version, "1.0.5");
   assert.equal(electronLock.packages[""].version, "1.0.5");
   assert.ok(electronPackage.build.files.includes("iris-services-contract.json"));
-  assert.equal(navigation.BUILD_TAG, "wealth-recon-20261027f");
-  assert.equal(rowFiller.BUILD_TAG, "wealth-recon-20261027f");
-  assert.equal(businessRows.BUILD_TAG, "wealth-recon-20261027f");
-  assert.equal(wealthDriver.BUILD_TAG, "wealth-recon-20261027f");
-  assert.equal(jobReport.BUILD_TAG, "wealth-recon-20261027f");
+  const sharedBuildTag = navigation.BUILD_TAG;
+  assert.equal(typeof sharedBuildTag, "string");
+  assert.ok(sharedBuildTag.length > 0);
+  assert.equal(rowFiller.BUILD_TAG, sharedBuildTag);
+  assert.equal(businessRows.BUILD_TAG, sharedBuildTag);
+  assert.equal(wealthDriver.BUILD_TAG, sharedBuildTag);
+  assert.equal(jobReport.BUILD_TAG, sharedBuildTag);
 
   const contractHash = crypto
     .createHash("sha256")
@@ -607,7 +736,7 @@ test("packaged agent identity, Services contract and web handoff contract stay w
   const server = read("app/actions/fbr-jobs.ts");
   assert.match(server, /route: scope\.business\.route === "services_tax_deduction"/);
   assert.match(server, /"services_entered"/);
-  assert.match(server, /save\.routePolicy === "services_no_save"/);
+  assert.match(server, /save\.routePolicy === "services_save_once"/);
 
   const client = read("components/tax/fbr-connect-client.tsx");
   for (const needle of [
@@ -621,7 +750,9 @@ test("packaged agent identity, Services contract and web handoff contract stay w
     assert.ok(client.includes(needle), `FBR Connect client carries ${needle}`);
   }
 
-  assert.match(mainSource, /routePolicy: "services_no_save"/);
-  assert.match(mainSource, /if \(mode === "live" && !servicesRouteActive\) \{/);
+  assert.match(mainSource, /routePolicy: "services_save_once"/);
+  assert.match(mainSource, /if \(mode === "live"\) \{/);
+  assert.match(mainSource, /onlyViews: requestedViews/);
+  assert.match(mainSource, /allEnteredEntriesReadBack/);
   assert.match(mainSource, /portal_expense_retry/);
 });

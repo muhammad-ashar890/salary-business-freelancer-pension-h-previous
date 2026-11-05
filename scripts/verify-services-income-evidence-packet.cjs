@@ -112,7 +112,7 @@ test("a Freelancer/Services snapshot carries a Business payload built from the a
   // combined packets fail closed, and Save remains hard-blocked on this route.
   assert.match(packet, /buildServicesTaxDeductionPacket\(/);
   assert.match(packet, /isSingleFreelancerServicesFiling\(/);
-  assert.match(packet, /business: businessSnapshot/);
+  assert.match(packet, /business: business \? \{ \.\.\.business, version: "business-entry-v9" as const \} : businessSnapshot/);
   const desktopAgent = fs.readFileSync(
     path.join(root, "electron-connect/main.js"),
     "utf8",
@@ -120,7 +120,9 @@ test("a Freelancer/Services snapshot carries a Business payload built from the a
   assert.match(desktopAgent, /snapshot\.business\?\.version === "services-tax-deduction-v1"/);
   assert.match(desktopAgent, /function getServicesPacketRoute\(snapshot\)/);
   assert.match(desktopAgent, /function getServicesAutofillFields\(snapshot, allCoded\)/);
-  assert.match(desktopAgent, /routePolicy: "services_no_save"/);
+  assert.match(desktopAgent, /routePolicy: "services_save_once"/);
+  assert.match(desktopAgent, /onlyViews: requestedViews/);
+  assert.match(desktopAgent, /allEnteredEntriesReadBack/);
   assert.doesNotMatch(desktopAgent, /FBR agent route is not enabled in this agent build yet/);
 });
 
@@ -146,13 +148,23 @@ test("the Services Business payload stays empty rather than guessing at a row", 
   );
   assert.throws(
     () => build({ taxYear: 2025 }),
-    /Myself \/ TY2026 only/,
-    "the verified Services entry route is TY2026 / Myself only",
+    /Services alone or exactly Salary \+ Services/,
+    "the verified Services entry route remains scoped to TY2026 Myself filings",
+  );
+  const salaryServices = build({
+    incomeSources: ["services", "salary"],
+    businessFields: [servicesIncomeRow],
+    withholdingFields: [servicesWithholdingRow],
+  });
+  assert.deepEqual(
+    salaryServices.fields.map((field) => field.irisCode),
+    [servicesIncomeRow.irisCode, servicesWithholdingRow.irisCode],
+    "the exact Salary + Services combination retains only verified Services targets in this payload",
   );
   assert.throws(
-    () => build({ incomeSources: ["services", "salary"], withholdingFields: [servicesWithholdingRow] }),
-    /only income source/,
-    "combined-source Services packets stay deferred and fail closed",
+    () => build({ incomeSources: ["services", "salary", "property_rent"], withholdingFields: [servicesWithholdingRow] }),
+    /Services alone or exactly Salary \+ Services/,
+    "other multi-source combinations remain fail-closed",
   );
   const withholdingOnly = build({ withholdingFields: [servicesWithholdingRow] });
   assert.deepEqual(

@@ -54,7 +54,7 @@ export async function saveServicesIncomeAllocationsAction(
       if (!draft) return invalid("Filing draft not found");
       if (!isSingleFreelancerServicesFiling(draft)) {
         return invalid(
-          "Receipt allocation currently supports a TY2026 Myself filing whose only income source is Freelancer / Services.",
+          "Receipt allocation supports only TY2026 Myself filings with Services alone or exactly Salary + Services.",
         );
       }
 

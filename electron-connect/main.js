@@ -3653,9 +3653,9 @@ function normalizeExplicitResidencyStatus(value) {
 
 /**
  * The merged Services agent route is deliberately exact: a TY2026 Myself
- * packet whose only income source is Freelancer / Services, carrying the
- * Phase 5 services-tax-deduction-v1 payload. Anything else that merely
- * mentions Services fails closed before IRIS is opened.
+ * packet with Services alone or exactly Salary + Services, carrying the
+ * Phase 5 services-tax-deduction-v1 payload. Other combinations fail closed
+ * before IRIS is opened.
  */
 function getServicesPacketRoute(snapshot) {
   const filing = snapshot?.filing || {};
@@ -3672,11 +3672,18 @@ function getServicesPacketRoute(snapshot) {
   }
   const payload = snapshot?.business;
   const selected = incomeSources.includes("services");
+  const uniqueSources = [...new Set(incomeSources)].sort();
+  const servicesOnly =
+    uniqueSources.length === 1 && uniqueSources[0] === "services";
+  const salaryAndServices =
+    uniqueSources.length === 2 &&
+    uniqueSources[0] === "salary" &&
+    uniqueSources[1] === "services";
   const exact =
     Number(filing.taxYear) === 2026 &&
     filing.filerType === "myself" &&
-    incomeSources.length === 1 &&
-    incomeSources[0] === "services";
+    incomeSources.length === uniqueSources.length &&
+    (servicesOnly || salaryAndServices);
   const payloadValid =
     payload?.version === "services-tax-deduction-v1" &&
     payload?.route === "services_tax_deduction" &&
@@ -3687,6 +3694,7 @@ function getServicesPacketRoute(snapshot) {
   return {
     incomeSources,
     selected,
+    salaryIncluded: salaryAndServices,
     exact,
     payloadValid,
     active: exact && payloadValid,
@@ -3785,6 +3793,45 @@ function getServicesAutofillFields(snapshot, allCoded) {
   return { fields, unmatched, ambiguous };
 }
 
+/**
+ * Salary allowlist for the combined Salary + Services route. It deliberately
+ * includes only the certificate-backed annual gross salary row and its
+ * certificate-backed Section 149 withholding cell. Other salary rows/credits
+ * are not guessed into this narrow handoff.
+ */
+function getSalaryFieldsForServicesRoute(allCoded) {
+  const fields = Array.isArray(allCoded) ? allCoded : [];
+  const salaryRows = fields.filter((field) =>
+    ["1009", "64020004"].includes(String(field?.irisCode || "")),
+  );
+  const grossSalary = salaryRows.filter(
+    (field) =>
+      String(field.irisCode) === "1009" &&
+      field.sourceGroup === "incomeFields" &&
+      field.ourCategory === "SALARY_CERTIFICATE_GROSS" &&
+      String(field.irisSection || field.section || "") === "Salary" &&
+      String(field.portalArea || "") === "Employment",
+  );
+  const salaryWithholding = salaryRows.filter(
+    (field) =>
+      String(field.irisCode) === "64020004" &&
+      field.sourceGroup === "adjustableTaxFields" &&
+      field.ourCategory === "TAX_149" &&
+      String(field.irisSection || field.section || "") === "Adjustable Tax" &&
+      /salary withholding from mapped salary certificate/i.test(
+        String(field.ourDescription || ""),
+      ),
+  );
+  const unsupported = salaryRows.filter(
+    (field) => !grossSalary.includes(field) && !salaryWithholding.includes(field),
+  );
+  return {
+    fields: [...grossSalary, ...salaryWithholding],
+    invalid: grossSalary.length !== 1 || unsupported.length > 0,
+    unsupported,
+  };
+}
+
 async function runLocalIrisNavigationCheck(jobContext, job) {
   assertNavigatorBuild();
   const config = jobContext.taxAutomationConfig || {};
@@ -3797,7 +3844,7 @@ async function runLocalIrisNavigationCheck(jobContext, job) {
     (servicesRoute.selected || snapshot.business?.version === "services-tax-deduction-v1") &&
     !servicesRoute.active
   ) {
-    const message = "This Freelancer / Services packet does not carry a verified exact single-Services Business payload. Regenerate and approve the TY2026 Myself packet with Freelancer / Services as the only income source. The agent will not fall back to Salary or Business; nothing was changed in FBR.";
+    const message = "This Freelancer / Services packet does not carry a verified TY2026 Myself Services payload for Services alone or exactly Salary + Services. Regenerate and approve the packet; the agent will not guess a route or fall back to Business. Nothing was changed in FBR.";
     return { paused: true, pauseAction: "portal_state_confirmation", pauseMessage: message,
       executionLog: [], result: { requiredAction: "portal_state_confirmation", message, submitted: false, businessCoverage: "services_payload_missing" } };
   }
@@ -3807,9 +3854,19 @@ async function runLocalIrisNavigationCheck(jobContext, job) {
       Array.isArray(snapshot.portalFieldMap) ? snapshot.portalFieldMap : [],
     );
     if (servicesFields.unmatched.length || servicesFields.ambiguous.length) {
-      const message = "This Freelancer / Services packet's verified Services rows do not exactly match the flattened FBR field map. Regenerate and approve the packet, then retry. The agent will not guess a target or fall back to Salary or Business; nothing was changed in FBR.";
+      const message = "This Freelancer / Services packet's verified Services rows do not exactly match the flattened FBR field map. Regenerate and approve the packet, then retry. The agent will not guess a target or fall back to another source; nothing was changed in FBR.";
       return { paused: true, pauseAction: "portal_state_confirmation", pauseMessage: message,
         executionLog: [], result: { requiredAction: "portal_state_confirmation", message, submitted: false, businessCoverage: "services_field_map_mismatch" } };
+    }
+    if (servicesRoute.salaryIncluded) {
+      const salaryFields = getSalaryFieldsForServicesRoute(
+        Array.isArray(snapshot.portalFieldMap) ? snapshot.portalFieldMap : [],
+      );
+      if (salaryFields.invalid) {
+        const message = "The combined Salary + Services packet lacks the exact certificate-backed Salary row mapping (1009) or contains an unsupported salary withholding target. Review the Salary Certificate and approved field map; IRIS was not opened.";
+        return { paused: true, pauseAction: "portal_state_confirmation", pauseMessage: message,
+          executionLog: [], result: { requiredAction: "portal_state_confirmation", message, submitted: false, businessCoverage: "salary_field_map_mismatch" } };
+      }
     }
   }
   const windowInstance = await ensureWorkerWindow();
@@ -3830,7 +3887,7 @@ async function runLocalIrisNavigationCheck(jobContext, job) {
   )
     throw new Error("Unverified Freelancer / Services section in approved packet; regenerate it before entry.");
   const salaryRequested = servicesRoute.active
-    ? false
+    ? servicesRoute.salaryIncluded
     : !hasBusiness || incomeSources.includes("salary") || incomeSources.includes("pension");
   const packetFields = Array.isArray(snapshot.portalFieldMap)
     ? snapshot.portalFieldMap
@@ -4307,28 +4364,33 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     servicesRouteActive &&
     (servicesFieldResolution.unmatched.length > 0 ||
       servicesFieldResolution.ambiguous.length > 0);
+  const salaryFieldResolution =
+    servicesRouteActive && servicesRoute.salaryIncluded
+      ? getSalaryFieldsForServicesRoute(allCoded)
+      : { fields: [], invalid: false, unsupported: [] };
+  const salaryFieldMapInvalid =
+    servicesRouteActive && servicesRoute.salaryIncluded && salaryFieldResolution.invalid;
   const servicesPacketInvalid =
     ((servicesRoute.selected || snapshot.business?.version === "services-tax-deduction-v1") &&
       !servicesRouteActive) ||
-    servicesFieldMapInvalid;
-  // Wealth Statement figures travel in the packet, but this build does not enter
-  // them: wealth sections are not toured and the expense rows only exist after a
-  // modal step. Holding them out keeps the Salary handoff from pausing on codes
-  // it was never going to place, and they are reported as prepared-not-entered.
+    servicesFieldMapInvalid ||
+    salaryFieldMapInvalid;
   const wealthPrepared = allCoded.filter(
     (f) => f.sourceGroup === "wealthFields",
   );
-  // Exact single-Services is an allowlist route, not a variant of the generic
-  // Business packet: the versioned payload selects fields, and only its exact
-  // server-flattened counterparts may be filled. Wealth still travels
-  // separately through the Wealth driver.
+  // The Services payload allowlists the exact service-field counterparts. In a
+  // Salary + Services packet, only the separately verified Salary 1009 row and
+  // its certificate-backed 64020004 withholding cell are added; every other
+  // source stays excluded. Wealth travels separately through its driver.
   const coded = servicesPacketInvalid
     ? []
     : servicesRouteActive
-      ? servicesFieldResolution.fields
+      ? [...servicesFieldResolution.fields, ...salaryFieldResolution.fields]
       : allCoded.filter((f) => f.sourceGroup !== "wealthFields");
   const servicesFieldKeys = new Set(
-    servicesRouteActive ? coded.map((field) => autofillItemKey(field)) : [],
+    servicesRouteActive
+      ? servicesFieldResolution.fields.map((field) => autofillItemKey(field))
+      : [],
   );
   const isServicesCodedField = (field) =>
     servicesRouteActive && servicesFieldKeys.has(autofillItemKey(field));
@@ -4346,9 +4408,11 @@ async function runRealIrisAutofill(jobContext, job, mode) {
   };
 
   if (servicesPacketInvalid) {
-    const pauseMessage = servicesFieldMapInvalid
-      ? "This Freelancer / Services packet's verified Services rows do not exactly match the flattened FBR field map. Regenerate and approve the packet, then retry. The agent will not guess a target or fall back to Salary or Business; nothing was changed in FBR."
-      : "This Freelancer / Services packet does not carry a verified exact single-Services Business payload. Regenerate and approve the TY2026 Myself packet with Freelancer / Services as the only income source. The agent will not fall back to Salary or Business; nothing was changed in FBR.";
+    const pauseMessage = salaryFieldMapInvalid
+      ? "The combined Salary + Services packet lacks the exact certificate-backed Salary row mapping (1009) or contains an unsupported salary withholding target. Review the Salary Certificate and approved field map; nothing was changed in FBR."
+      : servicesFieldMapInvalid
+        ? "This Freelancer / Services packet's verified Services rows do not exactly match the flattened FBR field map. Regenerate and approve the packet, then retry. The agent will not guess a target or fall back to another source; nothing was changed in FBR."
+        : "This Freelancer / Services packet does not carry a verified TY2026 Myself Services payload for Services alone or exactly Salary + Services. Regenerate and approve the packet; the agent will not guess a route or fall back to Business. Nothing was changed in FBR.";
     onStep("real_autofill_services_payload_missing", pauseMessage);
     return {
       paused: true,
@@ -4360,9 +4424,11 @@ async function runRealIrisAutofill(jobContext, job, mode) {
         summary: { total: 0, filled: 0, skipped: 0, byStatus: {} },
         results: [],
         message: pauseMessage,
-        businessCoverage: servicesFieldMapInvalid
-          ? "services_field_map_mismatch"
-          : "services_payload_missing",
+        businessCoverage: salaryFieldMapInvalid
+          ? "salary_field_map_mismatch"
+          : servicesFieldMapInvalid
+            ? "services_field_map_mismatch"
+            : "services_payload_missing",
         reviewRequired: true,
       },
     };
@@ -4374,7 +4440,9 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     `Real-portal autofill (${mode === "dry" ? "DRY RUN — no writes" : "LIVE"}): ` +
       `${coded.length} IRIS-coded fields of ${portalFieldMap.length} in packet.` +
       (servicesRouteActive
-        ? " Freelancer / Services route: only Business > Other Revenues, Business > Tax Deduction and Wealth may be used; Save is never pressed."
+        ? servicesRoute.salaryIncluded
+          ? " Salary + Services route: only certificate-backed Salary rows, verified Services Business rows and the separate Wealth driver are allowed; one draft Save is attempted only after scoped post-tab readback."
+          : " Freelancer / Services route: only Business > Other Revenues, Business > Tax Deduction and the separate Wealth driver are allowed; one draft Save is attempted only after scoped post-tab readback."
         : ""),
   );
   if (wealthPrepared.length) {
@@ -4513,9 +4581,10 @@ async function runRealIrisAutofill(jobContext, job, mode) {
   // Employer Details (Employment > Salary). Names only: IRIS fills the
   // registration number when the exact registered name is chosen. Done before
   // the salary figures so an employer card appearing cannot disturb them.
-  const employersPrepared = servicesRouteActive
-    ? []
-    : irisEmployerDriver.planEmployers(snapshot.portalFieldMapDetailed?.employers);
+  const employersPrepared =
+    servicesRouteActive && !servicesRoute.salaryIncluded
+      ? []
+      : irisEmployerDriver.planEmployers(snapshot.portalFieldMapDetailed?.employers);
   const employerConfirmed =
     employersPrepared.length > 0 && hasConfirmedEmployerReview(jobContext);
   const employerEnabled =
@@ -4739,13 +4808,13 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     const passNote = pass > 1 ? " (second pass)" : "";
     const isServicesTaxDeductionGroup =
       servicesRouteActive && group.sectionId === "business_tax_deduction";
-    if (
-      servicesRouteActive &&
-      !["business_other_revenues", "business_tax_deduction"].includes(group.sectionId)
-    ) {
+    const servicesAllowedSections = servicesRoute.salaryIncluded
+      ? ["business_other_revenues", "business_tax_deduction", "salary", "tax_deductions"]
+      : ["business_other_revenues", "business_tax_deduction"];
+    if (servicesRouteActive && !servicesAllowedSections.includes(group.sectionId)) {
       onStep(
         "real_autofill_section_skipped",
-        `${group.sectionId}: outside the Freelancer / Services allowlist; ${group.fields.length} field(s) were left untouched.${passNote}`,
+        `${group.sectionId}: outside the ${servicesRoute.salaryIncluded ? "Salary + Services" : "Freelancer / Services"} allowlist; ${group.fields.length} field(s) were left untouched.${passNote}`,
       );
       return group.fields.map((field) => ({
         ...field,
@@ -5198,8 +5267,21 @@ async function runRealIrisAutofill(jobContext, job, mode) {
       `Second pass: ${recovered} of ${retryKeys.size} figure(s) entered; ${retryKeys.size - recovered} still not entered (listed in the report).`,
     );
   }
-  // Salary-only view, kept for the handoff label before wealth rows are added.
-  const salarySummary = irisRowFiller.summarise(results.filter((entry) => !String(entry.sectionId || "").startsWith("business_")));
+  // Salary handoff summary contains only the exact salary allowlist in a
+  // combined Services route; Services withholding also lives under Tax
+  // Deductions and must not be reported as a Salary figure.
+  const salaryFieldKeys = new Set(
+    servicesRouteActive
+      ? salaryFieldResolution.fields.map((field) => autofillItemKey(field))
+      : [],
+  );
+  const salarySummary = servicesRouteActive
+    ? irisRowFiller.summarise(
+        results.filter((entry) => salaryFieldKeys.has(autofillItemKey(entry))),
+      )
+    : irisRowFiller.summarise(
+        results.filter((entry) => !String(entry.sectionId || "").startsWith("business_")),
+      );
 
 
   // Wealth Statement. Opt-in (TAXROCKET_WEALTH_AUTOFILL). The driver opens the
@@ -5613,9 +5695,116 @@ async function runRealIrisAutofill(jobContext, job, mode) {
   }
   // Phase 1 (fix46), A6. After all typing: walk every tab again (read only)
   // and re-read each typed figure AFTER the tab switches. A figure that did
-  // not stay in IRIS is no longer counted as entered.
+  // not stay in IRIS is no longer counted as entered. Services uses a narrow
+  // allowlisted readback instead of the global census, plus a read-only pass
+  // over any Wealth rows it entered.
   let afterTabChecks = [];
+  let scopedServicesReadback = null;
+  let allAfterTabReadbacksMatch = false;
   let irisTotals = {};
+  const runServicesScopedReadback = async (label) => {
+    const entered = results.filter(
+      (entry) => ["filled", "already_correct"].includes(entry.status) && !entry.dryRun,
+    );
+    const wealthEntries = entered.filter(
+      (entry) => entry.sourceGroup === "wealthFields" || String(entry.sectionId || "").startsWith("wealth"),
+    );
+    const incomeEntries = entered.filter((entry) => !wealthEntries.includes(entry));
+    const checks = [];
+    let wealthComplete = true;
+    if (wealthEntries.length) {
+      try {
+        const fieldsByKey = new Map(wealthPrepared.map((field) => [autofillItemKey(field), field]));
+        const fields = wealthEntries.map((entry) => ({ ...(fieldsByKey.get(autofillItemKey(entry)) || entry) }));
+        const readback = await irisWealthDriver.runWealthDriver(windowInstance, fields, {
+          mode: "dry",
+          navigate: (sectionId) =>
+            irisNavigation.navigateToSection(windowInstance, { sectionId, taxYear, taxpayerIdentifier }),
+          fillRows: (rows, opts) =>
+            irisRowFiller.fillIrisRows(windowInstance, rows, {
+              dryRun: true,
+              sectionVerified: true,
+            }),
+          cashStore: cashBaselineStore.createCashBaselineStore({
+            dir: getAgentLogDir(), taxpayerIdentifier, taxYear, fs, path,
+          }),
+          beforeStep: censusGuard,
+          onStep,
+        });
+        const byKey = new Map(readback.results.map((entry) => [autofillItemKey(entry), entry]));
+        for (const entry of wealthEntries) {
+          const seen = byKey.get(autofillItemKey(entry));
+          checks.push({
+            key: autofillItemKey(entry),
+            irisCode: String(entry.irisCode || ""),
+            status: seen?.status === "already_correct" ? "match" :
+              ["overwrite_needs_confirmation", "readback_mismatch"].includes(seen?.status) ? "mismatch" : "not_seen",
+            expected: entry.readback ?? entry.plannedValue ?? entry.value,
+            afterTabValue: seen?.existingValue ?? seen?.readback ?? null,
+            view: "Wealth Statement",
+          });
+        }
+        wealthComplete = checks.slice(0, wealthEntries.length).every((check) => check.status === "match");
+      } catch (error) {
+        wealthComplete = false;
+        onStep("services_wealth_readback_failed", `Read-only Wealth readback did not finish (${error?.message || error}).`);
+      }
+    }
+    let tour = null;
+    let incomeChecks = [];
+    if (incomeEntries.length) {
+      const profiles = irisNavigation.ALL_SECTION_TOUR || [];
+      const viewFor = (entry) => {
+        if (entry.censusView) return entry.censusView;
+        const profile = profiles.find((candidate) => candidate.id === entry.sectionId);
+        return profile ? `${profile.group} > ${profile.tab}` : null;
+      };
+      const requestedViews = Array.from(new Set(incomeEntries.map(viewFor).filter(Boolean)));
+      const firstSection = incomeEntries.find((entry) => entry.sectionId);
+      if (requestedViews.length && firstSection && typeof irisTourCensus?.runCensusTour === "function") {
+        try {
+          await censusGuard();
+          const moved = await irisNavigation.navigateToSection(windowInstance, {
+            sectionId: firstSection.sectionId,
+            taxYear,
+            taxpayerIdentifier,
+          });
+          if (moved?.ok) {
+            tour = await irisTourCensus.runCensusTour(windowInstance, {
+              label,
+              onlyViews: requestedViews,
+              onStep,
+              beforeStep: censusGuard,
+            });
+            incomeChecks = irisTourCensus.compareTypedEntries(tour, incomeEntries);
+          } else {
+            onStep("services_readback_navigation_failed", `Scoped Services readback could not return to ${firstSection.sectionId} (${moved?.status || moved?.reason || "not confirmed"}).`);
+          }
+        } catch (error) {
+          onStep("services_readback_failed", `Scoped Services readback did not finish (${error?.message || error}).`);
+        }
+      }
+      if (incomeChecks.length !== incomeEntries.length) {
+        const present = new Set(incomeChecks.map((check) => check.key));
+        for (const entry of incomeEntries) {
+          const entryKey = autofillItemKey(entry);
+          if (present.has(entryKey)) continue;
+          incomeChecks.push({ key: entryKey, irisCode: String(entry.irisCode || ""), status: "not_seen", detail: "scoped_readback_incomplete" });
+        }
+      }
+      checks.push(...incomeChecks);
+    }
+    const allChecksPresent = checks.length === entered.length && checks.every((check) => check.status === "match");
+    const complete = Boolean(
+      entered.length && allChecksPresent && (!incomeEntries.length || tour?.complete) && wealthComplete,
+    );
+    return {
+      complete,
+      stoppedReason: complete ? null : tour?.stoppedReason || "one or more entered figures were not read back as an exact match",
+      checks,
+      tour,
+    };
+  };
   if (censusOn && !stopped && mode !== "dry") {
     try {
       censusEnd = await irisTourCensus.runCensusTour(windowInstance, {
@@ -5623,7 +5812,12 @@ async function runRealIrisAutofill(jobContext, job, mode) {
         onStep,
         beforeStep: censusGuard,
       });
-      afterTabChecks = irisTourCensus.compareTypedEntries(censusEnd, results);
+      const entriesBeforeReadback = results.slice();
+      afterTabChecks = irisTourCensus.compareTypedEntries(censusEnd, entriesBeforeReadback);
+      allAfterTabReadbacksMatch = irisTourCensus.allEnteredEntriesReadBack(
+        entriesBeforeReadback,
+        afterTabChecks,
+      );
       if (depreciationOutcome && depreciationPlan?.expectations) {
         depreciationChecks = irisDepreciationDriver.compareDepreciationComputed(
           censusEnd,
@@ -5674,6 +5868,42 @@ async function runRealIrisAutofill(jobContext, job, mode) {
         "census_tour_failed",
         `End census tour did not finish (${error?.message || error}); the readback after tab switch was not done.`,
       );
+    }
+  } else if (servicesRouteActive && !stopped && mode === "live") {
+    const entriesBeforeReadback = results.slice();
+    try {
+      scopedServicesReadback = await runServicesScopedReadback(
+        "Services allowlisted readback after tab switch",
+      );
+      afterTabChecks = scopedServicesReadback.checks || [];
+      allAfterTabReadbacksMatch = irisTourCensus.allEnteredEntriesReadBack(
+        entriesBeforeReadback,
+        afterTabChecks,
+      );
+      const checkByKey = new Map(afterTabChecks.map((check) => [check.key, check]));
+      results = results.map((entry) => {
+        const check = checkByKey.get(autofillItemKey(entry));
+        if (!check) return entry;
+        const next = { ...entry, afterTabReadback: check };
+        if (check.status === "mismatch" && isEntered(entry.status)) {
+          next.statusBeforeTabCheck = entry.status;
+          next.status = irisRowFiller.FILL_STATUS.READBACK_MISMATCH;
+          next.readbackStage = "after_tab_switch";
+        }
+        return next;
+      });
+      const counts = afterTabChecks.reduce((acc, check) => {
+        acc[check.status] = (acc[check.status] || 0) + 1;
+        return acc;
+      }, {});
+      onStep(
+        "services_readback_after_tab_summary",
+        `Scoped Services readback after tab switch: ${counts.match || 0} match, ${counts.mismatch || 0} mismatch, ${counts.not_seen || 0} not seen; only approved Salary / Services / Wealth sections were visited.`,
+      );
+    } catch (error) {
+      scopedServicesReadback = { complete: false, stoppedReason: `readback_failed: ${error?.message || error}`, checks: [] };
+      allAfterTabReadbacksMatch = false;
+      onStep("services_readback_failed", `Scoped Services readback did not complete (${error?.message || error}); Save is blocked.`);
     }
   }
   // Phase 2 (fix47), part 2a: IRIS's computed totals against the totals the
@@ -5846,25 +6076,19 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     ? {
         status: "not_attempted",
         clicked: false,
-        reason: "Save is not pressed on the Freelancer / Services route.",
-        routePolicy: "services_no_save",
+        reason: "A scoped post-tab readback is required before the one draft Save.",
+        routePolicy: "services_save_once",
         message: "",
         at: null,
       }
     : null;
   let censusAfterSave = null;
   let afterSaveChecks = [];
-  if (servicesRouteActive && mode === "live") {
-    onStep(
-      "iris_save_skipped",
-      "Save was not pressed: the Freelancer / Services route never presses Save.",
-    );
-  }
-  if (mode === "live" && !servicesRouteActive) {
+  if (mode === "live") {
     const typedNow = results.filter(
-      (r) => r.status === irisRowFiller.FILL_STATUS.FILLED && !r.dryRun,
+      (r) => (r.status === irisRowFiller.FILL_STATUS.FILLED || r.statusBeforeTabCheck === irisRowFiller.FILL_STATUS.FILLED) && !r.dryRun,
     ).length;
-    const tabMismatches = afterTabChecks.filter((check) => check.status === "mismatch").length;
+    const tabMismatches = afterTabChecks.filter((check) => check.status !== "match").length;
     const autoSaveOff =
       typeof process !== "undefined" &&
       String(process?.env?.TAXROCKET_AUTO_SAVE || "").toLowerCase() === "off";
@@ -5883,22 +6107,33 @@ async function runRealIrisAutofill(jobContext, job, mode) {
           ? "automatic Save is switched off on this computer (TAXROCKET_AUTO_SAVE=off)"
           : typedNow === 0
             ? "nothing new was typed in this run"
-            : !censusEnd || !censusEnd.complete
-              ? "the readback after the tab switch did not complete, so the figures could not be verified"
-              : tabMismatches > 0
-                ? `${tabMismatches} figure(s) did not read back the same after the tab switch`
+            : !(servicesRouteActive ? scopedServicesReadback?.complete : censusEnd?.complete)
+              ? "the scoped readback after the tab switch did not complete, so the figures could not be verified"
+              : !allAfterTabReadbacksMatch || tabMismatches > 0
+                ? `${tabMismatches || 1} figure(s) did not read back the same after the tab switch (a missing or unseen readback also blocks Save)`
                 : null;
     if (blockedBy) {
-      saveOutcome = { status: "not_attempted", clicked: false, reason: blockedBy, message: "", at: null };
+      saveOutcome = {
+        status: "not_attempted",
+        clicked: false,
+        reason: blockedBy,
+        message: "",
+        at: null,
+        ...(servicesRouteActive ? { routePolicy: "services_save_once" } : {}),
+      };
       if (typedNow > 0 || stopped)
         onStep("iris_save_skipped", `Save was not pressed: ${blockedBy}.`);
     } else {
       onStep(
         "iris_save_start",
-        `All ${typedNow} typed figure(s) read back the same after the tab switch; pressing Save once. Submit, Calculate and payment are never pressed.`,
+        `${typedNow} newly typed figure(s) passed the required post-tab readback${servicesRouteActive ? " within the Services route allowlist" : ""}; pressing draft Save once. Submit, Calculate, Prepare PSID and payment are never pressed.`,
       );
       try {
-        saveOutcome = await saveModule.saveReturnDraft(windowInstance, { onStep });
+        const attemptedSave = await saveModule.saveReturnDraft(windowInstance, { onStep });
+        saveOutcome = {
+          ...attemptedSave,
+          ...(servicesRouteActive ? { routePolicy: "services_save_once" } : {}),
+        };
       } catch (error) {
         saveOutcome = {
           status: "not_clicked",
@@ -5906,6 +6141,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
           reason: `save_step_failed: ${error?.message || error}`,
           message: "",
           at: null,
+          ...(servicesRouteActive ? { routePolicy: "services_save_once" } : {}),
         };
       }
       onStep("iris_save_result", saveModule.describeSaveOutcome(saveOutcome));
@@ -5914,12 +6150,23 @@ async function runRealIrisAutofill(jobContext, job, mode) {
       const dialogLeftOpen = Boolean(saveOutcome.dialog && !saveOutcome.dialog.closed);
       if (saveOutcome.clicked && !dialogLeftOpen) {
         try {
-          censusAfterSave = await irisTourCensus.runCensusTour(windowInstance, {
-            label: "after save (readback)",
-            onStep,
-            beforeStep: censusGuard,
-          });
-          afterSaveChecks = irisTourCensus.compareTypedEntries(censusAfterSave, results);
+          if (servicesRouteActive) {
+            const scopedAfterSave = await runServicesScopedReadback(
+              "Services allowlisted readback after Save",
+            );
+            censusAfterSave = {
+              complete: scopedAfterSave.complete,
+              stoppedReason: scopedAfterSave.stoppedReason,
+            };
+            afterSaveChecks = scopedAfterSave.checks || [];
+          } else {
+            censusAfterSave = await irisTourCensus.runCensusTour(windowInstance, {
+              label: "after save (readback)",
+              onStep,
+              beforeStep: censusGuard,
+            });
+            afterSaveChecks = irisTourCensus.compareTypedEntries(censusAfterSave, results);
+          }
         } catch (error) {
           onStep(
             "iris_save_readback_failed",
@@ -5992,8 +6239,8 @@ async function runRealIrisAutofill(jobContext, job, mode) {
   const businessSummary = servicesRouteActive
     ? {
         ...servicesPlaced,
-        total: coded.length,
-        skipped: Math.max(0, coded.length - servicesPlaced.filled),
+        total: servicesFieldResolution.fields.length,
+        skipped: Math.max(0, servicesFieldResolution.fields.length - servicesPlaced.filled),
         mode,
         coverage: "services_tax_deduction_only",
         pending: snapshot.business.pending || [],
@@ -6077,15 +6324,19 @@ async function runRealIrisAutofill(jobContext, job, mode) {
                 : `IRIS answered: "${saveOutcome.message || "no message"}"`
             }. Check the FBR window and press Save yourself once that is resolved.`
           : servicesRouteActive
-            ? " Save was not pressed on this Freelancer / Services route."
+            ? ` Draft Save was not pressed on this Freelancer / Services route (${saveOutcome?.reason || "the scoped readback did not complete"}).`
           : typedThisRun > 0
             ? ` The agent typed ${typedThisRun} figure(s) but did not press Save (${
                 saveOutcome?.reason || "Save was not attempted"
               }): press Save in the FBR window to keep them before closing the return or pressing Retry.`
             : "";
-  const nothingDone = savedByAgent
-    ? "Nothing was submitted, calculated or paid."
-    : "Nothing was saved, submitted, calculated, or paid.";
+  const nothingDone = servicesRouteActive
+    ? savedByAgent
+      ? "Nothing was submitted, calculated, prepared for PSID, or paid."
+      : "Nothing was saved, submitted, calculated, prepared for PSID, or paid."
+    : savedByAgent
+      ? "Nothing was submitted, calculated or paid."
+      : "Nothing was saved, submitted, calculated, or paid.";
   const conflictText = overwriteConflicts.length
     ? ` IRIS already holds a different figure in ${overwriteConflicts
         .map(
@@ -6943,8 +7194,12 @@ function buildHandoffScopeSummary(
     saveState &&
     saveState.clicked &&
     ["saved_confirmed", "saved_no_message", "saved_message_unclassified"].includes(saveState.status)
-      ? " \u00B7 Saved once in FBR by the agent"
-      : "";
+      ? isServicesBusiness
+        ? " · Draft Save pressed once in FBR by the agent"
+        : " \u00B7 Saved once in FBR by the agent"
+      : isServicesBusiness && saveState
+        ? ` · Draft Save not pressed (${saveState.reason || "scoped post-tab readback did not complete"})`
+        : "";
   const business = extras.business ? {
     preparedFields: Number(extras.business.total) || 0,
     filledFields: extras.business.mode === "live" ? Number(extras.business.filled) || 0 : 0,
@@ -6989,7 +7244,7 @@ function buildHandoffScopeSummary(
     readyToSubmit: false,
     nextStep: "taxpayer_reviews_and_submits",
     label: isServicesBusiness
-      ? `${salaryText} \u00B7 ${wealthText} \u00B7 Save not pressed on this route`
+      ? `${salaryText} · ${wealthText}${savedLabel} · draft Save is attempted only after scoped post-tab readback`
       : `${extras.businessDetails?.required ? `Business Details ${extras.businessDetails.verified ? "saved-row verified" : "NOT verified"} · ` : ""}${business ? `Business ${business.filledFields}/${business.preparedFields} verified fields entered; remaining schedules manual · ` : ""}${salaryText} \u00B7 ${wealthText}${employerText}${
       extras.reviewConfirmed
         ? " \u00B7 Property, Payments and Computations reviewed by the taxpayer"
@@ -7009,10 +7264,10 @@ function mergeNavigationAutofillOutcome(navigation, autofill, autofillMode) {
   const identityPending = Boolean(autofillMode === "live" && businessDetails?.required && !businessDetails.verified);
   const reviewRequired = Boolean(autofill?.paused || skipped > 0 || identityPending);
   const save = autofill?.result?.save;
-  const saveFact = save?.routePolicy === "services_no_save"
-    ? "Save was not pressed (Freelancer / Services route). Submit, Calculate and payment were not pressed."
+  const saveFact = save?.routePolicy === "services_save_once" && !save?.clicked
+    ? `Draft Save was not pressed on the Freelancer / Services route (${save.reason || "the scoped readback was not complete"}). Submit, Calculate, Prepare PSID and payment were not pressed.`
     : save?.clicked
-    ? `Save was pressed once${save.message ? ` (IRIS: "${save.message}")` : "; IRIS showed no message, so Draft-list persistence is not confirmed"}. Submit, Calculate and payment were not pressed.`
+    ? `Draft Save was pressed once${save.message ? ` (IRIS: "${save.message}")` : "; IRIS showed no message, so Draft-list persistence is not confirmed"}. Submit, Calculate, Prepare PSID and payment were not pressed.`
     : "The return was not saved, calculated, paid, or submitted.";
   const identityFact = businessDetails?.required
     ? businessDetails.verified ? " Business Details: saved-row readback verified." : " Business Details: NOT verified; numeric-field completion is not whole-data completion."

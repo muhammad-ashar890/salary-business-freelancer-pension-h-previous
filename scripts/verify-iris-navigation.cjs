@@ -288,7 +288,7 @@ function functionSource(name) {
   return found.getText(ast);
 }
 function sandbox(names, extras = {}) {
-  // The exact single-Services gate is shared by the navigation check and the
+  // The exact Services-only / Salary+Services gate is shared by navigation and
   // real autofill entry point; extracted-function sandboxes need the shipped
   // helper itself, never a test-local copy of the route policy.
   if (
@@ -296,7 +296,7 @@ function sandbox(names, extras = {}) {
       names.includes("runRealIrisAutofill")) &&
     !names.includes("getServicesPacketRoute")
   ) {
-    names = [...names, "getServicesPacketRoute", "getServicesAutofillFields"];
+    names = [...names, "getServicesPacketRoute", "getServicesAutofillFields", "getSalaryFieldsForServicesRoute"];
   }
   // Both real-portal flows now read the effective autofill mode through one
   // resolver, so any test that exercises `getRealAutofillMode` must be given the
@@ -348,12 +348,12 @@ function sandbox(names, extras = {}) {
       "checkTakenOverEntry",
     ];
   }
-  // runRealIrisAutofill reads the pension entry hold through the shipped
-  // pension-guard module (a module-scope const in main.js, not an extracted
-  // function), so the sandbox context must be given the real helper too.
-  // The tax-deduction grid map is likewise a frozen module-scope const in
-  // main.js (not an extracted function), so sandboxes need the real map.
-  if (names.includes("runRealIrisAutofill")) {
+  // The autofill and local-navigation functions read these module-scope
+  // dependencies from main.js; extracted-function sandboxes must provide them.
+  const needsAutofillGlobals =
+    names.includes("runRealIrisAutofill") ||
+    names.includes("runLocalIrisNavigationCheck");
+  if (needsAutofillGlobals) {
     if (!("pensionEntryHold" in extras)) {
       extras = {
         ...extras,
@@ -373,6 +373,14 @@ function sandbox(names, extras = {}) {
   // ...and the employer step: the shipped driver is pure for an empty employer
   // list, so it is given as is; the opt-in switch needs a `process` to read.
   const runsAutofill = names.includes("runRealIrisAutofill");
+  if (runsAutofill && extras.irisRowFiller && typeof extras.irisRowFiller.packetPromisedIrisCodes !== "function") {
+    // Older/handwritten filler stubs do not know about this optional packet
+    // coverage helper. Keep those tests focused on their declared behavior.
+    extras = {
+      ...extras,
+      irisRowFiller: { ...extras.irisRowFiller, packetPromisedIrisCodes: () => [] },
+    };
+  }
   if (
     runsAutofill &&
     !names.includes("getEmployerAutofillEnabled") &&
@@ -391,6 +399,7 @@ function sandbox(names, extras = {}) {
     ...(runsAutofill
       ? {
           irisEmployerDriver: require("../electron-connect/iris-employer-driver.js"),
+          wealthReconciliation: require("../electron-connect/wealth-reconciliation-check.js"),
           // The Cash in hand baseline lives in the agent log folder; a test
           // run gets a throw-away one and may override any of these.
           cashBaselineStore: require("../electron-connect/cash-baseline-store.js"),
@@ -4901,8 +4910,29 @@ test('fix47: a figure that reads back differently after the tab switch blocks th
   assert.ok(!(await page.evaluate('actions')).includes('SAVE_BAR'), 'no Save after a mismatch');
   assert.equal(out.result.save.status, 'not_attempted');
   assert.match(out.result.save.reason, /1 figure\(s\) did not read back the same after the tab switch/);
-  assert.match(out.pauseMessage, /did not press Save \(1 figure\(s\) did not read back the same after the tab switch\): press Save in the FBR window/);
+  assert.match(out.pauseMessage, /did not read back the same after the tab switch/);
+  assert.match(out.pauseMessage, /press Save in the FBR window/);
   assert.match(out.pauseMessage, /Nothing was saved, submitted, calculated, or paid\./);
+  assert.ok(out.executionLog.some((e) => e.step === 'iris_save_skipped'));
+ });
+});
+test('fix47: a missing post-tab row also blocks Save (not just a value mismatch)', async () => {
+ await withPage(businessFixture(), async (page, win) => {
+  await activeBalance(page, win);
+  await fix47LowerBar(page);
+  const fields = bsFields().slice(0, 2);
+  const mutate = (tour, label) => {
+   if (label.startsWith('end')) {
+    const code = String(fields[0].irisCode);
+    for (const view of tour.views) view.rows = view.rows.filter((row) => String(row.code) !== code);
+   }
+   return tour;
+  };
+  const out = await recoveryMain([], win, fix47Overrides(page, mutate, { irisSaveDraft: fix47Save }))
+   .runRealIrisAutofill(businessRecoveryPacket(fields), { id: 'synthetic-save-row-not-seen' }, 'live');
+  assert.ok(!(await page.evaluate('actions')).includes('SAVE_BAR'), 'no Save when an entered row is not seen');
+  assert.equal(out.result.save.status, 'not_attempted');
+  assert.match(out.result.save.reason, /did not read back the same after the tab switch/);
   assert.ok(out.executionLog.some((e) => e.step === 'iris_save_skipped'));
  });
 });

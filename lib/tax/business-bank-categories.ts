@@ -43,16 +43,23 @@ function readIncomeSources(value: string | string[] | null | undefined): string[
 }
 
 /**
- * The merged Freelancer route is intentionally enabled only for the exact
- * single-source Services filing. A combined filing that merely includes
- * Services stays on the existing flows until combined-source support is built;
- * this helper must therefore not be weakened to an `includes` check.
+ * Services automation supports exactly two source sets: Services alone, and
+ * Salary + Services. Other combinations remain fail-closed. Compare sets
+ * rather than array order because the prerequisite screen does not promise a
+ * stable order for selected sources.
  */
 export function isFreelancerIncomeSelected(input: {
   incomeSources?: string | string[] | null;
 }) {
   const sources = readIncomeSources(input.incomeSources);
-  return sources.length === 1 && sources[0] === "services";
+  if (new Set(sources).size !== sources.length) return false;
+  const normalized = [...sources].sort();
+  return (
+    (normalized.length === 1 && normalized[0] === "services") ||
+    (normalized.length === 2 &&
+      normalized[0] === "salary" &&
+      normalized[1] === "services")
+  );
 }
 
 /**
@@ -69,7 +76,7 @@ export function isPensionOnlyFiling(input: {
   return sources.length === 1 && sources[0] === "pension";
 }
 
-/** Full server-side activation gate for the first merged Freelancer route. */
+/** Full server-side gate for the supported TY2026 Myself Services routes. */
 export function isSingleFreelancerServicesFiling(input: {
   taxYear?: number;
   filerType?: string | null;
@@ -90,7 +97,7 @@ export function freelancerBankDecisionError(
 ): string | null {
   if (normalizeBankCategory(category) !== "SERVICES") return null;
   if (!freelancerEnabled)
-    return "Freelancer services income is only available for a TY2026 Myself filing whose only income source is Freelancer / Services.";
+    return "Freelancer services income is enabled only for TY2026 Myself filings with either Services alone or exactly Salary + Services; other combinations remain unsupported.";
   if (entryType !== "INCOME")
     return "Choose Income for freelancer services receipts.";
   return null;

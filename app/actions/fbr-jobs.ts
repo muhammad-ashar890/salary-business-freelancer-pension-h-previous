@@ -351,8 +351,8 @@ type HandoffSaveState = {
   at: string | null;
   message: string;
   reason: string;
-  routePolicy: "services_no_save" | null;
-  afterSave: { complete: boolean; match: number; mismatch: number; notSeen: number } | null;
+  routePolicy: "services_save_once" | null;
+  afterSave: { complete: boolean; stoppedReason: string | null; match: number; mismatch: number; notSeen: number } | null;
 };
 
 const finiteOrNull = (value: unknown) =>
@@ -433,10 +433,11 @@ function readHandoffSave(raw: unknown): { save?: HandoffSaveState } {
       at: typeof save.at === "string" ? save.at.slice(0, 40) : null,
       message: String(save.message ?? "").slice(0, 200),
       reason: String(save.reason ?? "").slice(0, 200),
-      routePolicy: save.routePolicy === "services_no_save" ? "services_no_save" : null,
+      routePolicy: save.routePolicy === "services_save_once" ? "services_save_once" : null,
       afterSave: after
         ? {
             complete: after.complete === true,
+            stoppedReason: typeof after.stoppedReason === "string" ? after.stoppedReason.slice(0, 200) : null,
             match: count(after.match),
             mismatch: count(after.mismatch),
             notSeen: count(after.notSeen),

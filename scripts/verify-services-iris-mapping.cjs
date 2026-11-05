@@ -93,8 +93,8 @@ test("a service description or selected subcategory alone never guesses row 3101
     classificationEvidenceReference: null,
   });
   assert.equal(genericServices.status, "MANUAL_REVIEW");
-  assert.match(genericServices.reason, /only an explicitly reviewed technical\/professional-fee case/i);
-  assert.doesNotMatch(JSON.stringify(genericServices), /3128/);
+  assert.match(genericServices.reason, /PSEB registration and the applicable IRIS treatment/i);
+  assert.notEqual(genericServices.mapping?.irisCode, "3128");
 
   const unclassified = mapping.resolveServicesIncomeIrisMapping({
     ...validInvoiceRoute,

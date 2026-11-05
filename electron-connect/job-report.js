@@ -546,8 +546,6 @@ function describeTotalsCheck(autofill) {
 function describeSave(autofill) {
   const save = autofill?.save;
   if (!save) return [];
-  if (save.routePolicy === "services_no_save")
-    return ["  Not pressed: Freelancer / Services route policy — Save is never pressed on this route."];
   if (!save.clicked) return [`  Not pressed: ${save.reason || "not attempted"}.`];
   const lines = [
     `  Pressed at ${save.at || "?"} · result: ${save.status}${save.message ? ` · IRIS said: "${save.message}"` : " · IRIS showed no message"}.`,
@@ -639,8 +637,8 @@ function buildJobReport(input = {}) {
   if (saveLines.length)
     lines.push(
       "",
-      autofill?.save?.routePolicy === "services_no_save"
-        ? "SAVE (Freelancer / Services route policy)"
+      autofill?.save?.routePolicy === "services_save_once"
+        ? "SAVE (Freelancer / Services draft-save policy)"
         : "SAVE (pressed once at the end, only after every typed figure read back the same)",
       ...saveLines,
     );
@@ -663,10 +661,10 @@ function buildJobReport(input = {}) {
     "",
     "NEVER DONE BY THE AGENT",
     "  Calculate: not pressed by the agent. IRIS has an Auto Calculate switch that recalculates when you change tabs; the agent cannot see whether you pressed Calculate yourself.",
-    "  Submit, Prepare PSID, payment: never pressed.",
+    "  Submit, Prepare PSID and payment: never pressed.",
     autofill?.save?.clicked
       ? `  Save: pressed once by the agent at ${autofill.save.at || "the end of the run"} (see SAVE above).`
-      : autofill?.save?.routePolicy === "services_no_save"
+      : autofill?.save?.routePolicy === "services_save_once"
         ? "  Save: not pressed by the agent (Freelancer / Services route policy)."
         : `  Save: not pressed by the agent${autofill?.save?.reason ? ` (${autofill.save.reason})` : ""}.`,
   );

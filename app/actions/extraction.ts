@@ -1581,7 +1581,7 @@ export async function approveAndMapExtractedDocumentAction(documentId: string) {
         return {
           success: false,
           error:
-            "Invoice mapping currently supports a TY2026 Myself filing whose only income source is Freelancer / Services.",
+            "Invoice mapping supports only TY2026 Myself filings with Services alone or exactly Salary + Services.",
         };
       }
       if (!["COMPLETED", "MAPPED"].includes(document.extractionStatus)) {

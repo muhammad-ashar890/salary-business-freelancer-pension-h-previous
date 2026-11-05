@@ -154,10 +154,18 @@ test("summary clears an allocation whose receipt amount changed by even one pais
   assert.match(summary, /moneyEquals\(savedAllocation\.grossAmount, entry\.amount\)/);
 });
 
-test("the merged Services route is exact single-source TY2026 Myself only", async () => {
+test("the merged Services route is exact TY2026 Myself Services-only or Salary+Services", async () => {
   assert.equal(isFreelancerIncomeSelected({ incomeSources: '["services"]' }), true);
   assert.equal(
     isFreelancerIncomeSelected({ incomeSources: '["salary","services"]' }),
+    true,
+  );
+  assert.equal(
+    isFreelancerIncomeSelected({ incomeSources: '["services","salary"]' }),
+    true,
+  );
+  assert.equal(
+    isFreelancerIncomeSelected({ incomeSources: '["salary","services","property_rent"]' }),
     false,
   );
   assert.equal(
@@ -174,6 +182,14 @@ test("the merged Services route is exact single-source TY2026 Myself only", asyn
       filerType: "myself",
       incomeSources: '["salary","services"]',
     }),
+    true,
+  );
+  assert.equal(
+    isSingleFreelancerServicesFiling({
+      taxYear: 2026,
+      filerType: "myself",
+      incomeSources: '["salary","services","property_rent"]',
+    }),
     false,
   );
 
@@ -186,7 +202,7 @@ test("the merged Services route is exact single-source TY2026 Myself only", asyn
     combined.blockers.some((message) =>
       /excluded without a saved review reason/.test(message),
     ),
-    false,
+    true,
   );
 });
 
@@ -228,7 +244,7 @@ test("deterministic bank rules scope Services and never treat refunds as income"
   assert.equal(refund.category, null);
 });
 
-test("invoice extraction creates evidence rows only through the exact single-Services map", () => {
+test("invoice extraction creates evidence rows only through the exact supported Services map", () => {
   const extraction = fs.readFileSync(
     path.join(root, "app/actions/extraction.ts"),
     "utf8",

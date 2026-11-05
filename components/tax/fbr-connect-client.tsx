@@ -110,7 +110,7 @@ type JobView = {
       iris: number | null;
       previousReturnTaxYear: number | null;
     };
-    /** Phase 2 (fix47): the one Save the agent presses at the end of a verified run. */
+    /** Phase 2 (fix47): one draft Save, only after every entered field passes post-tab readback. */
     save?: {
       status: string;
       clicked: boolean;
@@ -118,7 +118,7 @@ type JobView = {
       message: string;
       reason: string;
       routePolicy?: string | null;
-      afterSave: { complete: boolean; match: number; mismatch: number; notSeen: number } | null;
+      afterSave: { complete: boolean; stoppedReason: string | null; match: number; mismatch: number; notSeen: number } | null;
     };
   } | null;
 };
@@ -996,8 +996,7 @@ function HandoffCompleteCard({
     : "You entered these in FBR yourself; the agent could not check some of them.";
   const isServicesRoute =
     scope?.business?.route === "services_tax_deduction" ||
-    scope?.save?.routePolicy === "services_no_save";
-  const servicesNoSave = scope?.save?.routePolicy === "services_no_save";
+    scope?.save?.routePolicy === "services_save_once";
   if (scope?.business) {
     const visibleBusinessPending = (scope.business.pendingItems ?? []).filter(
       (item) => {
@@ -1086,32 +1085,39 @@ function HandoffCompleteCard({
       save.clicked &&
       ["saved_confirmed", "saved_no_message", "saved_message_unclassified"].includes(save.status),
   );
-  if (save && !servicesNoSave) {
+  if (save) {
     const at = save.at ? ` at ${new Date(save.at).toLocaleTimeString()}` : "";
-    const readback = save.afterSave?.complete
-      ? ` Re-read after Save: ${save.afterSave.match} match${save.afterSave.mismatch ? `, ${save.afterSave.mismatch} differ` : ""}.`
+    const saveTitle = savedByAgent ? "Saved in your FBR draft" : "Draft Save not completed";
+    const readback = save.afterSave
+      ? save.afterSave.complete
+        ? ` Re-read after Save: ${save.afterSave.match} match, ${save.afterSave.mismatch} differ, ${save.afterSave.notSeen} not seen.`
+        : ` Re-read after Save could not be completed (${save.afterSave.stoppedReason || "not confirmed"}).`
       : "";
     rows.push(
       save.clicked && save.status === "saved_confirmed"
         ? {
-            title: "Saved in your FBR draft",
+            title: saveTitle,
             detail: `The agent pressed Save once${at}. FBR said: "${save.message}".${readback}`,
-            state: save.afterSave && save.afterSave.mismatch > 0 ? "attention" : "done",
+            state:
+              save.afterSave &&
+              (!save.afterSave.complete || save.afterSave.mismatch > 0 || save.afterSave.notSeen > 0)
+                ? "attention"
+                : "done",
           }
         : savedByAgent
           ? {
-              title: "Saved in your FBR draft",
+              title: saveTitle,
               detail: `The agent pressed Save once${at}. FBR ${save.message ? `said: "${save.message}"` : "showed no message"}. Check that the return is listed under Draft in FBR.${readback}`,
               state: "review",
             }
           : save.clicked
             ? {
-                title: "Saved in your FBR draft",
+                title: saveTitle,
                 detail: `The agent pressed Save, but FBR answered: "${save.message || save.status}". Press Save yourself once that is resolved.`,
                 state: "attention",
               }
             : {
-                title: "Saved in your FBR draft",
+                title: saveTitle,
                 detail: `Not saved by the agent (${save.reason || "not attempted"}). Press Save in FBR to keep the figures.`,
                 state: "attention",
               },
@@ -1258,10 +1264,12 @@ function HandoffCompleteCard({
           The desktop agent finished entering your approved data
           {finishedAt ? ` at ${finishedAt}` : ""}.{" "}
           {isServicesRoute
-            ? "Save, Calculate, payment and Submit were not pressed on this route."
+            ? savedByAgent
+              ? "It pressed the one draft Save only after scoped post-tab verification; Submit, Calculate, Prepare PSID and payment were not pressed."
+              : "Draft Save was not pressed because the scoped post-tab verification was not complete; Submit, Calculate, Prepare PSID and payment were not pressed."
             : savedByAgent
-              ? "It pressed Save once in your FBR draft; it never calculates, pays or submits."
-              : "The agent did not press Save in this run; it never calculates, pays or submits."}{" "}
+              ? "It pressed Save once in your FBR draft; Submit, Calculate, Prepare PSID and payment were not pressed."
+              : "The agent did not press Save in this run; Submit, Calculate, Prepare PSID and payment were not pressed."}{" "}
           {!isServicesRoute &&
             "The final review and the submission are done by you in the FBR window."}
         </p>

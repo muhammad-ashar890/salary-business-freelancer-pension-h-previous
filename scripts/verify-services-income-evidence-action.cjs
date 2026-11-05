@@ -38,10 +38,15 @@ Module._load = function loadWithActionMocks(request, parent, isMain) {
   }
   if (request === "@/lib/tax/business-bank-categories") {
     return {
-      isSingleFreelancerServicesFiling: (draft) =>
-        draft.taxYear === 2026 &&
-        draft.filerType === "myself" &&
-        JSON.stringify(JSON.parse(draft.incomeSources)) === '["services"]',
+      isSingleFreelancerServicesFiling: (draft) => {
+        const sources = JSON.parse(draft.incomeSources).slice().sort();
+        return (
+          draft.taxYear === 2026 &&
+          draft.filerType === "myself" &&
+          ((sources.length === 1 && sources[0] === "services") ||
+            (sources.length === 2 && sources[0] === "salary" && sources[1] === "services"))
+        );
+      },
     };
   }
   if (request === "@/lib/tax/rules/ty2026/subcategories") {
