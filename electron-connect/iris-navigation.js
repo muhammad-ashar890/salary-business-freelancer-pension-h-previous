@@ -7,7 +7,7 @@
 // TY2026+ return setup steps that do not require legal/financial judgement.
 // Create/Save/Submit/payment controls and all financial inputs remain off
 // limits until the engine/mapping audit is resolved.
-const BUILD_TAG = "pension-wht-64020004-base-20261030b";
+const BUILD_TAG = "services-picker-aliases-20261105d";
 const BUSINESS_CONTRACT = require("./iris-business-contract.json");
 const SERVICES_CONTRACT = require("./iris-services-contract.json");
 const DEFAULT_HOSTS = ["iris.fbr.gov.pk"];
@@ -2160,6 +2160,12 @@ function portalProbe(options = {}) {
   ]);
   for (const spec of Object.values(options.businessContract || {})) {
     for (const code of Object.keys(spec.rows || {})) PUBLIC_CODE_SET.add(code);
+  }
+  // Services tax-deduction rows are supplied as a separate capture contract,
+  // not BUSINESS_CONTRACT. Add only those explicitly contracted codes so the
+  // live inspector recognizes their row ids after the picker creates them.
+  for (const group of Object.values(options.servicesTaxDeduction?.groups || {})) {
+    for (const code of Object.keys(group.rows || {})) PUBLIC_CODE_SET.add(code);
   }
   const PUBLIC_COLUMN_LABELS = [
     "Addition (New)",

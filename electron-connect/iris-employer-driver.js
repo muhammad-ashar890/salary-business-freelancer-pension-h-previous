@@ -37,7 +37,7 @@
  *   - Dry mode never clicks inside the page; it only reads and reports.
  */
 
-const BUILD_TAG = "pension-wht-64020004-base-20261030b";
+const BUILD_TAG = "services-picker-aliases-20261105d";
 
 const EMPLOYER_STATUS = Object.freeze({
   ALREADY_LISTED: "already_listed",

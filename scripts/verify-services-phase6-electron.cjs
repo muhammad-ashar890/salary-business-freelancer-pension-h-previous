@@ -470,10 +470,23 @@ test("Tax Deduction row creation accepts only the exact Services target and neve
   assert.deepEqual(businessRows.servicesTaxDeductionTarget(withholding), {
     code: "64060158",
     label: "Payment for IT/IT-enabled service u/s 153(1)(b) @4%",
+    pickerLabels: [
+      "Payment for IT/IT-enabled service u/s 153(1)(b) @4%",
+      "Payment for Services u/s 153(1)(b) @4%",
+    ],
+    rowDescriptionLabels: [
+      "Payment for IT/IT-enabled service u/s 153(1)(b) @4%",
+      "Payment for Services u/s 153(1)(b) @4%",
+    ],
     groupLabel: "Minimum Tax",
     dialogTitle: "Add Minimum Tax",
     writableInputIndexes: [0, 1],
   });
+  assert.deepEqual(
+    rowFiller.prepareField(withholding).rowDescriptionAliases,
+    ["Payment for Services u/s 153(1)(b) @4%"],
+    "the filler receives only the capture-backed, exact-code row-label alias",
+  );
 
   const wrongGroup = { ...withholding, portalGroup: "Final Tax" };
   assert.equal(businessRows.servicesTaxDeductionTarget(wrongGroup), null);
@@ -629,7 +642,7 @@ test("job report records one gated Services draft Save and unsupported mappings 
       finalStatus: "completed",
       savedAt: "2026-10-20T00:00:00.000Z",
       jobId: "phase6-services",
-      build: "wealth-recon-20261027f",
+      build: "services-picker-aliases-20261105d",
       executionLog: [
         {
           step: "iris_save_skipped",
@@ -668,7 +681,7 @@ test("job report records one gated Services draft Save and unsupported mappings 
     .join("\n");
 
   assert.match(report, /SAVE \(Freelancer \/ Services draft-save policy\)/);
-  assert.match(report, /Draft Save: not pressed by the agent/);
+  assert.match(report, /Not pressed: the scoped post-tab readback was not complete/);
   assert.doesNotMatch(report, /Save: pressed once by the agent/);
   assert.deepEqual(
     jobReport.classifyFieldResult({ status: "services_mapping_unverified" }),
@@ -726,11 +739,15 @@ test("packaged agent identity, Services contract and web handoff contract stay w
 
   const contractHash = crypto
     .createHash("sha256")
-    .update(fs.readFileSync(path.join(root, "electron-connect/iris-services-contract.json")))
+    .update(
+      fs
+        .readFileSync(path.join(root, "electron-connect/iris-services-contract.json"), "utf8")
+        .replace(/\r\n/g, "\n"),
+    )
     .digest("hex");
   assert.equal(
     contractHash,
-    "04c3dfc3b8a17f3298d15b31e020b98b8ff610448ff1b15ed6408d09e615b7c0",
+    "2232a6c762b0f0157f5b9553fa4a83ecdcfac62cedbc1963672a8389250a0e89",
   );
 
   const server = read("app/actions/fbr-jobs.ts");

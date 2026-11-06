@@ -11,7 +11,9 @@
       "business-income/56_business_tax_deduction_ADD_MINIMUM_TAX_picker_popup_open.html",
       "business-income/66_business_tax_deduction_ADD_ADJUSTABLE_TAX_picker_popup_open.html",
       "business-income/67_business_tax_deduction_ADD_FINAL_TAX_picker_popup_open.html",
-      "business-income/03_business_other_revenues.html"
+      "business-income/03_business_other_revenues.html",
+      "business Add Minimum Tax IRIS 2.0.mhtml (user-supplied picker capture; sanitized contract only; raw session-bearing capture not committed)",
+      "business-tax-deductions-all-fields-iris-2-0.mhtml (user-supplied post-run DOM capture; sanitized code/label metadata only; raw session-bearing capture not committed)"
     ],
     "capturedRoute": {
       "leftPanel": "Business",
@@ -143,6 +145,12 @@
           },
           "64060158": {
             "label": "Payment for IT/IT-enabled service u/s 153(1)(b) @4%",
+            "pickerLabels": [
+              "Payment for Services u/s 153(1)(b) @4%"
+            ],
+            "rowDescriptionAliases": [
+              "Payment for Services u/s 153(1)(b) @4%"
+            ],
             "writableInputIndexes": [
               0,
               1
@@ -156,6 +164,12 @@
           },
           "64060162": {
             "label": "Payment for specified services u/s 153(1)(b) @6%",
+            "pickerLabels": [
+              "Payment for Services u/s 153(1)(b) @6%"
+            ],
+            "rowDescriptionAliases": [
+              "Payment for Services u/s 153(1)(b) @6%"
+            ],
             "writableInputIndexes": [
               0,
               1

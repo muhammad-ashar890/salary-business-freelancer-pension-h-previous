@@ -4,7 +4,7 @@ The **TR Filing Agent** is TaxRocket's trusted Windows desktop agent. It opens t
 
 It never presses **Calculate, Submit, Prepare PSID,** or any payment control, and it never sees or stores the taxpayer's password, OTP, CAPTCHA, or PIN.
 
-> **Current build:** package version `1.0.5` · agent build tag `pension-wht-64020004-base-20261030b`
+> **Current build:** package version `1.0.5` · agent build tag `services-picker-aliases-20261105d`
 >
 > For the product as a whole (web flow, modules, tax rules, setup), see the [repository README](../README.md). This file is only about the desktop agent.
 
@@ -144,7 +144,7 @@ Every run writes into `C:\Users\<user>\TaxRocketAgentLogs\`:
 - `latest-census.json` / `census-<job>.json` — the before/after read-only census of every IRIS tab.
 - `latest-portal-inspection.json` and HTML snapshots of the page at a pause — local diagnostics for figuring out why the agent stopped.
 
-**First diagnostic step, always:** the first line of `latest-job.txt` names the run's **build tag** (e.g. `build pension-wht-64020004-base-20261030b`). If the agent behaves like an older version, it almost certainly *is* an older version — see below.
+**First diagnostic step, always:** the first line of `latest-job.txt` names the run's **build tag** (e.g. `build services-picker-aliases-20261105d`). If the agent behaves like an older version, it almost certainly *is* an older version — see below.
 
 ---
 

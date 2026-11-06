@@ -1,6 +1,6 @@
 'use strict';
 // Read-only IRIS preflight. Never moves, deletes, clicks or edits a bank row.
-const BUILD_TAG='pension-wht-64020004-base-20261030b';
+const BUILD_TAG='services-picker-aliases-20261105d';
 // v3: diagnostic build. The guard itself stays read-only and fail-closed; it now
 // reports WHICH settle condition failed, so a live hold can be diagnosed from
 // latest-job.txt without guessing.

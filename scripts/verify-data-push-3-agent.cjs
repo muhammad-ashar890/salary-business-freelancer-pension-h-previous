@@ -20,6 +20,10 @@ const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright");
 const driver = require("../electron-connect/iris-tax-deduction-driver.js");
+const businessRows = require("../electron-connect/iris-business-row-driver.js");
+const rowFiller = require("../electron-connect/iris-row-filler.js");
+const navigation = require("../electron-connect/iris-navigation.js");
+const SERVICES_CONTRACT = require("../electron-connect/iris-services-contract.json");
 const census = require("../electron-connect/iris-tour-census.js");
 
 const ADJ = { code: "64060116", label: "Payment for Services u/s 153(1)(b) @8% u/c (42) of Part IV of Second Schedule" };
@@ -218,6 +222,162 @@ const rowValues = (pg, code) => pg.evaluate((c) => { const r = document.querySel
 const clicks = (pg) => pg.evaluate(() => window.clicks);
 const byKey = (out) => Object.fromEntries(out.results.map((r) => [`${r.irisCode}:${r.columnIndex}`, r]));
 const FORBIDDEN = /Delete|Calculate|Save|Submit|Attribute|Normal Tax regime/i;
+
+function servicePickerDialog(labels) {
+  return `<mat-dialog-container role="dialog"><app-add-amount-code-row><h6 class="mat-mdc-dialog-title">Add Minimum Tax</h6><mat-dialog-content>${labels.map((label, i) => `<div class="source-card"><mat-checkbox><input type="checkbox" data-test="${i}"/></mat-checkbox><p>${label}</p></div>`).join("")}</mat-dialog-content><mat-dialog-actions><button type="button">ADD</button><button type="button">Cancel</button></mat-dialog-actions></app-add-amount-code-row></mat-dialog-container>`;
+}
+
+function serviceTaxTarget(overrides = {}) {
+  return businessRows.servicesTaxDeductionTarget({
+    servicesMappingKind: "SERVICES_WITHHOLDING",
+    irisCode: "64060162",
+    servicesSubcategory: "1b-service-certain",
+    portalGroup: "Minimum Tax",
+    rowDescriptionIncludes: "Payment for specified services u/s 153(1)(b) @6%",
+    label: "Payment for specified services u/s 153(1)(b) @6%",
+    ...overrides,
+  });
+}
+
+function servicesNavigationPage(code = "64060162", description = "Payment for Services u/s 153(1)(b) @6%") {
+  const columns = [
+    "Taxable Amount",
+    "Tax Collected / Deducted",
+    "Tax Chargeable",
+    "Attributable Taxable Income",
+    "Tax on Attributable Taxable Income",
+    "Difference of Minimum Tax Chargeable",
+  ];
+  const cells = columns.map((_, index) => `<div class="data-middle-child-wapper"><input type="text"${index > 1 ? " disabled" : ""} /></div>`).join("");
+  return `<!doctype html><html><head><style>body{margin:16px}.body,.view,mat-expansion-panel,.mat-expansion-panel-content,.mat-expansion-panel-body{display:block}.view{display:none}.view.shown{display:block}.heading-bar,.columns-parent{display:flex}.heading-bar strong{display:inline-block;width:150px}.data-middle-child-wapper{display:inline-block;width:150px;height:30px}.data-middle-child-wapper input{width:100px;height:20px}</style></head><body><app-nitr-wf-body><div class="custom-tabs"><div class="sticky-tabs-head"><div class="head"><div class="title active">Data</div></div></div></div><div class="body interface_21 active"><mat-expansion-panel class="mat-expanded"><mat-expansion-panel-header aria-expanded="true" class="mat-expanded"><mat-panel-title>Business</mat-panel-title></mat-expansion-panel-header><div class="mat-expansion-panel-content"><div class="mat-expansion-panel-body"><button class="data-tab-left-btn active">Tax Deduction</button></div></div></mat-expansion-panel><div class="view shown"><mat-accordion class="wf-section-modal-accordion"><mat-expansion-panel class="mat-expanded"><mat-expansion-panel-header aria-expanded="true" class="mat-expanded"><mat-panel-title>Minimum Tax</mat-panel-title></mat-expansion-panel-header><div class="mat-expansion-panel-content"><div class="mat-expansion-panel-body"><div class="heading-bar"><strong>Description</strong><strong>Code</strong>${columns.map((column) => `<strong>${column}</strong>`).join("")}</div><div class="tableRows dataRow" id="${code}"><span class="row-description-text">${description}</span><div class="columns-parent">${cells}</div></div></div></div></mat-expansion-panel></mat-accordion></div></div></app-nitr-wf-body></body></html>`;
+}
+
+async function addExistingServiceRow(pg, label, groupLabel = "Minimum Tax", code = "64060162") {
+  await pg.evaluate(({ label, groupLabel, code }) => {
+    const panel = document.createElement("mat-expansion-panel");
+    panel.className = "mat-expansion-panel mat-expanded";
+    panel.innerHTML = `<mat-expansion-panel-header aria-expanded="true"><mat-panel-title>${groupLabel}</mat-panel-title></mat-expansion-panel-header><div class="mat-expansion-panel-content"><div class="mat-expansion-panel-body"><div class="tableRows dataRow" id="${code}"><span class="row-description-text">${label}</span><div class="data-middle-child-wapper"><input type="text" value="" /></div><div class="data-middle-child-wapper"><input type="text" value="" /></div></div></div></div>`;
+    document.querySelector("#grids").appendChild(panel);
+  }, { label, groupLabel, code });
+}
+
+test("portal probe recognizes exact Services contract row codes that are absent from the generic public catalog", async () => {
+  const options = {
+    taxYear: 2026,
+    openReturn: true,
+    servicesTaxDeduction: SERVICES_CONTRACT.taxDeductions,
+  };
+  await withPage(servicesNavigationPage("64060162"), async (pg) => {
+    const result = await pg.evaluate(({ source, options }) => (new Function(`return (${source})`))()(options), {
+      source: navigation.portalProbe.toString(),
+      options,
+    });
+    assert.equal(result.section?.id, "business_tax_deduction");
+    assert.ok(result.section.rows.some((row) => row.code === "64060162"));
+    assert.equal(result.section.taxDeductions.captureContract, "TY2026_SERVICES");
+  });
+});
+
+test("Services row filler accepts the exact contract alias but refuses a different description", async () => {
+  const prepared = rowFiller.prepareField({
+    irisCode: "64060162",
+    label: "Payment for specified services u/s 153(1)(b) @6%",
+    rowDescriptionIncludes: "Payment for specified services u/s 153(1)(b) @6%",
+    portalGroup: "Minimum Tax",
+    column: "Tax Collected / Deducted",
+    value: "6000",
+    servicesMappingKind: "SERVICES_WITHHOLDING",
+  });
+  assert.deepEqual(prepared.rowDescriptionAliases, ["Payment for Services u/s 153(1)(b) @6%"]);
+  const script = rowFiller.buildInPageFillScript([prepared], {});
+  await withPage(servicesNavigationPage("64060162", "Payment for Services u/s 153(1)(b) @6%"), async (pg) => {
+    const result = await pg.evaluate(script);
+    assert.equal(result[0].status, "filled", JSON.stringify(result));
+    assert.equal(await pg.locator('[id="64060162"] .data-middle-child-wapper input').nth(1).inputValue(), "6000");
+  });
+  await withPage(servicesNavigationPage("64060162", "Payment for Services u/s 153(1)(b) @15%"), async (pg) => {
+    const result = await pg.evaluate(script);
+    assert.equal(result[0].status, "row_description_mismatch", JSON.stringify(result));
+    assert.equal(await pg.locator('[id="64060162"] .data-middle-child-wapper input').nth(1).inputValue(), "");
+  });
+});
+
+test("captured Services row-description alias passes only for the exact row code and Minimum Tax group", async () => {
+  const target = serviceTaxTarget();
+  assert.ok(target.rowDescriptionLabels.includes("Payment for Services u/s 153(1)(b) @6%"));
+  const probe = businessRows.pickerProbeTaxDeduction.toString();
+  await withPage(page({ onTab: true, businessOpen: true, panelsOpen: true }), async (pg) => {
+    await addExistingServiceRow(pg, "Payment for Services u/s 153(1)(b) @6%");
+    const result = await pg.evaluate(({ source, target }) => (new Function(`return (${source})`))()("inspect", target), { source: probe, target });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.equal(result.reason, "existing_row_checked");
+  });
+  const target4 = serviceTaxTarget({
+    irisCode: "64060158",
+    servicesSubcategory: "1b-service-it-ites",
+    rowDescriptionIncludes: "Payment for IT/IT-enabled service u/s 153(1)(b) @4%",
+    label: "Payment for IT/IT-enabled service u/s 153(1)(b) @4%",
+  });
+  assert.ok(target4.rowDescriptionLabels.includes("Payment for Services u/s 153(1)(b) @4%"));
+  await withPage(page({ onTab: true, businessOpen: true, panelsOpen: true }), async (pg) => {
+    await addExistingServiceRow(pg, "Payment for Services u/s 153(1)(b) @4%", "Minimum Tax", "64060158");
+    const result = await pg.evaluate(({ source, target }) => (new Function(`return (${source})`))()("inspect", target), { source: probe, target: target4 });
+    assert.equal(result.ok, true, JSON.stringify(result));
+  });
+  await withPage(page({ onTab: true, businessOpen: true, panelsOpen: true }), async (pg) => {
+    await addExistingServiceRow(pg, "Payment for unrelated services u/s 153(1)(b) @6%");
+    const result = await pg.evaluate(({ source, target }) => (new Function(`return (${source})`))()("inspect", target), { source: probe, target });
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, "existing_row_mismatch");
+  });
+  await withPage(page({ onTab: true, businessOpen: true, panelsOpen: true }), async (pg) => {
+    await addExistingServiceRow(pg, "Payment for Services u/s 153(1)(b) @6%", "Final Tax");
+    const result = await pg.evaluate(({ source, target }) => (new Function(`return (${source})`))()("inspect", target), { source: probe, target });
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, "existing_row_mismatch");
+  });
+});
+
+test("captured Services picker alias selects the exact 6% card while preserving the canonical row label", async () => {
+  const target = serviceTaxTarget();
+  assert.equal(target.label, "Payment for specified services u/s 153(1)(b) @6%");
+  assert.ok(target.pickerLabels.includes("Payment for Services u/s 153(1)(b) @6%"));
+  await withPage(page({ onTab: true, businessOpen: true, panelsOpen: true, dialog: servicePickerDialog(["Payment for Services u/s 153(1)(b) @6%"]), }), async (pg) => {
+    const probe = businessRows.pickerProbeTaxDeduction.toString();
+    const selected = await pg.evaluate(({ source, target }) => (new Function(`return (${source})`))()("select", target), { source: probe, target });
+    assert.equal(selected.ok, true, JSON.stringify(selected));
+    assert.equal(selected.selectedPickerLabel, "Payment for Services u/s 153(1)(b) @6%");
+    assert.equal(await pg.locator('.source-card input[type="checkbox"]').first().isChecked(), true);
+    const added = await pg.evaluate(({ source, target }) => (new Function(`return (${source})`))()("add", target), { source: probe, target });
+    assert.equal(added.ok, true, JSON.stringify(added));
+    assert.equal(added.reason, "target_card_add_requested");
+  });
+});
+
+test("captured 4% Services picker alias is distinct from the canonical IT/ITeS grid-row label", async () => {
+  const target = serviceTaxTarget({
+    irisCode: "64060158",
+    servicesSubcategory: "1b-service-it-ites",
+    rowDescriptionIncludes: "Payment for IT/IT-enabled service u/s 153(1)(b) @4%",
+    label: "Payment for IT/IT-enabled service u/s 153(1)(b) @4%",
+  });
+  assert.ok(target.pickerLabels.includes("Payment for Services u/s 153(1)(b) @4%"));
+  await withPage(page({ onTab: true, businessOpen: true, panelsOpen: true, dialog: servicePickerDialog(["Payment for Services u/s 153(1)(b) @4%"]), }), async (pg) => {
+    const result = await pg.evaluate(({ source, target }) => (new Function(`return (${source})`))()("select", target), { source: businessRows.pickerProbeTaxDeduction.toString(), target });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.equal(result.selectedPickerLabel, "Payment for Services u/s 153(1)(b) @4%");
+  });
+});
+
+test("Services picker alias still fails closed if both canonical and alias cards are visible", async () => {
+  const target = serviceTaxTarget();
+  await withPage(page({ onTab: true, businessOpen: true, panelsOpen: true, dialog: servicePickerDialog([target.label, "Payment for Services u/s 153(1)(b) @6%"]), }), async (pg) => {
+    const result = await pg.evaluate(({ source, target }) => (new Function(`return (${source})`))()("select", target), { source: businessRows.pickerProbeTaxDeduction.toString(), target });
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, "target_card_not_unique");
+    assert.equal(await pg.locator('.source-card input[type="checkbox"]:checked').count(), 0);
+  });
+});
 
 test("live: opens Business > Tax Deduction, opens the panels, adds both sections and types every figure", async () => {
   await withPage(page(), async (pg, win) => {

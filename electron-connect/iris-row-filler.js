@@ -47,7 +47,7 @@ const SERVICES_CAPTURE_CONTRACT = require("./iris-services-contract.json");
  * a stale copy is a correctness risk, not a cosmetic one — main.js refuses to run
  * the real-portal flow when the three files disagree.
  */
-const BUILD_TAG = "pension-wht-64020004-base-20261030b";
+const BUILD_TAG = "services-picker-aliases-20261105d";
 
 /** Outcome reason codes. `filled` is the only success. */
 const FILL_STATUS = {
@@ -119,6 +119,25 @@ function isServicesAutofillField(field) {
  * remains the evidence authority; this independent check prevents malformed,
  * stale, or unsupported Services rows from reaching portal navigation/fill.
  */
+function servicesRowDescriptionAliases(field) {
+  if (field?.servicesMappingKind !== "SERVICES_WITHHOLDING") return [];
+  const code = String(field.irisCode || "").trim();
+  const group = Object.values(SERVICES_CAPTURE_CONTRACT.taxDeductions?.groups || {}).find(
+    (definition) => definition?.label === field.portalGroup && definition?.rows?.[code],
+  );
+  const row = group?.rows?.[code];
+  if (!row || row.label !== field.rowDescriptionIncludes) return [];
+  return Array.isArray(row.rowDescriptionAliases)
+    ? Array.from(
+        new Set(
+          row.rowDescriptionAliases
+            .map((value) => String(value || "").replace(/\s+/g, " ").trim())
+            .filter(Boolean),
+        ),
+      )
+    : [];
+}
+
 function validateServicesAutofillField(field) {
   if (!isServicesAutofillField(field)) return { isServices: false, ok: true };
   const reject = (reason) => ({ isServices: true, ok: false, reason });
@@ -378,14 +397,17 @@ function buildInPageFillScript(fields, options) {
       return norm(title?.textContent || header?.textContent || "");
     };
 
-    const findRows = (code, descriptionIncludes, portalGroup) =>
+    const findRows = (code, descriptionTerms, portalGroup) =>
       Array.from(document.querySelectorAll(CFG.rowSelector)).filter(
         (r) =>
           r.id === String(code) &&
           // Rows that share a code (one 7030 row per bank account) are told
-          // apart by text IRIS prints in the row, e.g. the IBAN.
-          (!descriptionIncludes ||
-            norm(descOf(r)).includes(norm(descriptionIncludes))) &&
+          // apart by exact contract-backed text IRIS prints in the row, e.g.
+          // the IBAN or a code-specific Services label alias.
+          (!descriptionTerms.length ||
+            descriptionTerms.some((term) =>
+              norm(descOf(r)).includes(norm(term)),
+            )) &&
           (!portalGroup || groupTitleOf(r) === norm(portalGroup))
       );
 
@@ -549,9 +571,19 @@ function buildInPageFillScript(fields, options) {
         results.push({ ...base, status: S.ROW_NOT_FOUND });
         continue;
       }
-      const descriptionRows = field.rowDescriptionIncludes
+      const descriptionTerms = Array.from(
+        new Set([
+          field.rowDescriptionIncludes,
+          ...(Array.isArray(field.rowDescriptionAliases)
+            ? field.rowDescriptionAliases
+            : []),
+        ].map((value) => String(value || "").trim()).filter(Boolean)),
+      );
+      const descriptionRows = descriptionTerms.length
         ? codeRows.filter((r) =>
-            norm(descOf(r)).includes(norm(field.rowDescriptionIncludes)),
+            descriptionTerms.some((term) =>
+              norm(descOf(r)).includes(norm(term)),
+            ),
           )
         : codeRows;
       if (!descriptionRows.length) {
@@ -565,7 +597,7 @@ function buildInPageFillScript(fields, options) {
       }
       const rows = findRows(
         field.irisCode,
-        field.rowDescriptionIncludes,
+        descriptionTerms,
         field.portalGroup,
       );
       if (!rows.length) {
@@ -1017,6 +1049,7 @@ function prepareField(field) {
     }
   }
   if (column) headerPatterns.push(normaliseText(column));
+  const rowDescriptionAliases = servicesRowDescriptionAliases(field);
 
   return {
     key: field.key,
@@ -1031,6 +1064,7 @@ function prepareField(field) {
     amountExact: amount.ok ? amount.exact : false,
     roundedFrom: amount.ok && !amount.exact ? String(field.value) : undefined,
     rowDescriptionIncludes: field.rowDescriptionIncludes || undefined,
+    ...(rowDescriptionAliases.length ? { rowDescriptionAliases } : {}),
     portalGroup: field.portalGroup || undefined,
     servicesMappingKind: field.servicesMappingKind || undefined,
     replaceOnlyIfExisting:

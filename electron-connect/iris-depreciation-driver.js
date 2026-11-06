@@ -34,7 +34,7 @@
 const navigation = require("./iris-navigation");
 
 /** Must equal AGENT_BUILD_TAG in main.js. */
-const BUILD_TAG = "pension-wht-64020004-base-20261030b";
+const BUILD_TAG = "services-picker-aliases-20261105d";
 
 const HEADINGS = Object.freeze([
   "WDV (BF)",

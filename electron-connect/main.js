@@ -197,7 +197,7 @@ const irisComputationsDriver = require("./iris-computations-driver");
 // Phase 3c (fix52): the Section 113 "+ Turnover" row (used by the
 // computations driver; required here for the build-tag check).
 const irisTurnoverDriver = require("./iris-turnover-driver");
-const AGENT_BUILD_TAG = "pension-wht-64020004-base-20261030b";
+const AGENT_BUILD_TAG = "services-picker-aliases-20261105d";
 function getAgentBuildLabel() {
   return `${AGENT_BUILD_TAG} | navigator: ${irisNavigation.BUILD_TAG} | filler: ${irisRowFiller.BUILD_TAG} | pension: ${PENSION_GUARD_BUILD_TAG}`;
 }

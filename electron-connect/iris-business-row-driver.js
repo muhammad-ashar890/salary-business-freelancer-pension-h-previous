@@ -1,7 +1,7 @@
 "use strict";
 const navigation = require("./iris-navigation");
 const SERVICES_CONTRACT = require("./iris-services-contract.json");
-const BUILD_TAG = "pension-wht-64020004-base-20261030b";
+const BUILD_TAG = "services-picker-aliases-20261105d";
 
 // Captures 30/31/32: rows of the business tab "Inadmissible/Admissible
 // Deductions" are created through IRIS's own pickers -- "+ Inadmissible"
@@ -646,9 +646,27 @@ function servicesTaxDeductionTarget(field) {
   if (field.portalGroup !== group.label) return null;
   if (field.rowDescriptionIncludes !== row.label) return null;
   if (field.label && normalizeText(field.label) !== normalizeText(row.label)) return null;
+  // Picker card text can differ from the persisted IRIS grid-row description.
+  // These aliases are capture-backed per-code; the row itself is still verified
+  // against `label` after addition, so picker tolerance cannot weaken fill checks.
+  const pickerLabels = Array.from(
+    new Set([
+      row.label,
+      ...(Array.isArray(row.pickerLabels) ? row.pickerLabels : []),
+    ].map(normalizeText).filter(Boolean)),
+  );
+  const rowDescriptionLabels = Array.from(
+    new Set([
+      row.label,
+      ...(Array.isArray(row.rowDescriptionAliases) ? row.rowDescriptionAliases : []),
+    ].map(normalizeText).filter(Boolean)),
+  );
+  if (!pickerLabels.length || !rowDescriptionLabels.length) return null;
   return {
     code,
     label: row.label,
+    pickerLabels,
+    rowDescriptionLabels,
     groupLabel: group.label,
     dialogTitle: `Add ${group.label}`,
     writableInputIndexes: Array.isArray(row.writableInputIndexes)
@@ -658,7 +676,17 @@ function servicesTaxDeductionTarget(field) {
 }
 
 function pickerProbeTaxDeduction(action, target) {
-  if (!target || !target.code || !target.label || !target.groupLabel || !target.dialogTitle)
+  if (
+    !target ||
+    !target.code ||
+    !target.label ||
+    !Array.isArray(target.pickerLabels) ||
+    !target.pickerLabels.length ||
+    !Array.isArray(target.rowDescriptionLabels) ||
+    !target.rowDescriptionLabels.length ||
+    !target.groupLabel ||
+    !target.dialogTitle
+  )
     return { scope: false, ok: false, reason: "probe_target_missing" };
   const clean = (node) => {
     if (!node) return "";
@@ -730,7 +758,7 @@ function pickerProbeTaxDeduction(action, target) {
     );
     if (
       !description ||
-      clean(description) !== target.label ||
+      !target.rowDescriptionLabels.includes(clean(description)) ||
       clean(title || header) !== target.groupLabel
     )
       return { scope: true, ok: false, reason: "existing_row_mismatch" };
@@ -819,7 +847,14 @@ function pickerProbeTaxDeduction(action, target) {
     };
   };
   const states = cards.map(cardState);
-  const targets = states.filter((state) => state.label === target.label);
+  const targets = states.filter((state) => target.pickerLabels.includes(state.label));
+  if (targets.length === 0)
+    return {
+      scope: true,
+      ok: false,
+      reason: "target_card_label_not_found",
+      expectedPickerLabels: target.pickerLabels,
+    };
   if (targets.length !== 1)
     return { scope: true, ok: false, reason: "target_card_not_unique" };
   const targetState = targets[0];
@@ -856,7 +891,12 @@ function pickerProbeTaxDeduction(action, target) {
       checkbox.dispatchEvent(new EventCtor("input", { bubbles: true }));
     }
     return checkbox.checked || targetCard.classList.contains("source-card--checked")
-      ? { scope: true, ok: true, reason: "target_card_selected" }
+      ? {
+          scope: true,
+          ok: true,
+          reason: "target_card_selected",
+          selectedPickerLabel: targetState.label,
+        }
       : { scope: true, ok: false, reason: "target_card_tick_failed" };
   }
 
@@ -993,6 +1033,7 @@ async function ensureTaxDeductionRows(windowInstance, fields, context = {}) {
       new Set([
         "picker_not_unique",
         "target_card_not_unique",
+        "target_card_label_not_found",
         "target_card_checkbox_missing",
         "target_card_tick_failed",
         "frame_unavailable",

@@ -120,7 +120,7 @@ const MARKERS = [
   ],
   [
     "electron-connect/iris-employer-driver.js",
-    ["runEmployerDriver", "wealth-recon-20261027f"],
+    ["runEmployerDriver", "services-picker-aliases-20261105d"],
     "the employer driver (exact registered name only)",
   ],
   [
@@ -139,7 +139,7 @@ const MARKERS = [
   [
     "electron-connect/main.js",
     [
-      "wealth-recon-20261027f",
+      "services-picker-aliases-20261105d",
       "collectAcknowledgedAutofillItems",
       "real_autofill_stopped",
       "checkTakenOverEntry",
@@ -162,12 +162,12 @@ const MARKERS = [
   ],
   [
     "electron-connect/iris-business-row-driver.js",
-    ["wealth-recon-20261027f", "personal_reason_already_present", "picker_cancel_clicked", "diffGridRows"],
+    ["services-picker-aliases-20261105d", "personal_reason_already_present", "picker_cancel_clicked", "diffGridRows"],
     "checked+disabled options are IRIS state; any failure presses Cancel",
   ],
   [
     "electron-connect/iris-tour-census.js",
-    ["wealth-recon-20261027f", "runCensusTour", "compareTypedEntries"],
+    ["services-picker-aliases-20261105d", "runCensusTour", "compareTypedEntries"],
     "read-only tour of every tab and readback after tab switch",
   ],
   [
@@ -178,7 +178,7 @@ const MARKERS = [
   // Phase 2 (fix47): IRIS totals check + one end-of-run Save.
   [
     "electron-connect/iris-save-draft.js",
-    ["wealth-recon-20261027f", "saveReturnDraft", "dismiss_success", "describeSaveOutcome"],
+    ["services-picker-aliases-20261105d", "saveReturnDraft", "dismiss_success", "describeSaveOutcome"],
     "the one Save: lower-bar button only, never Submit; IRIS's answer is logged",
   ],
   [
@@ -211,7 +211,7 @@ const MARKERS = [
   ],
   [
     "electron-connect/iris-depreciation-driver.js",
-    ["wealth-recon-20261027f", "depreciationProbe", "compareDepreciationComputed"],
+    ["services-picker-aliases-20261105d", "depreciationProbe", "compareDepreciationComputed"],
     "agent driver for the IRIS Depreciation tab (DP-1)",
   ],
   [
@@ -257,7 +257,7 @@ const MARKERS = [
   ],
   [
     "electron-connect/iris-balance-sheet-driver.js",
-    ["wealth-recon-20261027f", "add-balance-sheet-bank-account", "runBalanceSheetDriver"],
+    ["services-picker-aliases-20261105d", "add-balance-sheet-bank-account", "runBalanceSheetDriver"],
     "agent driver for the 3320 / 3304 dialogs and child rows (DP-2)",
   ],
   [
@@ -334,7 +334,7 @@ const MARKERS = [
   ],
   [
     "electron-connect/iris-business-details-driver.js",
-    ["wealth-recon-20261027f", "businessDetailsProbe", "fillBusinessDetailsTab"],
+    ["services-picker-aliases-20261105d", "businessDetailsProbe", "fillBusinessDetailsTab"],
     "agent driver for the Business Details tab (DP-2)",
   ],
   [
@@ -375,7 +375,7 @@ const MARKERS = [
   ],
   [
     "electron-connect/iris-tax-deduction-driver.js",
-    ["wealth-recon-20261027f", "taxDeductionProbe", "irisFilledAfterAgent"],
+    ["services-picker-aliases-20261105d", "taxDeductionProbe", "irisFilledAfterAgent"],
     "agent driver for the Tax Deduction tab (DP-3)",
   ],
   [
@@ -401,7 +401,7 @@ const MARKERS = [
   ],
   [
     "electron-connect/iris-computations-driver.js",
-    ["wealth-recon-20261027f", "decideComputations", "iris_base_differs"],
+    ["services-picker-aliases-20261105d", "decideComputations", "iris_base_differs"],
     "agent driver for Computations rows 923184 / 9231822 (Phase 3b)",
   ],
   [
@@ -447,7 +447,7 @@ const MARKERS = [
   ],
   [
     "electron-connect/iris-turnover-driver.js",
-    ["wealth-recon-20261027f", "turnoverProbe", "other_turnover_row_present"],
+    ["services-picker-aliases-20261105d", "turnoverProbe", "other_turnover_row_present"],
     "agent driver for the + Turnover row (Phase 3c)",
   ],
   [
