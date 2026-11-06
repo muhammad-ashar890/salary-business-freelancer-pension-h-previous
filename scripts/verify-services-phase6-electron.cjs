@@ -567,6 +567,29 @@ test("Services handoff is Services-only, hides the generic final-review item and
   assert.doesNotMatch(scope.label, /Salary|Business Details|press Calculate/);
 });
 
+test("combined Salary + Services handoff names both routes and keeps their field counts visible", () => {
+  const scope = main.buildHandoffScopeSummary(
+    { total: 13, filled: 13, skipped: 0 },
+    false,
+    [{ irisCode: "7087" }, { irisCode: "7030" }, { irisCode: "7098" }],
+    {
+      salarySummary: { total: 1, filled: 1, skipped: 0 },
+      salaryIncluded: true,
+      business: {
+        total: 8, filled: 8, skipped: 0, mode: "live",
+        coverage: "services_tax_deduction_only", pending: [],
+      },
+      wealth: { enabled: true, mode: "live", summary: { total: 3, filled: 3 } },
+      save: { status: "not_attempted", clicked: false, routePolicy: "services_save_once", reason: "two figures need readback" },
+    },
+  );
+  assert.equal(scope.salary, "filled");
+  assert.equal(scope.salaryFields.total, 1);
+  assert.equal(scope.salaryFields.filled, 1);
+  assert.equal(scope.salaryFields.skipped, 0);
+  assert.match(scope.label, /Salary 1\/1 \+ Freelancer \/ Services 8\/8 approved field\(s\) verified/);
+});
+
 test("Services draft Save gate requires every entered field to have a unique matching post-tab readback", () => {
   const entries = [
     { key: "3101:services", irisCode: "3101", status: "filled", value: "250550" },
@@ -652,6 +675,8 @@ test("job report records one gated Services draft Save and unsupported mappings 
       ],
       result: {
         autofill: {
+          salarySummary: { total: 1, filled: 1, skipped: 0 },
+          salaryIncluded: true,
           results: [
             {
               irisCode: "3101",
@@ -680,7 +705,7 @@ test("job report records one gated Services draft Save and unsupported mappings 
     })
     .join("\n");
 
-  assert.match(report, /SAVE \(Freelancer \/ Services draft-save policy\)/);
+  assert.match(report, /SAVE \(Salary \+ Freelancer \/ Services draft-save policy\)/);
   assert.match(report, /Not pressed: the scoped post-tab readback was not complete/);
   assert.doesNotMatch(report, /Save: pressed once by the agent/);
   assert.deepEqual(
@@ -752,6 +777,9 @@ test("packaged agent identity, Services contract and web handoff contract stay w
 
   const server = read("app/actions/fbr-jobs.ts");
   assert.match(server, /route: scope\.business\.route === "services_tax_deduction"/);
+  assert.match(server, /salaryFields:\s*\{/);
+  assert.match(server, /hasLegacySalaryRows/);
+  assert.match(server, /"1009", "64020004"/);
   assert.match(server, /"services_entered"/);
   assert.match(server, /save\.routePolicy === "services_save_once"/);
 
@@ -762,7 +790,11 @@ test("packaged agent identity, Services contract and web handoff contract stay w
     "portal_expense_retry",
     "automaticRetryPause",
     "Retry automatic filing",
-    "Freelancer / Services — verified field entry",
+    "servicesRouteName",
+    "Salary + Freelancer / Services",
+    "Draft Save was not pressed (${save?.reason",
+    "saveReadbackVerified",
+    "Draft Save pressed — verify in FBR",
   ]) {
     assert.ok(client.includes(needle), `FBR Connect client carries ${needle}`);
   }
@@ -771,5 +803,7 @@ test("packaged agent identity, Services contract and web handoff contract stay w
   assert.match(mainSource, /if \(mode === "live"\) \{/);
   assert.match(mainSource, /onlyViews: requestedViews/);
   assert.match(mainSource, /allEnteredEntriesReadBack/);
+  assert.match(mainSource, /services_readback_retry/);
+  assert.match(mainSource, /final scoped readback did not confirm/);
   assert.match(mainSource, /portal_expense_retry/);
 });

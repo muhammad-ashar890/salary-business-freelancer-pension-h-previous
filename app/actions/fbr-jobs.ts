@@ -471,10 +471,19 @@ export async function getLocalAgentJobsAction(draftId: string) {
     // Only the handoff scope summary is sent to the browser, never the whole
     // agent result.
     const views = jobs.map(({ resultJson, ...job }) => {
+      const parsedResult = (() => {
+        try {
+          return JSON.parse(resultJson || "{}");
+        } catch {
+          return {};
+        }
+      })();
+      const autofillResult = parsedResult?.autofill || {};
       let handoffScope: {
         businessDetails?: { required: boolean; verified: boolean; readback: { reason: string } | null; afterSaveVerification: { reason: string } | null };
         business?: { preparedFields: number; filledFields: number; route: string; status: string; pendingItems: string[] };
         salary: string | null;
+        salaryFields?: { total: number; filled: number; skipped: number };
         wealthStatement: string | null;
         wealthRows: number;
         employers: string | null;
@@ -488,13 +497,46 @@ export async function getLocalAgentJobsAction(draftId: string) {
       } | null = null;
       let attention: JobAttention | null = null;
       try {
-        attention = readJobAttention(JSON.parse(resultJson || "{}")?.attention);
+        attention = readJobAttention(parsedResult?.attention);
       } catch {
         attention = null;
       }
       try {
-        const scope = JSON.parse(resultJson || "{}")?.handoffScope;
+        const scope = parsedResult?.handoffScope;
         if (scope && typeof scope === "object") {
+          const salaryRows = Array.isArray(autofillResult?.results)
+            ? autofillResult.results.filter((row: any) => ["1009", "64020004"].includes(String(row?.irisCode)))
+            : [];
+          const hasLegacySalaryRows = ["1009", "64020004"].every((code) =>
+            salaryRows.some((row: any) => String(row?.irisCode) === code),
+          );
+          const inferredSalaryIncluded =
+            autofillResult?.salaryIncluded === true || hasLegacySalaryRows;
+          const salarySummary = autofillResult?.salarySummary || {};
+          const count = (value: unknown) => {
+            const number = Number(value);
+            return Number.isFinite(number) ? Math.max(0, Math.floor(number)) : 0;
+          };
+          const salaryTotal = count(salarySummary.total) || salaryRows.length;
+          const salaryFields =
+            scope.salaryFields &&
+            typeof scope.salaryFields === "object" &&
+            count(scope.salaryFields.total) > 0
+              ? scope.salaryFields
+              : inferredSalaryIncluded
+                ? {
+                    total: salaryTotal,
+                    filled: Math.min(
+                      salaryTotal,
+                      count(salarySummary.filled) +
+                        count(salarySummary.alreadyCorrect) ||
+                        salaryRows.filter((row: any) =>
+                          ["filled", "already_correct"].includes(String(row?.status)),
+                        ).length,
+                    ),
+                    skipped: count(salarySummary.skipped),
+                  }
+                : null;
           handoffScope = {
             ...(scope.businessDetails?.required === true ? {
               businessDetails: {
@@ -519,6 +561,15 @@ export async function getLocalAgentJobsAction(draftId: string) {
               },
             } : {}),
             salary: typeof scope.salary === "string" ? scope.salary : null,
+            ...(salaryFields && count(salaryFields.total) > 0
+              ? {
+                  salaryFields: {
+                    total: count(salaryFields.total),
+                    filled: Math.min(count(salaryFields.total), count(salaryFields.filled)),
+                    skipped: count(salaryFields.skipped),
+                  },
+                }
+              : {}),
             wealthStatement:
               typeof scope.wealthStatement === "string"
                 ? scope.wealthStatement

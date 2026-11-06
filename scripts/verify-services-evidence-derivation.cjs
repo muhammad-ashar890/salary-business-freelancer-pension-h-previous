@@ -69,7 +69,25 @@ function receipt(overrides = {}) {
 test("an invoice is settled by the bank credit with the same net amount, and the review is derived from the document", () => {
   const result = derivation.deriveServicesEvidence({
     selectedSubcategories: ["1b-service-it-ites"],
-    invoices: [invoice()],
+    invoices: [invoice({
+      derivedPayout: {
+        settlementDate: "2025-09-05",
+        settlementCurrency: "PKR",
+        settlementAmount: 50000,
+        settlementExchangeRateToPkr: 1,
+        grossServiceAmountPkr: 50000,
+        withholdingTaxPkr: 0,
+        withholdingSection: null,
+        withholdingIrisCode: null,
+        withholdingEvidenceReference: null,
+        platformFeePkr: 0,
+        bankFeePkr: 0,
+        netPayoutPkr: 50000,
+        payoutReference: "INV-1",
+        evidenceReference: "invoices-aug.pdf page 1",
+        incomeCharacter: "Technical / professional fee",
+      },
+    })],
     receipts: [receipt()],
   });
   assert.equal(result.matches.length, 1);
@@ -90,6 +108,30 @@ test("an invoice is settled by the bank credit with the same net amount, and the
   assert.equal(result.coverage.matchedCredits, 1);
   assert.equal(result.coverage.allocatedPkr, 50000);
   assert.equal(result.ok, true);
+});
+
+test("missing payout deductions stay blank and are never guessed as zero", () => {
+  const result = derivation.deriveServicesEvidence({
+    selectedSubcategories: ["1b-service-it-ites"],
+    invoices: [invoice({
+      derivedPayout: {
+        settlementDate: "2025-09-05", settlementCurrency: "PKR", settlementAmount: 50000,
+        settlementExchangeRateToPkr: 1, grossServiceAmountPkr: 50000,
+        withholdingTaxPkr: null, withholdingSection: null, withholdingIrisCode: null,
+        withholdingEvidenceReference: null, platformFeePkr: null, bankFeePkr: null,
+        netPayoutPkr: 50000, payoutReference: "INV-1", evidenceReference: "invoice.pdf page 1",
+        incomeCharacter: "Technical / professional fee",
+      },
+    })],
+    receipts: [receipt()],
+  });
+  assert.equal(result.matches.length, 1);
+  assert.equal(result.matches[0].withholdingTaxPkr, null);
+  assert.equal(result.matches[0].platformFeePkr, null);
+  assert.equal(result.matches[0].bankFeePkr, null);
+  assert.equal(result.matches[0].settlementAmount, null);
+  assert.equal(result.ok, false);
+  assert.equal(result.issues.filter((issue) => issue.code === "payout_component_missing").length, 3);
 });
 
 test("the payout block printed on the invoice supplies gross, withholding and fees instead of asking for them", () => {
@@ -289,8 +331,17 @@ test("a non-professional service stays out of IRIS row 3101 and says so", () => 
 test("a part payment is recorded as PARTIAL_TY from the documents alone", () => {
   const result = derivation.deriveServicesEvidence({
     selectedSubcategories: ["1b-service-it-ites"],
-    invoices: [invoice({ invoiceAmount: 50000 })],
-    receipts: [receipt({ amount: 20000, date: "2025-09-20" })],
+    invoices: [invoice({
+      invoiceAmount: 50000,
+      derivedPayout: {
+        settlementDate: "2025-09-20", settlementCurrency: "PKR", settlementAmount: 20000,
+        settlementExchangeRateToPkr: 1, grossServiceAmountPkr: 20000, withholdingTaxPkr: 0,
+        withholdingSection: null, withholdingIrisCode: null, withholdingEvidenceReference: null,
+        platformFeePkr: 0, bankFeePkr: 0, netPayoutPkr: 20000, payoutReference: "PARTIAL-1",
+        evidenceReference: "payout.pdf page 1", incomeCharacter: "Technical / professional fee",
+      },
+    })],
+    receipts: [receipt({ amount: 20000, date: "2025-09-20", description: "PARTIAL-1" })],
   });
   assert.equal(result.matches.length, 1);
   assert.equal(result.matches[0].netBankAmountPkr, 20000);
@@ -309,6 +360,14 @@ test("the live Review case: seven credits and seven invoices resolve with no typ
         invoiceDate: `2025-${String(7 + (index % 6)).padStart(2, "0")}-${String(3 + index).padStart(2, "0")}`,
         invoiceAmount: amount,
         serviceDescription: "Software development and technical services",
+        derivedPayout: {
+          settlementDate: `2025-${String(7 + (index % 6)).padStart(2, "0")}-${String(6 + index).padStart(2, "0")}`,
+          settlementCurrency: "PKR", settlementAmount: amount, settlementExchangeRateToPkr: 1,
+          grossServiceAmountPkr: amount, withholdingTaxPkr: 0, withholdingSection: null,
+          withholdingIrisCode: null, withholdingEvidenceReference: null, platformFeePkr: 0,
+          bankFeePkr: 0, netPayoutPkr: amount, payoutReference: `CREDIT-${index + 1}`,
+          evidenceReference: `payout-${index + 1}.pdf page 1`, incomeCharacter: "Technical / professional services",
+        },
       }),
     ),
     receipts: credits.map((amount, index) =>

@@ -5875,6 +5875,19 @@ async function runRealIrisAutofill(jobContext, job, mode) {
       scopedServicesReadback = await runServicesScopedReadback(
         "Services allowlisted readback after tab switch",
       );
+      const firstReadbackChecks = scopedServicesReadback.checks || [];
+      const firstReadbackMismatchCount = firstReadbackChecks.filter((check) => check.status === "mismatch").length;
+      const firstReadbackNotSeenCount = firstReadbackChecks.filter((check) => check.status === "not_seen").length;
+      // If the only problem is a row not being visible on the first pass, repeat
+      // the scoped read-only tour once after a short settle. Never type during
+      // this retry; the normal Save gate still requires every figure to match.
+      if (!scopedServicesReadback.complete && firstReadbackMismatchCount === 0 && firstReadbackNotSeenCount > 0) {
+        onStep("services_readback_retry", `The first read-only pass did not see ${firstReadbackNotSeenCount} figure(s); repeating the scoped readback once before deciding whether to Save.`);
+        await new Promise((resolve) => setTimeout(resolve, 750));
+        scopedServicesReadback = await runServicesScopedReadback(
+          "Services allowlisted readback retry after tab switch",
+        );
+      }
       afterTabChecks = scopedServicesReadback.checks || [];
       allAfterTabReadbacksMatch = irisTourCensus.allEnteredEntriesReadBack(
         entriesBeforeReadback,
@@ -6097,6 +6110,16 @@ async function runRealIrisAutofill(jobContext, job, mode) {
       typeof irisSaveDraft?.saveReturnDraft === "function"
         ? irisSaveDraft
         : null;
+    const unverifiedServicesChecks = servicesRouteActive
+      ? (scopedServicesReadback?.checks || []).filter((check) => check.status !== "match")
+      : [];
+    const unverifiedServicesNames = unverifiedServicesChecks.map((check) => {
+      const field = results.find((entry) => autofillItemKey(entry) === check.key);
+      return `${check.irisCode}${field?.label || field?.rowDescription ? ` ${field.label || field.rowDescription}` : ""}`;
+    });
+    const servicesReadbackBlockReason = unverifiedServicesChecks.length
+      ? `the final scoped readback did not confirm ${unverifiedServicesChecks.length} figure(s): ${unverifiedServicesNames.slice(0, 4).join("; ")}`
+      : "the scoped readback after the tab switch did not complete, so the figures could not be verified";
     const blockedBy = businessDetailsPending
       ? `Business Details is not verified (${businessDetailsReadback?.reason || businessDetailsOutcome?.reason || "not reached"})`
       : stopped
@@ -6108,7 +6131,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
           : typedNow === 0
             ? "nothing new was typed in this run"
             : !(servicesRouteActive ? scopedServicesReadback?.complete : censusEnd?.complete)
-              ? "the scoped readback after the tab switch did not complete, so the figures could not be verified"
+              ? servicesReadbackBlockReason
               : !allAfterTabReadbacksMatch || tabMismatches > 0
                 ? `${tabMismatches || 1} figure(s) did not read back the same after the tab switch (a missing or unseen readback also blocks Save)`
                 : null;
@@ -6573,6 +6596,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
         ? {
             route: "services_tax_deduction",
             businessCoverage: "services_tax_deduction_only",
+            salaryIncluded: servicesRoute.salaryIncluded,
             submitted: false,
           }
         : {}),
@@ -6954,6 +6978,7 @@ function buildConfirmedHandoffCompletion(saved, nowIso) {
         autofill.wealthPrepared,
         {
           salarySummary: autofill.salarySummary,
+          salaryIncluded: autofill.salaryIncluded,
           wealth: autofill.wealth,
           employers: autofill.employers,
           reviewConfirmed: true,
@@ -7045,6 +7070,7 @@ function buildHandoffScopeSummary(
   const salary = extras.salarySummary || summary;
   const salaryTotal = Number(salary?.total) || 0;
   const salaryFilled = Number(salary?.filled) || 0;
+  const salaryIncluded = Boolean(extras.salaryIncluded === true && salaryTotal > 0);
   const isServicesBusiness =
     extras.business?.coverage === "services_tax_deduction_only";
   const servicesFilled =
@@ -7089,7 +7115,9 @@ function buildHandoffScopeSummary(
           : "\u26A0\uFE0F not entered"
   }`;
   const salaryText = isServicesBusiness
-    ? `Freelancer / Services ${servicesFilled}/${servicesTotal} verified field(s) entered`
+    ? salaryIncluded
+      ? `Salary ${salaryFilled}/${salaryTotal} + Freelancer / Services ${servicesFilled}/${servicesTotal} approved field(s) verified`
+      : `Freelancer / Services ${servicesFilled}/${servicesTotal} verified field(s) entered`
     : genericSalaryText;
   let wealthText =
     wealthState === "pending"
@@ -7221,17 +7249,20 @@ function buildHandoffScopeSummary(
     ...(irisCheck ? { irisCheck } : {}),
     ...(previousWealthCheck ? { previousWealthCheck } : {}),
     ...(saveState ? { save: saveState } : {}),
+    ...(isServicesBusiness && salaryIncluded
+      ? { salaryFields: { total: salaryTotal, filled: salaryFilled, skipped: Number(salary?.skipped) || 0 } }
+      : {}),
     wealthPreparedRows: wealthRows,
     employers: employerState,
-    salary: isServicesBusiness
+    salary: isServicesBusiness && !salaryIncluded
       ? "not_applicable"
       : salaryNeedsReview
-      ? "needs_review"
-      : salaryTaken > 0
-        ? "confirmed_by_taxpayer"
-        : salaryTotal > 0 && salaryFilled === salaryTotal
-          ? "filled"
-          : "not_entered",
+        ? "needs_review"
+        : salaryTaken > 0
+          ? "confirmed_by_taxpayer"
+          : salaryTotal > 0 && salaryFilled === salaryTotal
+            ? "filled"
+            : "not_entered",
     businessDetails: extras.businessDetails || null,
     manualItems,
     manualUnchecked,
@@ -7308,6 +7339,7 @@ function mergeNavigationAutofillOutcome(navigation, autofill, autofillMode) {
       autofill?.result?.wealthPrepared,
       {
         salarySummary: autofill?.result?.salarySummary,
+        salaryIncluded: autofill?.result?.salaryIncluded,
         business: autofill?.result?.business,
         businessDetails,
         wealth: autofill?.result?.wealth,

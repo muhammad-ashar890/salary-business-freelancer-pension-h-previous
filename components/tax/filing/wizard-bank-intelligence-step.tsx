@@ -580,8 +580,14 @@ export function WizardBankIntelligenceStep({
     const canPreselectSuggestion = manualCategoryOptions[entryType].some(
       (category) => category === suggestedCategory,
     );
+    const presetCategory = preset?.category;
     setManualCategory(
-      preset?.category ?? (canPreselectSuggestion ? suggestedCategory : ""),
+      presetCategory &&
+      manualCategoryOptions[entryType].some((category) => category === presetCategory)
+        ? presetCategory
+        : canPreselectSuggestion
+          ? suggestedCategory
+          : "",
     );
     setManualDonorId(row.giftDonorId ?? "");
     setManualExclusionReason(row.exclusionReason ?? "");

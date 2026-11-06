@@ -28,6 +28,10 @@ Module._load = function (request, parent, isMain) {
       return { success: true, invoiceCount: input.invoices.length, payoutMatchCount: input.paymentMatches.length, incomeTotal: 51250 };
     },
   };
+  if (request === "@/lib/tax/withholding-diagnostic-log") return {
+    recordServicesEvidenceSave: async () => undefined,
+    recordServicesPanelSnapshot: async () => undefined,
+  };
   return originalLoad.call(this, request, parent, isMain);
 };
 const { WizardServicesIncomeEvidencePanel } = require("../components/tax/filing/wizard-services-income-evidence-panel.tsx");
@@ -132,6 +136,48 @@ test("Review: a mapped certificate auto-links section, exact code and reference 
     assert.equal(match.grossServiceAmountPkr, 51250);
     assert.equal(match.netBankAmountPkr, 48750);
     assert.equal(match.platformFeePkr, 450);
+  } finally { await h.destroy(); }
+});
+
+test("Review: one mapped withholding PDF auto-selects the exact numbered row for each invoice", async () => {
+  const secondInvoice = invoice({
+    id: "invoice-4", invoiceNumber: "INV-2026-004", invoiceAmount: 20000, unitRate: 20000,
+    paymentStatus: null,
+    derivedPayout: {
+      paymentStatus: "FULL_TY", settlementDate: "2025-09-15", settlementCurrency: "PKR", settlementAmount: 19200,
+      settlementExchangeRateToPkr: 1, grossServiceAmountPkr: 20000, withholdingTaxPkr: 800,
+      withholdingSection: "153(1)(b)", withholdingIrisCode: "64060158", withholdingEvidenceReference: "invoice payout block row 2",
+      platformFeePkr: 0, bankFeePkr: 0, netPayoutPkr: 19200, payoutReference: "PAYOUT-4",
+      evidenceReference: "qa-invoices.pdf page 2", incomeCharacter: "Technical / professional fee",
+    },
+  });
+  const combinedProof = {
+    id: "combined-proof", fileName: "combined-wht.pdf", documentType: "other_income_proof", extractionStatus: "MAPPED",
+    withholdingRows: readServicesWithholdingSourceRows({ fields: [
+      ["Invoice Number 1", "INV-2026-003"], ["Payout Reference 1", "PAYOUT-3"], ["Withholding Tax (PKR) 1", 2050],
+      ["Withholding Section 1", "153(1)(b)"], ["Withholding IRIS Code 1", "64060158"], ["Withholding Evidence Reference 1", "page 1 row 1"],
+      ["Invoice Number 2", "INV-2026-004"], ["Payout Reference 2", "PAYOUT-4"], ["Withholding Tax (PKR) 2", 800],
+      ["Withholding Section 2", "153(1)(b)"], ["Withholding IRIS Code 2", "64060158"], ["Withholding Evidence Reference 2", "page 2 row 2"],
+    ].map(([label, value]) => ({ label, value })) }),
+  };
+  const p = props({
+    invoices: [invoice(), secondInvoice],
+    receipts: [
+      { id: "credit-3", date: "2025-09-09", description: "PAYOUT-3 SYNTHETIC CLIENT", amount: 48750, sourceDocumentId: bank.id },
+      { id: "credit-4", date: "2025-09-15", description: "PAYOUT-4 SYNTHETIC CLIENT", amount: 19200, sourceDocumentId: bank.id },
+    ],
+    evidenceDocuments: [bank, combinedProof],
+  });
+  const h = await mount(p);
+  try {
+    const cards = [...h.host.querySelectorAll("details")].filter((node) => node.querySelector("summary")?.textContent.includes("Invoice INV-2026-"));
+    assert.equal(cards.length, 2);
+    assert.equal(cards.filter((node) => node.open).length, 1, "only one invoice accordion is expanded at a time");
+    const sourceSelects = [...h.host.querySelectorAll("label")].filter((el) => el.textContent.includes("Mapped withholding certificate")).map((el) => el.querySelector("select"));
+    assert.deepEqual(sourceSelects.map((select) => select.value), [combinedProof.id, combinedProof.id]);
+    const refs = [...h.host.querySelectorAll("label")].filter((el) => el.textContent.includes("Withholding certificate page / line reference")).map((el) => el.querySelector("input").value);
+    assert.match(refs[0], /page 1 row 1/);
+    assert.match(refs[1], /page 2 row 2/);
   } finally { await h.destroy(); }
 });
 

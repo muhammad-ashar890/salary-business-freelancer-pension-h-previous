@@ -634,11 +634,14 @@ function buildJobReport(input = {}) {
   if (wealthReconciliationLines.length)
     lines.push("", "WEALTH STATEMENT RECONCILIATION (Section 116, read-only)", ...wealthReconciliationLines);
   const saveLines = describeSave(autofill);
+  const servicesSaveLabel = autofill?.salaryIncluded === true
+    ? "Salary + Freelancer / Services"
+    : "Freelancer / Services";
   if (saveLines.length)
     lines.push(
       "",
       autofill?.save?.routePolicy === "services_save_once"
-        ? "SAVE (Freelancer / Services draft-save policy)"
+        ? `SAVE (${servicesSaveLabel} draft-save policy)`
         : "SAVE (pressed once at the end, only after every typed figure read back the same)",
       ...saveLines,
     );
@@ -665,7 +668,7 @@ function buildJobReport(input = {}) {
     autofill?.save?.clicked
       ? `  Save: pressed once by the agent at ${autofill.save.at || "the end of the run"} (see SAVE above).`
       : autofill?.save?.routePolicy === "services_save_once"
-        ? "  Save: not pressed by the agent (Freelancer / Services route policy)."
+        ? `  Save: not pressed by the agent (${servicesSaveLabel} route policy).`
         : `  Save: not pressed by the agent${autofill?.save?.reason ? ` (${autofill.save.reason})` : ""}.`,
   );
 

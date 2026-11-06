@@ -173,6 +173,7 @@ export function WizardServicesIncomeEvidencePanel({
   const [method, setMethod] = useState<AccountingMethod>(accountingMethod ?? "");
   const [invoiceReviews, setInvoiceReviews] = useState<Record<string, InvoiceReviewDraft>>({});
   const [matches, setMatches] = useState<MatchDraft[]>([]);
+  const [openInvoiceId, setOpenInvoiceId] = useState<string | null>(() => invoices[0]?.id ?? null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
@@ -331,20 +332,20 @@ export function WizardServicesIncomeEvidencePanel({
         invoiceEvidenceId: match.invoiceEvidenceId,
         ledgerEntryId: match.ledgerEntryId,
         settlementCurrency: match.settlementCurrency,
-        settlementAmount: String(match.settlementAmount),
+        settlementAmount: moneyInput(match.settlementAmount),
         settlementExchangeRateToPkr: String(match.settlementExchangeRateToPkr),
         invoiceCurrencyAmount: String(match.invoiceCurrencyAmount),
         exchangeRateToPkr: String(match.exchangeRateToPkr),
         netBankAmountPkr: String(match.netBankAmountPkr),
-        withholdingTaxPkr: String(match.withholdingTaxPkr),
+        withholdingTaxPkr: moneyInput(match.withholdingTaxPkr),
         withholdingSection: match.withholdingSection ?? "",
         withholdingIrisCode: match.withholdingIrisCode ?? "",
         withholdingEvidenceReference: match.withholdingEvidenceReference ?? "",
         withholdingEvidenceHumanConfirmed: match.withholdingEvidenceHumanConfirmed,
         withholdingEvidenceDocumentId: "",
         evidenceDocumentId: "",
-        platformFeePkr: String(match.platformFeePkr),
-        bankFeePkr: String(match.bankFeePkr),
+        platformFeePkr: moneyInput(match.platformFeePkr),
+        bankFeePkr: moneyInput(match.bankFeePkr),
         payoutReference: match.payoutReference ?? "",
         evidenceReference: match.evidenceReference,
       })),
@@ -619,13 +620,17 @@ export function WizardServicesIncomeEvidencePanel({
         ))}
       </datalist>
       {unresolvedWithholding.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-900" role="status">
-          <p className="font-semibold">Withholding source needed — {formatPkr(unresolvedWithholding.reduce((sum, item) => sum + item.amount, 0))}</p>
-          <p className="mt-1">The payout amounts are already filled. Upload/map the matching payer tax evidence; supported section/code facts will be linked automatically. Do not retype income or change reconciliation to clear this warning.</p>
-          <ul className="mt-2 space-y-1">
-            {unresolvedWithholding.map((item) => <li key={item.key}>{item.name}: {formatPkr(item.amount)} — {item.reason}</li>)}
-          </ul>
-        </div>
+        <details className="rounded-lg border border-amber-200 bg-amber-50/60 text-xs text-amber-900" role="status">
+          <summary className="cursor-pointer px-3 py-2 font-semibold">
+            Withholding source needed — {formatPkr(unresolvedWithholding.reduce((sum, item) => sum + item.amount, 0))} across {unresolvedWithholding.length} payout{unresolvedWithholding.length === 1 ? "" : "s"}
+          </summary>
+          <div className="border-t border-amber-200 px-3 py-2">
+            <p>The payout amounts are already filled. Upload/map the matching payer tax evidence; supported section/code facts will be linked automatically. Do not retype income or change reconciliation to clear this warning.</p>
+            <ul className="mt-2 space-y-1">
+              {unresolvedWithholding.map((item) => <li key={item.key}>{item.name}: {formatPkr(item.amount)} — {item.reason}</li>)}
+            </ul>
+          </div>
+        </details>
       )}
 
       <div className="grid gap-2 rounded-lg border bg-muted/20 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(220px,340px)] sm:items-center">
@@ -673,7 +678,11 @@ export function WizardServicesIncomeEvidencePanel({
 
       {derivationNotes &&
         (derivationNotes.assumptions.length > 0 || derivationNotes.issues.length > 0) && (
-          <div className="space-y-2 rounded-lg border bg-muted/20 p-3 text-[11px]">
+          <details className="rounded-lg border bg-muted/20 text-[11px]">
+            <summary className="cursor-pointer px-3 py-2 font-semibold">
+              Document derivation notes · {derivationNotes.assumptions.length} supported fact{derivationNotes.assumptions.length === 1 ? "" : "s"} · {derivationNotes.issues.length} issue{derivationNotes.issues.length === 1 ? "" : "s"}
+            </summary>
+            <div className="space-y-2 border-t px-3 py-2">
             {derivationNotes.assumptions.length > 0 && (
               <div>
                 <p className="font-semibold">Taken from the documents</p>
@@ -694,7 +703,8 @@ export function WizardServicesIncomeEvidencePanel({
                 </ul>
               </div>
             )}
-          </div>
+            </div>
+          </details>
         )}
 
       {invoices.length === 0 ? (
@@ -723,29 +733,63 @@ export function WizardServicesIncomeEvidencePanel({
                   review.subcategory as keyof typeof SERVICES_WITHHOLDING_SECTION_BY_SUBCATEGORY
                 ]
               : null;
+            const isExpanded = openInvoiceId === invoice.id;
+            const categoryLabel = categories.find((category) => category.subcategory === review.subcategory)?.label || review.subcategory || "Category pending";
+            const allocatedNet = invoiceMatches.reduce((sum, match) => sum + (parseOptionalNumber(match.netBankAmountPkr) ?? 0), 0);
+            const payoutFactsMissing = invoiceMatches.some((match) =>
+              parseOptionalNumber(match.platformFeePkr) === null ||
+              parseOptionalNumber(match.bankFeePkr) === null ||
+              parseOptionalNumber(match.withholdingTaxPkr) === null
+            );
+            const withholdingSourceMissing = invoiceMatches.some((match) =>
+              (parseOptionalNumber(match.withholdingTaxPkr) ?? 0) > 0 && !match.withholdingEvidenceDocumentId
+            );
+            const reviewLabel = invoice.evidenceStatus === "CONFIRMED"
+              ? "Confirmed"
+              : invoiceMatches.length === 0
+                ? "Payout match needed"
+                : payoutFactsMissing
+                  ? "Payout details incomplete"
+                  : withholdingSourceMissing
+                    ? "Withholding source needed"
+                    : "Review evidence";
             return (
-              <article key={invoice.id} className="space-y-3 rounded-lg border p-3 sm:p-4">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold">
-                      {invoice.invoiceNumber ? `Invoice ${invoice.invoiceNumber}` : `Invoice row ${invoiceIndex + 1}`}
-                      <span className="ml-2 font-normal text-muted-foreground">{invoice.invoiceDate ?? "Date missing"}</span>
-                    </p>
-                    <p className="mt-1 break-words text-xs text-muted-foreground">
+              <details
+                key={invoice.id}
+                open={isExpanded}
+                onToggle={(event) => {
+                  const opening = event.currentTarget.open;
+                  setOpenInvoiceId((current) => opening ? invoice.id : current === invoice.id ? null : current);
+                }}
+                className="overflow-hidden rounded-lg border bg-background"
+              >
+                <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-3 py-3 outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring sm:px-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="text-xs font-semibold">
+                        {invoice.invoiceNumber ? `Invoice ${invoice.invoiceNumber}` : `Invoice row ${invoiceIndex + 1}`}
+                      </p>
+                      <span className="text-[11px] text-muted-foreground">{invoice.invoiceDate ?? "Date missing"}</span>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px]">{categoryLabel}</span>
+                    </div>
+                    <p className="mt-1 truncate text-[11px] text-muted-foreground">
                       {invoice.clientName || "Client missing"} · {invoice.serviceDescription || "Service description missing"}
                     </p>
-                    <p className="mt-1 text-xs font-medium tabular-nums">
-                      Invoice gross: {invoice.invoiceAmount === null ? "Pending" : `${invoice.currency ?? "Currency missing"} ${invoice.invoiceAmount.toLocaleString("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    <p className="mt-1 text-[11px] font-medium tabular-nums">
+                      Gross: {invoice.invoiceAmount === null ? "Pending" : `${invoice.currency ?? "Currency missing"} ${invoice.invoiceAmount.toLocaleString("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      {invoiceMatches.length > 0 && <> · {invoiceMatches.length} payout match{invoiceMatches.length === 1 ? "" : "es"} · Net credited {formatPkr(allocatedNet)}</>}
                     </p>
                   </div>
-                  <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${invoice.evidenceStatus === "CONFIRMED" ? "bg-amanah/10 text-amanah" : derivation ? "bg-blue-500/10 text-blue-800" : "bg-amber-500/10 text-amber-800"}`}>
-                    {invoice.evidenceStatus === "CONFIRMED"
-                      ? "Evidence confirmed"
-                      : derivation
-                        ? "Auto-filled from documents"
-                        : "Needs review"}
-                  </span>
-                </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${invoice.evidenceStatus === "CONFIRMED" ? "bg-amanah/10 text-amanah" : reviewLabel === "Payout details incomplete" || reviewLabel === "Payout match needed" || reviewLabel === "Withholding source needed" ? "bg-amber-500/10 text-amber-800" : "bg-blue-500/10 text-blue-800"}`}>
+                      {reviewLabel}
+                    </span>
+                    <span aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-full border text-sm text-muted-foreground">
+                      {isExpanded ? "−" : "+"}
+                    </span>
+                  </div>
+                </summary>
+                <div className="space-y-3 border-t p-3 sm:p-4">
                 {derivation && invoice.evidenceStatus !== "CONFIRMED" && (
                   <p className="text-[11px] text-muted-foreground">
                     Read from {invoice.sourceDocumentFileName}
@@ -956,17 +1000,28 @@ export function WizardServicesIncomeEvidencePanel({
                                   onChange={(event) => {
                                     const docId = event.target.value;
                                     const selectedDoc = withholdingEvidenceDocuments.find((d) => d.id === docId);
-                                    const subcat = (review.subcategory || invoice.subcategory) as keyof typeof SERVICES_WITHHOLDING_SECTION_BY_SUBCATEGORY;
-                                    const defaultSection = subcat ? SERVICES_WITHHOLDING_SECTION_BY_SUBCATEGORY[subcat] : "";
-                                    const defaultCodes = subcat ? (SERVICES_WITHHOLDING_IRIS_CODES_BY_SUBCATEGORY[subcat] ?? []) : [];
-                                    const firstRow = selectedDoc?.withholdingRows?.[0];
+                                    const source = selectedDoc
+                                      ? resolveServicesWithholdingPrefill({
+                                          invoiceNumber: invoice.invoiceNumber,
+                                          payoutReference: match.payoutReference || null,
+                                          amountPkr: parseOptionalNumber(match.withholdingTaxPkr),
+                                          observedSection: match.withholdingSection || null,
+                                          observedIrisCode: match.withholdingIrisCode || null,
+                                          documents: [selectedDoc],
+                                        })
+                                      : null;
+                                    const exactRow = source?.status === "MATCHED" ? source : null;
 
                                     updateMatch(match.clientKey, {
                                       withholdingEvidenceDocumentId: docId,
-                                      withholdingSection: match.withholdingSection || firstRow?.section || defaultSection || "",
-                                      withholdingIrisCode: match.withholdingIrisCode || firstRow?.irisCode || (defaultCodes[0] ?? ""),
-                                      withholdingEvidenceReference: match.withholdingEvidenceReference || firstRow?.evidenceReference || (selectedDoc ? `${selectedDoc.fileName} · Page 1` : ""),
-                                      withholdingEvidenceHumanConfirmed: Boolean(docId),
+                                      ...(exactRow
+                                        ? {
+                                            withholdingSection: exactRow.section,
+                                            withholdingIrisCode: exactRow.irisCode,
+                                            withholdingEvidenceReference: exactRow.evidenceReference,
+                                          }
+                                        : {}),
+                                      withholdingEvidenceHumanConfirmed: false,
                                     });
                                   }}
                                   className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs font-normal"
@@ -1060,16 +1115,20 @@ export function WizardServicesIncomeEvidencePanel({
                     </div>
                   )}
                 </div>
-              </article>
+                </div>
+              </details>
             );
           })}
         </div>
       )}
 
       {receipts.length > 0 && (
-        <div className="rounded-lg border bg-muted/20 p-3">
-          <p className="text-xs font-semibold">Services ledger credits to reconcile</p>
-          <ul className="mt-2 space-y-1">
+        <details className="rounded-lg border bg-muted/20">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold">
+            Services ledger credits to reconcile · {receipts.length} credit{receipts.length === 1 ? "" : "s"} · {formatPkr(receipts.reduce((sum, receipt) => sum + receipt.amount, 0))}
+          </summary>
+          <div className="border-t p-3">
+          <ul className="space-y-1">
             {receipts.map((receipt) => {
               const allocated = matches
                 .filter((match) => match.ledgerEntryId === receipt.id)
@@ -1085,7 +1144,8 @@ export function WizardServicesIncomeEvidencePanel({
             })}
           </ul>
           <p className="mt-2 text-[10px] text-muted-foreground">A payout split across invoices is supported. Every Services bank credit must be allocated exactly to its net PKR amount.</p>
-        </div>
+          </div>
+        </details>
       )}
 
       {error && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-xs text-destructive">{error}</p>}

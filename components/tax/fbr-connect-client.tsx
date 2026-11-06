@@ -77,6 +77,7 @@ type JobView = {
       route?: string;
     };
     salary: string | null;
+    salaryFields?: { total: number; filled: number; skipped: number };
     wealthStatement: string | null;
     wealthRows: number;
     employers: string | null;
@@ -997,6 +998,11 @@ function HandoffCompleteCard({
   const isServicesRoute =
     scope?.business?.route === "services_tax_deduction" ||
     scope?.save?.routePolicy === "services_save_once";
+  const isCombinedSalaryServicesRoute =
+    isServicesRoute && Number(scope?.salaryFields?.total || 0) > 0;
+  const servicesRouteName = isCombinedSalaryServicesRoute
+    ? "Salary + Freelancer / Services"
+    : "Freelancer / Services";
   if (scope?.business) {
     const visibleBusinessPending = (scope.business.pendingItems ?? []).filter(
       (item) => {
@@ -1014,13 +1020,14 @@ function HandoffCompleteCard({
       },
     );
     rows.push(
-      isServicesRoute
+        isServicesRoute
         ? {
-            title: "Freelancer / Services — verified field entry",
-            detail: `${scope.business.filledFields}/${scope.business.preparedFields} approved Services fields verified in Business > Other Revenues / Tax Deduction. Only evidence-backed income and withholding are automated.`,
+            title: `${servicesRouteName} — verified field entry`,
+            detail: `${isCombinedSalaryServicesRoute ? `${scope.salaryFields?.filled}/${scope.salaryFields?.total} Salary fields + ` : ""}${scope.business.filledFields}/${scope.business.preparedFields} approved Services fields verified in ${isCombinedSalaryServicesRoute ? "Employment and " : ""}Business > Other Revenues / Tax Deduction. Only evidence-backed income and withholding are automated.`,
             state:
               scope.business.status === "dry_run_only" ||
-              scope.business.status === "needs_review"
+              scope.business.status === "needs_review" ||
+              (isCombinedSalaryServicesRoute && Number(scope.salaryFields?.skipped || 0) > 0)
                 ? "attention"
                 : "done",
           }
@@ -1085,9 +1092,20 @@ function HandoffCompleteCard({
       save.clicked &&
       ["saved_confirmed", "saved_no_message", "saved_message_unclassified"].includes(save.status),
   );
+  const saveReadbackVerified = Boolean(
+    savedByAgent &&
+      save?.afterSave?.complete === true &&
+      save.afterSave.mismatch === 0 &&
+      save.afterSave.notSeen === 0,
+  );
   if (save) {
     const at = save.at ? ` at ${new Date(save.at).toLocaleTimeString()}` : "";
-    const saveTitle = savedByAgent ? "Saved in your FBR draft" : "Draft Save not completed";
+    const saveTitle =
+      save.status === "saved_confirmed"
+        ? "Saved in your FBR draft"
+        : savedByAgent
+          ? "Draft Save pressed — verify in FBR"
+          : "Draft Save not completed";
     const readback = save.afterSave
       ? save.afterSave.complete
         ? ` Re-read after Save: ${save.afterSave.match} match, ${save.afterSave.mismatch} differ, ${save.afterSave.notSeen} not seen.`
@@ -1224,7 +1242,11 @@ function HandoffCompleteCard({
   // Agent-owned work and remaining taxpayer review are different statuses.
   // A clean entry completes immediately; never fabricate a review confirmation.
   const agentEntryComplete =
-    rows.every((row) => row.state === "done") && manualAllChecked;
+    rows.every(
+      (row) =>
+        row.state === "done" ||
+        (saveReadbackVerified && row.title === "Draft Save pressed — verify in FBR"),
+    ) && manualAllChecked;
 
   if (!isServicesRoute) {
     rows.push(
@@ -1254,8 +1276,8 @@ function HandoffCompleteCard({
           />
           {isServicesRoute
             ? agentEntryComplete
-              ? "Services figures entered in FBR."
-              : "Services data entry finished. Check the items below."
+              ? `${servicesRouteName} figures entered in FBR.`
+              : `${servicesRouteName} data entry finished. Check the items below.`
             : agentEntryComplete
               ? "Return prepared in FBR. Review and submit it yourself."
               : "Data entry finished. Check the items below, then submit it yourself."}
@@ -1266,7 +1288,7 @@ function HandoffCompleteCard({
           {isServicesRoute
             ? savedByAgent
               ? "It pressed the one draft Save only after scoped post-tab verification; Submit, Calculate, Prepare PSID and payment were not pressed."
-              : "Draft Save was not pressed because the scoped post-tab verification was not complete; Submit, Calculate, Prepare PSID and payment were not pressed."
+              : `Draft Save was not pressed (${save?.reason || "post-tab verification was not complete"}); Submit, Calculate, Prepare PSID and payment were not pressed.`
             : savedByAgent
               ? "It pressed Save once in your FBR draft; Submit, Calculate, Prepare PSID and payment were not pressed."
               : "The agent did not press Save in this run; Submit, Calculate, Prepare PSID and payment were not pressed."}{" "}

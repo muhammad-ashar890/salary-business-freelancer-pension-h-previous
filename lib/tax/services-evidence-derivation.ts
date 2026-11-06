@@ -55,20 +55,20 @@ export type DerivedPaymentMatch = Readonly<{
   ledgerEntryId: string;
   settlementDate: string;
   settlementCurrency: "PKR";
-  settlementAmount: number;
+  settlementAmount: number | null;
   settlementExchangeRateToPkr: 1;
   invoiceCurrencyAmount: number;
   exchangeRateToPkr: number;
   grossServiceAmountPkr: number;
   netBankAmountPkr: number;
-  withholdingTaxPkr: number;
+  withholdingTaxPkr: number | null;
   withholdingSection: string | null;
   withholdingIrisCode: string | null;
   withholdingEvidenceReference: string | null;
   withholdingEvidenceHumanConfirmed: boolean;
   withholdingEvidenceDocumentId: null;
-  platformFeePkr: number;
-  bankFeePkr: number;
+  platformFeePkr: number | null;
+  bankFeePkr: number | null;
   payoutReference: string | null;
   evidenceReference: string;
   /** Why this pair was proposed, for the Review-step explanation. */
@@ -82,7 +82,8 @@ export type DerivationIssue = Readonly<{
     | "ambiguous_match"
     | "subcategory_unresolved"
     | "income_character_unresolved"
-    | "amount_mismatch";
+    | "amount_mismatch"
+    | "payout_component_missing";
   message: string;
   invoiceId?: string;
   ledgerEntryId?: string;
@@ -269,20 +270,23 @@ function expectedNet(invoice: DerivationInvoice): number | null {
   // the statement proves.
   const bankFee =
     typeof invoice.derivedPayout?.bankFeePkr === "number" &&
-    Number.isFinite(invoice.derivedPayout.bankFeePkr)
+    Number.isFinite(invoice.derivedPayout.bankFeePkr) &&
+    invoice.derivedPayout.bankFeePkr >= 0
       ? Math.max(0, invoice.derivedPayout.bankFeePkr)
-      : 0;
+      : null;
   if (
     typeof settlement === "number" &&
     settlement > 0 &&
-    settlementCurrency === "PKR"
+    settlementCurrency === "PKR" &&
+    bankFee !== null
   )
     return pkr(settlement - bankFee);
   if (
     typeof settlement === "number" &&
     settlement > 0 &&
     typeof settlementRate === "number" &&
-    settlementRate > 0
+    settlementRate > 0 &&
+    bankFee !== null
   )
     return pkr(settlement * settlementRate - bankFee);
   return invoicePkrAmount(invoice);
@@ -344,51 +348,62 @@ function scorePair(
 function resolveFees(
   invoice: DerivationInvoice,
   receipt: DerivationReceipt,
-  assumptions: string[],
   issues: DerivationIssue[],
 ): {
   gross: number;
-  withholding: number;
-  platformFee: number;
-  bankFee: number;
+  withholding: number | null;
+  platformFee: number | null;
+  bankFee: number | null;
 } | null {
   const payout = invoice.derivedPayout;
   const net = pkr(receipt.amount);
-  const platformFee = pkr(payout?.platformFeePkr ?? 0);
-  const bankFee = pkr(payout?.bankFeePkr ?? 0);
+  const explicitNonNegative = (value: number | null | undefined) =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0
+      ? pkr(value)
+      : null;
+  const platformFee = explicitNonNegative(payout?.platformFeePkr);
+  const bankFee = explicitNonNegative(payout?.bankFeePkr);
   const printedGross =
-    typeof payout?.grossServiceAmountPkr === "number" && payout.grossServiceAmountPkr > 0
+    typeof payout?.grossServiceAmountPkr === "number" &&
+    Number.isFinite(payout.grossServiceAmountPkr) &&
+    payout.grossServiceAmountPkr > 0
       ? pkr(payout.grossServiceAmountPkr)
       : null;
-  const printedWithholding =
-    typeof payout?.withholdingTaxPkr === "number" && payout.withholdingTaxPkr >= 0
-      ? pkr(payout.withholdingTaxPkr)
-      : null;
-
-  let gross: number;
-  let withholding: number;
-  if (printedGross !== null) {
-    gross = printedGross;
-    withholding =
-      printedWithholding !== null
-        ? printedWithholding
-        : pkr(Math.max(0, Math.round((gross - net - platformFee - bankFee) * 100) / 100));
-    if (printedWithholding === null && withholding > 0)
-      assumptions.push(
-        `Invoice ${label(invoice)}: withholding is the printed gross minus the bank credit and fees (PKR ${withholding.toFixed(2)}).`,
-      );
-  } else if (printedWithholding !== null) {
-    gross = pkr(net + printedWithholding + platformFee + bankFee);
-    withholding = printedWithholding;
-  } else {
-    gross = net;
-    withholding = 0;
-    assumptions.push(
-      `Invoice ${label(invoice)}: neither withholding nor gross is printed, so the bank credit is taken as the full service amount and withholding as 0.`,
-    );
+  const printedWithholding = explicitNonNegative(payout?.withholdingTaxPkr);
+  // Invoice amount and its printed FX rate may establish gross. Never derive
+  // withholding or fees as the unexplained remainder of gross minus net.
+  const invoiceGross = invoicePkrAmount(invoice);
+  const gross = printedGross ?? invoiceGross;
+  if (gross === null || gross <= 0) {
+    issues.push({
+      code: "payout_component_missing",
+      invoiceId: invoice.id,
+      message: `Invoice ${label(invoice)}: gross service amount and a usable invoice amount/FX rate are missing; the payout cannot be derived.`,
+    });
+    return null;
   }
 
-  if (gross <= 0) return null;
+  if (printedWithholding === null) {
+    issues.push({
+      code: "payout_component_missing",
+      invoiceId: invoice.id,
+      message: `Invoice ${label(invoice)}: withholding is not explicitly stated in the payout evidence; do not infer it from gross minus bank credit.`,
+    });
+  }
+  if (platformFee === null) {
+    issues.push({
+      code: "payout_component_missing",
+      invoiceId: invoice.id,
+      message: `Invoice ${label(invoice)}: platform fee is missing from mapped evidence; zero is not assumed.`,
+    });
+  }
+  if (bankFee === null) {
+    issues.push({
+      code: "payout_component_missing",
+      invoiceId: invoice.id,
+      message: `Invoice ${label(invoice)}: receiving-bank fee is missing from mapped evidence; zero is not assumed.`,
+    });
+  }
   if (cents(gross)! < cents(net)!) {
     issues.push({
       code: "amount_mismatch",
@@ -397,7 +412,7 @@ function resolveFees(
     });
     return null;
   }
-  return { gross, withholding, platformFee, bankFee };
+  return { gross, withholding: printedWithholding, platformFee, bankFee };
 }
 
 function label(invoice: DerivationInvoice): string {
@@ -587,7 +602,7 @@ export function deriveServicesEvidence(input: {
           ? receiptCents
           : Math.round((receiptCents * (cents(expectedNet(invoice) ?? 0) ?? 0)) / totalExpected);
       const netAmount = pkr(share / 100);
-      const fees = resolveFees(invoice, { ...receipt, amount: netAmount }, assumptions, issues);
+      const fees = resolveFees(invoice, { ...receipt, amount: netAmount }, issues);
       if (!fees) continue;
 
       const invoicePkr = invoicePkrAmount(invoice);
@@ -628,7 +643,8 @@ export function deriveServicesEvidence(input: {
         // `evaluateServicesIncomeEvidence` requires
         // settlement = net credit + receiving-bank fee, so a match built from the
         // credit alone failed its own validation for every fee-bearing invoice.
-        settlementAmount: pkr(netAmount + fees.bankFee),
+        settlementAmount:
+          fees.bankFee === null ? null : pkr(netAmount + fees.bankFee),
         settlementExchangeRateToPkr: 1,
         invoiceCurrencyAmount,
         exchangeRateToPkr: rate,

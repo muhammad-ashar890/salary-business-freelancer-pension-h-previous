@@ -582,6 +582,17 @@ test("gift donor: stored on the transaction, required by both click paths and by
   );
 });
 
+test("approving a potential income credit keeps its valid suggested category preselected", () => {
+  const ui = fs.readFileSync(path.join(root, "components/tax/filing/wizard-bank-intelligence-step.tsx"), "utf8");
+  assert.match(ui, /const presetCategory = preset\?\.category;/);
+  assert.match(ui, /presetCategory &&\s*manualCategoryOptions\[entryType\]\.some\(\(category\) => category === presetCategory\)/);
+  assert.match(
+    ui,
+    /: canPreselectSuggestion\s*\? suggestedCategory\s*:\s*""/,
+    "an empty approval preset must fall back to a valid row suggestion such as Services",
+  );
+});
+
 test("unexplained credit: it can never be approved or classified under the placeholder category", () => {
   assert.equal(rules.PLACEHOLDER_INCOME_CATEGORY, "POTENTIAL_INCOME");
   assert.equal(rules.isPlaceholderIncomeCategory(" potential_income "), true);
