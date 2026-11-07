@@ -550,7 +550,7 @@ export function classifyTransaction(
   }
 
   // Strongly worded freelance/service receipts map to the existing SERVICES
-  // tax category only on the exact Services-only or Salary+Services route. Keep them as
+  // tax category only on the exact Services-only, Salary+Services or Pension+Services route. Keep them as
   // suggestions, not automatic ledger approvals.
   if (
     options?.freelancerEnabled &&

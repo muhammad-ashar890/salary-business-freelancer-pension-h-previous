@@ -197,7 +197,7 @@ const irisComputationsDriver = require("./iris-computations-driver");
 // Phase 3c (fix52): the Section 113 "+ Turnover" row (used by the
 // computations driver; required here for the build-tag check).
 const irisTurnoverDriver = require("./iris-turnover-driver");
-const AGENT_BUILD_TAG = "services-picker-aliases-20261105d";
+const AGENT_BUILD_TAG = "pension-services-multifiling-20261106a";
 function getAgentBuildLabel() {
   return `${AGENT_BUILD_TAG} | navigator: ${irisNavigation.BUILD_TAG} | filler: ${irisRowFiller.BUILD_TAG} | pension: ${PENSION_GUARD_BUILD_TAG}`;
 }
@@ -3653,7 +3653,7 @@ function normalizeExplicitResidencyStatus(value) {
 
 /**
  * The merged Services agent route is deliberately exact: a TY2026 Myself
- * packet with Services alone or exactly Salary + Services, carrying the
+ * packet with Services alone, exactly Salary + Services, or exactly Pension + Services, carrying the
  * Phase 5 services-tax-deduction-v1 payload. Other combinations fail closed
  * before IRIS is opened.
  */
@@ -3679,11 +3679,15 @@ function getServicesPacketRoute(snapshot) {
     uniqueSources.length === 2 &&
     uniqueSources[0] === "salary" &&
     uniqueSources[1] === "services";
+  const pensionAndServices =
+    uniqueSources.length === 2 &&
+    uniqueSources[0] === "pension" &&
+    uniqueSources[1] === "services";
   const exact =
     Number(filing.taxYear) === 2026 &&
     filing.filerType === "myself" &&
     incomeSources.length === uniqueSources.length &&
-    (servicesOnly || salaryAndServices);
+    (servicesOnly || salaryAndServices || pensionAndServices);
   const payloadValid =
     payload?.version === "services-tax-deduction-v1" &&
     payload?.route === "services_tax_deduction" &&
@@ -3695,6 +3699,7 @@ function getServicesPacketRoute(snapshot) {
     incomeSources,
     selected,
     salaryIncluded: salaryAndServices,
+    pensionIncluded: pensionAndServices,
     exact,
     payloadValid,
     active: exact && payloadValid,
@@ -3832,6 +3837,54 @@ function getSalaryFieldsForServicesRoute(allCoded) {
   };
 }
 
+/**
+ * Pension allowlist for Pension + Services. The pension source guard separately
+ * verifies the approved fingerprint, treatment and exact required IRIS cells;
+ * this resolver makes sure the Services-only agent branch carries only those
+ * pension rows, never unrelated income or salary fields.
+ */
+function getPensionFieldsForServicesRoute(allCoded) {
+  const fields = Array.isArray(allCoded) ? allCoded : [];
+  const allowed = fields.filter((field) => {
+    const code = String(field?.irisCode || "");
+    const category = String(field?.ourCategory || "");
+    const column = String(field?.column || "");
+    if (code === "1008")
+      return category === "PENSION" &&
+        field.sourceGroup === "incomeFields" &&
+        String(field.irisSection || field.section || "") === "Salary" &&
+        ["Total Amount", "Subject to Final Tax", "Subject to Exemption"].includes(column);
+    if (code === "64020007")
+      return category === "PENSION_FINAL_TAX" &&
+        field.sourceGroup === "adjustableTaxFields" &&
+        String(field.irisSection || field.section || "") === "Tax Deductions" &&
+        ["Taxable Amount", "Tax Deducted"].includes(column);
+    if (code === "923184")
+      return category === "PENSION_SURCHARGE" &&
+        field.sourceGroup === "adjustableTaxFields" &&
+        String(field.irisSection || field.section || "") === "Computations" &&
+        column === "Total Income";
+    if (code === "64020004")
+      return category === "PENSION_SALARY_149" &&
+        field.sourceGroup === "adjustableTaxFields" &&
+        String(field.irisSection || field.section || "") === "Adjustable Tax" &&
+        ["Taxable Amount", "Tax Collected / Deducted"].includes(column);
+    return false;
+  });
+  const pensionCandidates = fields.filter((field) =>
+    String(field?.ourCategory || "").startsWith("PENSION_") ||
+    (String(field?.irisCode || "") === "1008" && field.ourCategory === "PENSION"),
+  );
+  const unsupported = pensionCandidates.filter((field) => !allowed.includes(field));
+  const keys = allowed.map((field) => autofillItemKey(field));
+  const duplicateKeys = keys.length !== new Set(keys).size;
+  return {
+    fields: allowed,
+    invalid: unsupported.length > 0 || duplicateKeys,
+    unsupported,
+  };
+}
+
 async function runLocalIrisNavigationCheck(jobContext, job) {
   assertNavigatorBuild();
   const config = jobContext.taxAutomationConfig || {};
@@ -3844,7 +3897,7 @@ async function runLocalIrisNavigationCheck(jobContext, job) {
     (servicesRoute.selected || snapshot.business?.version === "services-tax-deduction-v1") &&
     !servicesRoute.active
   ) {
-    const message = "This Freelancer / Services packet does not carry a verified TY2026 Myself Services payload for Services alone or exactly Salary + Services. Regenerate and approve the packet; the agent will not guess a route or fall back to Business. Nothing was changed in FBR.";
+    const message = "This Freelancer / Services packet does not carry a verified TY2026 Myself Services payload for Services alone, exactly Salary + Services, or exactly Pension + Services. Regenerate and approve the packet; the agent will not guess a route or fall back to Business. Nothing was changed in FBR.";
     return { paused: true, pauseAction: "portal_state_confirmation", pauseMessage: message,
       executionLog: [], result: { requiredAction: "portal_state_confirmation", message, submitted: false, businessCoverage: "services_payload_missing" } };
   }
@@ -3868,6 +3921,16 @@ async function runLocalIrisNavigationCheck(jobContext, job) {
           executionLog: [], result: { requiredAction: "portal_state_confirmation", message, submitted: false, businessCoverage: "salary_field_map_mismatch" } };
       }
     }
+    if (servicesRoute.pensionIncluded) {
+      const pensionFields = getPensionFieldsForServicesRoute(
+        Array.isArray(snapshot.portalFieldMap) ? snapshot.portalFieldMap : [],
+      );
+      if (pensionFields.invalid) {
+        const message = "The combined Pension + Services packet contains an unsupported or duplicate pension field. Review the approved Pension Statement and field map; IRIS was not opened.";
+        return { paused: true, pauseAction: "portal_state_confirmation", pauseMessage: message,
+          executionLog: [], result: { requiredAction: "portal_state_confirmation", message, submitted: false, businessCoverage: "pension_field_map_mismatch" } };
+      }
+    }
   }
   const windowInstance = await ensureWorkerWindow();
   const incomeSources = servicesRoute.incomeSources;
@@ -3887,7 +3950,7 @@ async function runLocalIrisNavigationCheck(jobContext, job) {
   )
     throw new Error("Unverified Freelancer / Services section in approved packet; regenerate it before entry.");
   const salaryRequested = servicesRoute.active
-    ? servicesRoute.salaryIncluded
+    ? servicesRoute.salaryIncluded || servicesRoute.pensionIncluded
     : !hasBusiness || incomeSources.includes("salary") || incomeSources.includes("pension");
   const packetFields = Array.isArray(snapshot.portalFieldMap)
     ? snapshot.portalFieldMap
@@ -4370,22 +4433,33 @@ async function runRealIrisAutofill(jobContext, job, mode) {
       : { fields: [], invalid: false, unsupported: [] };
   const salaryFieldMapInvalid =
     servicesRouteActive && servicesRoute.salaryIncluded && salaryFieldResolution.invalid;
+  const pensionFieldResolution =
+    servicesRouteActive && servicesRoute.pensionIncluded
+      ? getPensionFieldsForServicesRoute(allCoded)
+      : { fields: [], invalid: false, unsupported: [] };
+  const pensionFieldMapInvalid =
+    servicesRouteActive && servicesRoute.pensionIncluded && pensionFieldResolution.invalid;
   const servicesPacketInvalid =
     ((servicesRoute.selected || snapshot.business?.version === "services-tax-deduction-v1") &&
       !servicesRouteActive) ||
     servicesFieldMapInvalid ||
-    salaryFieldMapInvalid;
+    salaryFieldMapInvalid ||
+    pensionFieldMapInvalid;
   const wealthPrepared = allCoded.filter(
     (f) => f.sourceGroup === "wealthFields",
   );
-  // The Services payload allowlists the exact service-field counterparts. In a
-  // Salary + Services packet, only the separately verified Salary 1009 row and
-  // its certificate-backed 64020004 withholding cell are added; every other
-  // source stays excluded. Wealth travels separately through its driver.
+  // The Services payload allowlists exact Service rows. Combined routes add
+  // only their separately verified companion fields: Salary 1009/149, or the
+  // pension 1008/final-tax/surcharge contract. Every other source stays
+  // excluded. Wealth travels separately through its driver.
   const coded = servicesPacketInvalid
     ? []
     : servicesRouteActive
-      ? [...servicesFieldResolution.fields, ...salaryFieldResolution.fields]
+      ? [
+          ...servicesFieldResolution.fields,
+          ...salaryFieldResolution.fields,
+          ...pensionFieldResolution.fields,
+        ]
       : allCoded.filter((f) => f.sourceGroup !== "wealthFields");
   const servicesFieldKeys = new Set(
     servicesRouteActive
@@ -4410,9 +4484,11 @@ async function runRealIrisAutofill(jobContext, job, mode) {
   if (servicesPacketInvalid) {
     const pauseMessage = salaryFieldMapInvalid
       ? "The combined Salary + Services packet lacks the exact certificate-backed Salary row mapping (1009) or contains an unsupported salary withholding target. Review the Salary Certificate and approved field map; nothing was changed in FBR."
-      : servicesFieldMapInvalid
-        ? "This Freelancer / Services packet's verified Services rows do not exactly match the flattened FBR field map. Regenerate and approve the packet, then retry. The agent will not guess a target or fall back to another source; nothing was changed in FBR."
-        : "This Freelancer / Services packet does not carry a verified TY2026 Myself Services payload for Services alone or exactly Salary + Services. Regenerate and approve the packet; the agent will not guess a route or fall back to Business. Nothing was changed in FBR.";
+      : pensionFieldMapInvalid
+        ? "The combined Pension + Services packet contains an unsupported or duplicate pension field. Review the approved Pension Statement and field map; nothing was changed in FBR."
+        : servicesFieldMapInvalid
+          ? "This Freelancer / Services packet's verified Services rows do not exactly match the flattened FBR field map. Regenerate and approve the packet, then retry. The agent will not guess a target or fall back to another source; nothing was changed in FBR."
+          : "This Freelancer / Services packet does not carry a verified TY2026 Myself Services payload for Services alone, exactly Salary + Services, or exactly Pension + Services. Regenerate and approve the packet; the agent will not guess a route or fall back to Business. Nothing was changed in FBR.";
     onStep("real_autofill_services_payload_missing", pauseMessage);
     return {
       paused: true,
@@ -4426,9 +4502,11 @@ async function runRealIrisAutofill(jobContext, job, mode) {
         message: pauseMessage,
         businessCoverage: salaryFieldMapInvalid
           ? "salary_field_map_mismatch"
-          : servicesFieldMapInvalid
-            ? "services_field_map_mismatch"
-            : "services_payload_missing",
+          : pensionFieldMapInvalid
+            ? "pension_field_map_mismatch"
+            : servicesFieldMapInvalid
+              ? "services_field_map_mismatch"
+              : "services_payload_missing",
         reviewRequired: true,
       },
     };
@@ -4440,9 +4518,11 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     `Real-portal autofill (${mode === "dry" ? "DRY RUN — no writes" : "LIVE"}): ` +
       `${coded.length} IRIS-coded fields of ${portalFieldMap.length} in packet.` +
       (servicesRouteActive
-        ? servicesRoute.salaryIncluded
-          ? " Salary + Services route: only certificate-backed Salary rows, verified Services Business rows and the separate Wealth driver are allowed; one draft Save is attempted only after scoped post-tab readback."
-          : " Freelancer / Services route: only Business > Other Revenues, Business > Tax Deduction and the separate Wealth driver are allowed; one draft Save is attempted only after scoped post-tab readback."
+        ? servicesRoute.pensionIncluded
+          ? " Pension + Services route: only reviewed pension rows, verified Services Business rows and the separate Wealth driver are allowed; one draft Save is attempted only after scoped post-tab readback."
+          : servicesRoute.salaryIncluded
+            ? " Salary + Services route: only certificate-backed Salary rows, verified Services Business rows and the separate Wealth driver are allowed; one draft Save is attempted only after scoped post-tab readback."
+            : " Freelancer / Services route: only Business > Other Revenues, Business > Tax Deduction and the separate Wealth driver are allowed; one draft Save is attempted only after scoped post-tab readback."
         : ""),
   );
   if (wealthPrepared.length) {
@@ -4808,13 +4888,20 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     const passNote = pass > 1 ? " (second pass)" : "";
     const isServicesTaxDeductionGroup =
       servicesRouteActive && group.sectionId === "business_tax_deduction";
-    const servicesAllowedSections = servicesRoute.salaryIncluded
-      ? ["business_other_revenues", "business_tax_deduction", "salary", "tax_deductions"]
+    const servicesHasCompanionSource =
+      servicesRoute.salaryIncluded || servicesRoute.pensionIncluded;
+    const servicesAllowedSections = servicesHasCompanionSource
+      ? ["business_other_revenues", "business_tax_deduction", "salary", "tax_deductions", ...(servicesRoute.pensionIncluded ? ["computations"] : [])]
       : ["business_other_revenues", "business_tax_deduction"];
+    const servicesRouteLabel = servicesRoute.pensionIncluded
+      ? "Pension + Services"
+      : servicesRoute.salaryIncluded
+        ? "Salary + Services"
+        : "Freelancer / Services";
     if (servicesRouteActive && !servicesAllowedSections.includes(group.sectionId)) {
       onStep(
         "real_autofill_section_skipped",
-        `${group.sectionId}: outside the ${servicesRoute.salaryIncluded ? "Salary + Services" : "Freelancer / Services"} allowlist; ${group.fields.length} field(s) were left untouched.${passNote}`,
+        `${group.sectionId}: outside the ${servicesRouteLabel} allowlist; ${group.fields.length} field(s) were left untouched.${passNote}`,
       );
       return group.fields.map((field) => ({
         ...field,
@@ -5275,6 +5362,11 @@ async function runRealIrisAutofill(jobContext, job, mode) {
       ? salaryFieldResolution.fields.map((field) => autofillItemKey(field))
       : [],
   );
+  const pensionFieldKeys = new Set(
+    servicesRouteActive
+      ? pensionFieldResolution.fields.map((field) => autofillItemKey(field))
+      : [],
+  );
   const salarySummary = servicesRouteActive
     ? irisRowFiller.summarise(
         results.filter((entry) => salaryFieldKeys.has(autofillItemKey(entry))),
@@ -5282,6 +5374,11 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     : irisRowFiller.summarise(
         results.filter((entry) => !String(entry.sectionId || "").startsWith("business_")),
       );
+  const pensionSummary = servicesRouteActive
+    ? irisRowFiller.summarise(
+        results.filter((entry) => pensionFieldKeys.has(autofillItemKey(entry))),
+      )
+    : null;
 
 
   // Wealth Statement. Opt-in (TAXROCKET_WEALTH_AUTOFILL). The driver opens the
@@ -6591,12 +6688,14 @@ async function runRealIrisAutofill(jobContext, job, mode) {
         };
       }),
       salarySummary,
+      ...(pensionSummary ? { pensionSummary } : {}),
       business: businessSummary,
       ...(servicesRouteActive
         ? {
             route: "services_tax_deduction",
             businessCoverage: "services_tax_deduction_only",
             salaryIncluded: servicesRoute.salaryIncluded,
+      pensionIncluded: servicesRoute.pensionIncluded,
             submitted: false,
           }
         : {}),
@@ -6979,6 +7078,8 @@ function buildConfirmedHandoffCompletion(saved, nowIso) {
         {
           salarySummary: autofill.salarySummary,
           salaryIncluded: autofill.salaryIncluded,
+          pensionSummary: autofill.pensionSummary,
+          pensionIncluded: autofill.pensionIncluded,
           wealth: autofill.wealth,
           employers: autofill.employers,
           reviewConfirmed: true,
@@ -7114,10 +7215,17 @@ function buildHandoffScopeSummary(
           ? "\u2705 filled"
           : "\u26A0\uFE0F not entered"
   }`;
+  const pension = extras.pensionSummary || null;
+  const pensionTotal = Number(pension?.total) || 0;
+  const pensionFilled = Number(pension?.filled) || 0;
+  const pensionSkipped = Number(pension?.skipped) || 0;
+  const pensionIncluded = Boolean(extras.pensionIncluded === true);
   const salaryText = isServicesBusiness
     ? salaryIncluded
       ? `Salary ${salaryFilled}/${salaryTotal} + Freelancer / Services ${servicesFilled}/${servicesTotal} approved field(s) verified`
-      : `Freelancer / Services ${servicesFilled}/${servicesTotal} verified field(s) entered`
+      : pensionIncluded
+        ? `Pension ${pensionFilled}/${pensionTotal} + Freelancer / Services ${servicesFilled}/${servicesTotal} approved field(s) verified`
+        : `Freelancer / Services ${servicesFilled}/${servicesTotal} verified field(s) entered`
     : genericSalaryText;
   let wealthText =
     wealthState === "pending"
@@ -7252,8 +7360,20 @@ function buildHandoffScopeSummary(
     ...(isServicesBusiness && salaryIncluded
       ? { salaryFields: { total: salaryTotal, filled: salaryFilled, skipped: Number(salary?.skipped) || 0 } }
       : {}),
+    ...(isServicesBusiness && pensionIncluded
+      ? { pensionFields: { total: pensionTotal, filled: pensionFilled, skipped: pensionSkipped } }
+      : {}),
     wealthPreparedRows: wealthRows,
     employers: employerState,
+    pension: isServicesBusiness
+      ? !pensionIncluded
+        ? "not_applicable"
+        : pensionSkipped > 0
+          ? "needs_review"
+          : pensionTotal > 0 && pensionFilled === pensionTotal
+            ? "filled"
+            : "not_entered"
+      : undefined,
     salary: isServicesBusiness && !salaryIncluded
       ? "not_applicable"
       : salaryNeedsReview
@@ -7340,6 +7460,8 @@ function mergeNavigationAutofillOutcome(navigation, autofill, autofillMode) {
       {
         salarySummary: autofill?.result?.salarySummary,
         salaryIncluded: autofill?.result?.salaryIncluded,
+        pensionSummary: autofill?.result?.pensionSummary,
+        pensionIncluded: autofill?.result?.pensionIncluded,
         business: autofill?.result?.business,
         businessDetails,
         wealth: autofill?.result?.wealth,

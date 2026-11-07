@@ -38,7 +38,7 @@
  *   - Dry mode never clicks inside the page; it only reads and reports.
  */
 
-const BUILD_TAG = "services-picker-aliases-20261105d";
+const BUILD_TAG = "pension-services-multifiling-20261106a";
 
 // Kept in step with lib/tax/wealth-rows.ts. A test compares the two, so a
 // category added on one side without the other fails the build.

@@ -35,7 +35,7 @@ type Props = Readonly<{
   taxPayable?: number | null;
   refundDue?: number | null;
   packetVersion?: number;
-  /** Exact TY2026 Myself packet whose only source is Freelancer / Services. */
+  /** Exact TY2026 Myself Services route: Services-only, Salary + Services, or Pension + Services. */
   servicesRoute?: boolean;
   /** Filing whose only source is Pension: no employer details ever apply. */
   pensionRoute?: boolean;
@@ -78,6 +78,8 @@ type JobView = {
     };
     salary: string | null;
     salaryFields?: { total: number; filled: number; skipped: number };
+    pension?: string | null;
+    pensionFields?: { total: number; filled: number; skipped: number };
     wealthStatement: string | null;
     wealthRows: number;
     employers: string | null;
@@ -600,7 +602,7 @@ export default function FbrConnectClient({
               sign-in, OTP, CAPTCHA, or PIN steps yourself in the FBR window.
               TaxRocket pauses whenever it needs you.{" "}
               {servicesRoute
-                ? "On the Freelancer / Services route it enters only the approved Business > Other Revenues and Business > Tax Deduction figures, plus queued Wealth rows when Wealth entry is on. Save, Calculate, payment and Submit are not pressed."
+                ? "On the Freelancer / Services route (including Salary + Services or Pension + Services) it enters only evidence-backed Services figures and the approved companion income fields, plus queued Wealth rows when Wealth entry is on. After every scoped figure passes readback, it may press Save once at the end. It never Calculates, prepares PSID, makes payment or Submits."
                 : "When every figure it typed reads back the same, it presses Save once at the end to keep them in your FBR draft; it never submits, calculates or pays."}
             </p>
             {liveFilingEnabled && (
@@ -612,7 +614,7 @@ export default function FbrConnectClient({
                   Your filing is ready for supervised entry.
                 </span>{" "}
                 {servicesRoute
-                  ? "TaxRocket will enter only evidence-backed Services figures in Business > Other Revenues and Business > Tax Deduction. Wealth Statement rows are entered only if the agent's Wealth switch is on. Save, Calculate, payment and Submit are not pressed on this route."
+                  ? "TaxRocket will enter only evidence-backed Services figures in Business > Other Revenues / Tax Deduction and the approved Salary or Pension companion fields for the selected route. Wealth Statement rows are entered only if the agent's Wealth switch is on. If all scoped figures pass readback, it will press Save once at the end. It will not Calculate, prepare PSID, make payment or Submit."
                   : "TaxRocket will enter only the approved Salary and Salary withholding information that can be verified. Wealth Statement rows are entered only if the agent's Wealth switch is on. Property, Payments, and Computations remain outside this test. Nothing is saved or submitted."}
               </div>
             )}
@@ -1000,9 +1002,13 @@ function HandoffCompleteCard({
     scope?.save?.routePolicy === "services_save_once";
   const isCombinedSalaryServicesRoute =
     isServicesRoute && Number(scope?.salaryFields?.total || 0) > 0;
-  const servicesRouteName = isCombinedSalaryServicesRoute
-    ? "Salary + Freelancer / Services"
-    : "Freelancer / Services";
+  const isCombinedPensionServicesRoute =
+    isServicesRoute && Number(scope?.pensionFields?.total || 0) > 0;
+  const servicesRouteName = isCombinedPensionServicesRoute
+    ? "Pension + Freelancer / Services"
+    : isCombinedSalaryServicesRoute
+      ? "Salary + Freelancer / Services"
+      : "Freelancer / Services";
   if (scope?.business) {
     const visibleBusinessPending = (scope.business.pendingItems ?? []).filter(
       (item) => {
@@ -1023,11 +1029,12 @@ function HandoffCompleteCard({
         isServicesRoute
         ? {
             title: `${servicesRouteName} — verified field entry`,
-            detail: `${isCombinedSalaryServicesRoute ? `${scope.salaryFields?.filled}/${scope.salaryFields?.total} Salary fields + ` : ""}${scope.business.filledFields}/${scope.business.preparedFields} approved Services fields verified in ${isCombinedSalaryServicesRoute ? "Employment and " : ""}Business > Other Revenues / Tax Deduction. Only evidence-backed income and withholding are automated.`,
+            detail: `${isCombinedSalaryServicesRoute ? `${scope.salaryFields?.filled}/${scope.salaryFields?.total} Salary fields + ` : isCombinedPensionServicesRoute ? `${scope.pensionFields?.filled}/${scope.pensionFields?.total} Pension fields + ` : ""}${scope.business.filledFields}/${scope.business.preparedFields} approved Services fields verified in ${isCombinedSalaryServicesRoute || isCombinedPensionServicesRoute ? "Employment and " : ""}Business > Other Revenues / Tax Deduction. Only evidence-backed income and withholding are automated.`,
             state:
               scope.business.status === "dry_run_only" ||
               scope.business.status === "needs_review" ||
-              (isCombinedSalaryServicesRoute && Number(scope.salaryFields?.skipped || 0) > 0)
+              (isCombinedSalaryServicesRoute && Number(scope.salaryFields?.skipped || 0) > 0) ||
+              (isCombinedPensionServicesRoute && Number(scope.pensionFields?.skipped || 0) > 0)
                 ? "attention"
                 : "done",
           }

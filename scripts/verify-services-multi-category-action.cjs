@@ -366,7 +366,7 @@ test("the merged evidence route stays closed for unsupported combinations and no
     });
     assert.equal(output.success, true, JSON.stringify(output));
     assert.equal(output.result.status, "NEEDS_USER_INPUT");
-    assert.match(output.result.note, /Services alone or exactly Salary \+ Services/);
+    assert.match(output.result.note, /Services alone.*Pension \+ Services/);
     assert.equal(output.result.breakdown.length, 0);
     assert.equal(
       writes.some((write) => write.model === "filingTaxCalculationLine" && write.method === "createMany"),

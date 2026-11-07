@@ -978,7 +978,7 @@ export function businessCoverageSummary(
 }
 
 /**
- * The Business-side Services payload used by the Services-only or Salary + Services packet.
+ * The Business-side Services payload used by the Services-only, Salary + Services or Pension + Services packet.
  *
  * A Services filing has no Business Profit selection, so `buildBusinessPacket`
  * returns null for it. The Services rows themselves are already evidence-gated
@@ -1023,7 +1023,7 @@ export function buildServicesTaxDeductionPacket(input: {
     })
   )
     throw new Error(
-      "Verified Services entry supports TY2026 Myself filings with Services alone or exactly Salary + Services; other source combinations are unsupported.",
+      "Verified Services entry supports TY2026 Myself filings with Services alone, exactly Salary + Services, or exactly Pension + Services; other source combinations are unsupported.",
     );
   const fields = [...input.businessFields, ...input.withholdingFields];
   // No approved row means nothing may be entered: stay null rather than

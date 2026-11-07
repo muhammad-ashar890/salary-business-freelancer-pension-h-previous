@@ -710,6 +710,19 @@ check(
 );
 check("The total is 100,000", pensionPlusBank.taxDue, 100_000);
 
+const pensionPlusServices = multiEstimate(
+  [
+    { route: "pension", income: 10_992_000 },
+    { route: "services", income: 250_550, subcategory: "1b-service-it-ites" },
+  ],
+  { pensionerAgeBelow70: true },
+);
+check("Pension plus verified Services route is estimated", pensionPlusServices.status, "ESTIMATE");
+check("Pension plus Services keeps two distinct tax lines", pensionPlusServices.breakdown.length, 2);
+check("Pension final tax remains separate from Services", lineFor(pensionPlusServices, "pension").taxDue, 54_560);
+check("Services is priced at its route-specific rate beside pension", lineFor(pensionPlusServices, "services").taxDue, 10_022);
+check("Pension plus Services total sums both routes", pensionPlusServices.taxDue, 64_582);
+
 const rentPlusBank = multiEstimate([
   { route: "property_rent", income: 1_500_000 },
   {

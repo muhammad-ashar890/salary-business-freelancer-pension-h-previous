@@ -484,6 +484,8 @@ export async function getLocalAgentJobsAction(draftId: string) {
         business?: { preparedFields: number; filledFields: number; route: string; status: string; pendingItems: string[] };
         salary: string | null;
         salaryFields?: { total: number; filled: number; skipped: number };
+        pension?: string | null;
+        pensionFields?: { total: number; filled: number; skipped: number };
         wealthStatement: string | null;
         wealthRows: number;
         employers: string | null;
@@ -567,6 +569,16 @@ export async function getLocalAgentJobsAction(draftId: string) {
                     total: count(salaryFields.total),
                     filled: Math.min(count(salaryFields.total), count(salaryFields.filled)),
                     skipped: count(salaryFields.skipped),
+                  },
+                }
+              : {}),
+            pension: typeof scope.pension === "string" ? scope.pension : null,
+            ...(scope.pensionFields && typeof scope.pensionFields === "object" && count(scope.pensionFields.total) > 0
+              ? {
+                  pensionFields: {
+                    total: count(scope.pensionFields.total),
+                    filled: Math.min(count(scope.pensionFields.total), count(scope.pensionFields.filled)),
+                    skipped: count(scope.pensionFields.skipped),
                   },
                 }
               : {}),

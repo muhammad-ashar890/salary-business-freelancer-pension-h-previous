@@ -19,7 +19,7 @@
  */
 const navigation = require("./iris-navigation");
 
-const BUILD_TAG = "services-picker-aliases-20261105d";
+const BUILD_TAG = "pension-services-multifiling-20261106a";
 
 const SAVE_STATUS = Object.freeze({
   /** IRIS showed a success message. */

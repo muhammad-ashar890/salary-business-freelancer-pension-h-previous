@@ -4,11 +4,11 @@ The **TR Filing Agent** is TaxRocket's trusted Windows desktop agent. It opens t
 
 It never presses **Calculate, Submit, Prepare PSID,** or any payment control, and it never sees or stores the taxpayer's password, OTP, CAPTCHA, or PIN.
 
-> **Current build:** package version `1.0.5` · agent build tag `services-picker-aliases-20261105d`
+> **Current build:** package version `1.0.5` · agent build tag `pension-services-multifiling-20261106a`
 >
 > For the product as a whole (web flow, modules, tax rules, setup), see the [repository README](../README.md). This file is only about the desktop agent.
 
-Supported routes today (single income-source filings, Tax Year 2026): **Salary, Business, Freelancer / Services, and Pension**, each with its Wealth Statement rows. The agent enters exactly what the approved packet plans for those routes and pauses for the taxpayer on anything else.
+Supported Tax Year 2026 IRIS routes include **Salary, Business, Freelancer / Services, and Pension**. Services is deliberately limited to exact Myself source sets: **Services alone**, **Salary + Services**, or **Pension + Services**. Other Services combinations fail closed. The agent enters only approved, mapped fields and pauses on anything outside those route contracts; support in code/tests is not a claim of live FBR verification.
 
 ---
 
@@ -50,7 +50,7 @@ Then, in the web app: **FBR Connect → Create Desktop Session → Open Desktop 
 4. It locates the TY2026 return — an existing draft first, otherwise the guarded new-return setup (Declaration → original return, tax period, then the Summary of Economic Transactions page, which it answers **only** from the approved packet; see below).
 5. It verifies the taxpayer identity and the return form/period. A mismatch stops the run before anything is typed.
 6. Section by section, it types each planned figure into the verified cell, reads it back immediately, and re-reads the whole set after switching tabs. Existing different figures in IRIS are **never overwritten** — they are reported for the taxpayer instead.
-7. On the Salary, Business and Pension routes it presses **Save once**, at the very end, only after every typed figure read back the same, and then re-reads after Save. On the Freelancer / Services route Save is **never** pressed (route policy).
+7. On supported routes, including Services-only, Salary + Services and Pension + Services, it may press the **draft Save once** at the very end, only after every typed figure has passed the scoped post-tab readback; it then re-reads after Save. It never presses Calculate, Submit, Prepare PSID or payment.
 8. It reports the outcome (`/api/local-agent/jobs/{id}/status`) with a handoff summary for the TaxRocket completion card, and writes the local job report (see [Job logs](#job-logs)). The taxpayer reviews the draft in FBR and submits it themselves.
 
 ### New-return setup dialog (TY2026+)
@@ -144,7 +144,7 @@ Every run writes into `C:\Users\<user>\TaxRocketAgentLogs\`:
 - `latest-census.json` / `census-<job>.json` — the before/after read-only census of every IRIS tab.
 - `latest-portal-inspection.json` and HTML snapshots of the page at a pause — local diagnostics for figuring out why the agent stopped.
 
-**First diagnostic step, always:** the first line of `latest-job.txt` names the run's **build tag** (e.g. `build services-picker-aliases-20261105d`). If the agent behaves like an older version, it almost certainly *is* an older version — see below.
+**First diagnostic step, always:** the first line of `latest-job.txt` names the run's **build tag** (e.g. `build pension-services-multifiling-20261106a`). If the agent behaves like an older version, it almost certainly *is* an older version — see below.
 
 ---
 

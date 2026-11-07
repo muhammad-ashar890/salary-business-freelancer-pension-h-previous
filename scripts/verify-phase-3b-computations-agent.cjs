@@ -253,14 +253,14 @@ test("a dry run clicks nothing", async () => {
 test("source contract: no clicks in the driver; main.js runs it before the end readback; build tags agree", () => {
   const src = fs.readFileSync(path.join(root, "electron-connect/iris-computations-driver.js"), "utf8");
   assert.doesNotMatch(src, /\.click\(/);
-  assert.equal(driver.BUILD_TAG, "services-picker-aliases-20261105d");
+  assert.equal(driver.BUILD_TAG, "pension-services-multifiling-20261106a");
   const main = fs.readFileSync(path.join(root, "electron-connect/main.js"), "utf8");
   const step = main.indexOf("irisComputationsDriver.fillComputations(");
   const end = main.indexOf('label: "end (readback after tab switch)"');
   const depreciation = main.indexOf("irisDepreciationDriver.fillDepreciationTab(");
   assert.ok(step > depreciation && step < end, "after the last data step, before the end census");
   assert.match(main, /\["iris-computations-driver\.js", irisComputationsDriver\.BUILD_TAG\]/);
-  assert.match(main, /const AGENT_BUILD_TAG = "services-picker-aliases-20261105d"/);
+  assert.match(main, /const AGENT_BUILD_TAG = "pension-services-multifiling-20261106a"/);
   const pkg = JSON.parse(fs.readFileSync(path.join(root, "electron-connect/package.json"), "utf8"));
   for (const file of ["iris-computations-driver.js", "iris-tax-deduction-driver.js", "iris-tour-census.js", "iris-save-draft.js"])
     assert.ok(pkg.build.files.includes(file), `${file} ships in the packaged agent`);

@@ -7,7 +7,7 @@
 // TY2026+ return setup steps that do not require legal/financial judgement.
 // Create/Save/Submit/payment controls and all financial inputs remain off
 // limits until the engine/mapping audit is resolved.
-const BUILD_TAG = "services-picker-aliases-20261105d";
+const BUILD_TAG = "pension-services-multifiling-20261106a";
 const BUSINESS_CONTRACT = require("./iris-business-contract.json");
 const SERVICES_CONTRACT = require("./iris-services-contract.json");
 const DEFAULT_HOSTS = ["iris.fbr.gov.pk"];

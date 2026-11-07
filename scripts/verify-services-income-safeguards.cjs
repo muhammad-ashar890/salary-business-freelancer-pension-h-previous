@@ -154,7 +154,7 @@ test("summary clears an allocation whose receipt amount changed by even one pais
   assert.match(summary, /moneyEquals\(savedAllocation\.grossAmount, entry\.amount\)/);
 });
 
-test("the merged Services route is exact TY2026 Myself Services-only or Salary+Services", async () => {
+test("the merged Services route is exact TY2026 Myself Services-only, Salary+Services or Pension+Services", async () => {
   assert.equal(isFreelancerIncomeSelected({ incomeSources: '["services"]' }), true);
   assert.equal(
     isFreelancerIncomeSelected({ incomeSources: '["salary","services"]' }),
@@ -163,6 +163,18 @@ test("the merged Services route is exact TY2026 Myself Services-only or Salary+S
   assert.equal(
     isFreelancerIncomeSelected({ incomeSources: '["services","salary"]' }),
     true,
+  );
+  assert.equal(
+    isFreelancerIncomeSelected({ incomeSources: '["pension","services"]' }),
+    true,
+  );
+  assert.equal(
+    isFreelancerIncomeSelected({ incomeSources: '["services","pension"]' }),
+    true,
+  );
+  assert.equal(
+    isFreelancerIncomeSelected({ incomeSources: '["salary","services","pension"]' }),
+    false,
   );
   assert.equal(
     isFreelancerIncomeSelected({ incomeSources: '["salary","services","property_rent"]' }),
@@ -183,6 +195,22 @@ test("the merged Services route is exact TY2026 Myself Services-only or Salary+S
       incomeSources: '["salary","services"]',
     }),
     true,
+  );
+  assert.equal(
+    isSingleFreelancerServicesFiling({
+      taxYear: 2026,
+      filerType: "myself",
+      incomeSources: '["pension","services"]',
+    }),
+    true,
+  );
+  assert.equal(
+    isSingleFreelancerServicesFiling({
+      taxYear: 2026,
+      filerType: "myself",
+      incomeSources: '["salary","services","pension"]',
+    }),
+    false,
   );
   assert.equal(
     isSingleFreelancerServicesFiling({

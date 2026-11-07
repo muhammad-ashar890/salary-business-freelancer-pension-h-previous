@@ -1,7 +1,7 @@
 "use strict";
 const navigation = require("./iris-navigation");
 const SERVICES_CONTRACT = require("./iris-services-contract.json");
-const BUILD_TAG = "services-picker-aliases-20261105d";
+const BUILD_TAG = "pension-services-multifiling-20261106a";
 
 // Captures 30/31/32: rows of the business tab "Inadmissible/Admissible
 // Deductions" are created through IRIS's own pickers -- "+ Inadmissible"

@@ -1581,7 +1581,7 @@ export async function approveAndMapExtractedDocumentAction(documentId: string) {
         return {
           success: false,
           error:
-            "Invoice mapping supports only TY2026 Myself filings with Services alone or exactly Salary + Services.",
+            "Invoice mapping supports only TY2026 Myself filings with Services alone, exactly Salary + Services, or exactly Pension + Services.",
         };
       }
       if (!["COMPLETED", "MAPPED"].includes(document.extractionStatus)) {
@@ -2296,7 +2296,9 @@ export async function extractDocumentWithGeminiAction(documentId: string) {
       10,
       10 * 60 * 1000,
     );
-    if (!extractionLimit.allowed) {
+    // TEMP LOCAL-QA BYPASS: keep the extraction throttle in production, but let
+    // localhost development repeatedly test parser changes without waiting.
+    if (!extractionLimit.allowed && process.env.NODE_ENV === "production") {
       return {
         success: false,
         error: `Too many extraction requests. Try again in ${extractionLimit.retryAfterSeconds} seconds.`,

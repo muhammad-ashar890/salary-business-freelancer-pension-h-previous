@@ -428,6 +428,59 @@ test("reviewed high pension produces a complete final-tax and surcharge contract
   assert.equal(h.state.pdfBuffer.subarray(0, 5).toString(), "%PDF-");
 });
 
+test("approved Pension + Services packet keeps both source maps and passes the pension entry guard", async () => {
+  const h = harness();
+  const snapshot = await generated(h);
+  const servicesMap = h.load("lib/tax/services-portal-map.ts").buildServicesPortalMappings({
+    invoices: [{
+      id: "qa-services-invoice",
+      subcategory: "1b-service-it-ites",
+      evidenceStatus: "CONFIRMED",
+      sourceDocumentId: "qa-services-doc",
+      sourceDocumentExtractionStatus: "MAPPED",
+      serviceDescription: "Reviewed synthetic IT service",
+      serviceCategoryHumanConfirmed: true,
+      serviceCategoryEvidenceReference: "Synthetic invoice page 1",
+      incomeCharacter: "TECHNICAL_PROFESSIONAL_FEE",
+      incomeCharacterHumanConfirmed: true,
+      incomeCharacterEvidenceReference: "Synthetic service scope",
+      recognizedIncomePkr: 250_000,
+      paymentMatches: [],
+    }],
+    incomeBySubcategory: { "1b-service-it-ites": 250_000 },
+    existingBusinessFields: [],
+    taxCredits: [],
+  });
+  const servicesPayload = h.load("lib/tax/business-filing.ts").buildServicesTaxDeductionPacket({
+    taxYear: 2026,
+    filerType: "myself",
+    incomeSources: ["services", "pension"],
+    businessFields: servicesMap.businessFields,
+    withholdingFields: servicesMap.withholdingFields,
+    withholdingGaps: servicesMap.withholdingGaps,
+  });
+  assert.ok(servicesPayload);
+  const detailed = {
+    ...snapshot.portalFieldMap,
+    businessFields: servicesMap.businessFields,
+    adjustableTaxFields: [
+      ...snapshot.portalFieldMap.adjustableTaxFields,
+      ...servicesMap.withholdingFields,
+    ],
+  };
+  const combined = {
+    ...flatSnapshot(h, snapshot),
+    filing: { ...snapshot.filing, incomeSources: ["pension", "services"] },
+    business: servicesPayload,
+    portalFieldMapDetailed: detailed,
+    portalFieldMap: h.load("lib/tax/portal-field-map.ts").flattenPortalFieldMap(detailed),
+  };
+  assert.equal(pensionEntryHold(combined), null);
+  assert.ok(combined.portalFieldMap.some((field) => field.irisCode === "1008"));
+  assert.ok(combined.portalFieldMap.some((field) => field.irisCode === "3101"));
+  assert.equal(combined.business.version, "services-tax-deduction-v1");
+});
+
 for (const [deducted, covered, ledger, expectedCredit] of [
   [10_000, 0, 0, 10_000],
   [10_000, 10_000, 10_000, 10_000],

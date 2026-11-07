@@ -20,7 +20,7 @@
  * main.js; the job result carries a compact summary.
  */
 const navigation = require("./iris-navigation");
-const BUILD_TAG = "services-picker-aliases-20261105d";
+const BUILD_TAG = "pension-services-multifiling-20261106a";
 
 // IRIS computed totals read at the end of a run. Phase 2 (fix47) compares the
 // business/computation rows with the packet's expected figures; the

@@ -371,10 +371,10 @@ test("source contract: clicks only inside the page probe; main.js, build tags an
   const probe = turnoverDriver.turnoverProbe.toString();
   assert.equal((src.match(/\.click\(/g) || []).length, (probe.match(/\.click\(/g) || []).length, "every click is inside turnoverProbe");
   assert.doesNotMatch(probe, /btn-section-delete|Calculate|PSID|Submit|Save/, "the probe never touches delete / Calculate / PSID / Save / Submit");
-  assert.equal(turnoverDriver.BUILD_TAG, "services-picker-aliases-20261105d");
-  assert.equal(driver.BUILD_TAG, "services-picker-aliases-20261105d");
+  assert.equal(turnoverDriver.BUILD_TAG, "pension-services-multifiling-20261106a");
+  assert.equal(driver.BUILD_TAG, "pension-services-multifiling-20261106a");
   const main = fs.readFileSync(path.join(root, "electron-connect/main.js"), "utf8");
-  assert.match(main, /const AGENT_BUILD_TAG = "services-picker-aliases-20261105d"/);
+  assert.match(main, /const AGENT_BUILD_TAG = "pension-services-multifiling-20261106a"/);
   assert.match(main, /const irisTurnoverDriver = require\("\.\/iris-turnover-driver"\)/);
   assert.match(main, /\["iris-turnover-driver\.js", irisTurnoverDriver\.BUILD_TAG\]/);
   assert.match(main, /snapshot\.business\?\.version !== "business-entry-v6"/);
@@ -383,6 +383,6 @@ test("source contract: clicks only inside the page probe; main.js, build tags an
   for (const file of fs.readdirSync(path.join(root, "electron-connect")).filter((f) => /^iris-.*\.js$/.test(f))) {
     const text = fs.readFileSync(path.join(root, "electron-connect", file), "utf8");
     const tag = /const BUILD_TAG = "([^"]+)"/.exec(text);
-    if (tag) assert.equal(tag[1], "services-picker-aliases-20261105d", `${file} build tag`);
+    if (tag) assert.equal(tag[1], "pension-services-multifiling-20261106a", `${file} build tag`);
   }
 });

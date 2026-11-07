@@ -423,7 +423,7 @@ test("2b: Save presses ONLY the lower-bar Save; IRIS's success toast is read (di
     assert.doesNotMatch(out.message, /1234567890123/);
     assert.deepEqual(await page.evaluate("actions"), ["SAVE"]);
     assert.ok(steps.includes("iris_save_clicked"));
-    assert.equal(out.build, "services-picker-aliases-20261105d");
+    assert.equal(out.build, "pension-services-multifiling-20261106a");
   });
 });
 
@@ -528,7 +528,7 @@ test("report: the job report shows the totals check, the Save and the after-Save
 test("build: every agent module carries the Phase 2 tag and main.js checks the Save module", () => {
   const main = fs.readFileSync(path.join(root, "electron-connect/main.js"), "utf8");
   const tag = /const AGENT_BUILD_TAG = "([^"]+)"/.exec(main)[1];
-  assert.equal(tag, "services-picker-aliases-20261105d");
+  assert.equal(tag, "pension-services-multifiling-20261106a");
   for (const mod of ["iris-navigation", "iris-row-filler", "iris-business-row-driver", "iris-tour-census", "iris-wealth-driver", "iris-employer-driver", "iris-save-draft"])
     assert.equal(require(`../electron-connect/${mod}`).BUILD_TAG, tag, mod);
   assert.match(main, /\["iris-save-draft\.js", irisSaveDraft\.BUILD_TAG\]/);

@@ -82,8 +82,12 @@ const main = loadMain([
   "getServicesPacketRoute",
   "getServicesAutofillFields",
   "getSalaryFieldsForServicesRoute",
+  "getPensionFieldsForServicesRoute",
   "buildHandoffScopeSummary",
-]);
+], {
+  autofillItemKey: (field) =>
+    String(field.key || `${field.irisCode}:${field.column || ""}`),
+});
 // VM-created arrays/objects have another realm's prototypes; compare their
 // JSON-safe values rather than requiring reference-prototype identity.
 const plain = (value) => JSON.parse(JSON.stringify(value));
@@ -207,7 +211,7 @@ const validSnapshot = snapshotWith({
   ],
 });
 
-test("Phase 6 route is active only for TY2026 Myself Services-only or Salary+Services packets", () => {
+test("Phase 6 route is active only for TY2026 Myself Services-only, Salary+Services or Pension+Services packets", () => {
   const route = main.getServicesPacketRoute(validSnapshot);
   assert.deepEqual(
     {
@@ -232,8 +236,17 @@ test("Phase 6 route is active only for TY2026 Myself Services-only or Salary+Ser
   );
   assert.equal(combined.active, true);
   assert.equal(combined.salaryIncluded, true);
+  assert.equal(combined.pensionIncluded, false);
+
+  const pensionCombined = main.getServicesPacketRoute(
+    snapshotWith({ incomeSources: ["services", "pension"] }),
+  );
+  assert.equal(pensionCombined.active, true);
+  assert.equal(pensionCombined.salaryIncluded, false);
+  assert.equal(pensionCombined.pensionIncluded, true);
 
   const rejected = [
+    snapshotWith({ incomeSources: ["services", "pension", "salary"] }),
     snapshotWith({ incomeSources: ["services", "salary", "property_rent"] }),
     snapshotWith({ incomeSources: ["business", "services"] }),
     snapshotWith({ incomeSources: ["services", "services"] }),
@@ -271,6 +284,32 @@ test("combined Salary + Services selects only the certificate-backed Salary 1009
     { ...salaryServiceFields[1], ourDescription: "Unreviewed Section 149 credit" },
   ]);
   assert.equal(unverifiedWithholding.invalid, true);
+});
+
+test("combined Pension + Services resolves only the approved pension IRIS cells", () => {
+  const pensionFields = [
+    { key: "1008:total", irisCode: "1008", column: "Total Amount", ourCategory: "PENSION", sourceGroup: "incomeFields", irisSection: "Salary" },
+    { key: "1008:final", irisCode: "1008", column: "Subject to Final Tax", ourCategory: "PENSION", sourceGroup: "incomeFields", irisSection: "Salary" },
+    { key: "1008:exempt", irisCode: "1008", column: "Subject to Exemption", ourCategory: "PENSION", sourceGroup: "incomeFields", irisSection: "Salary" },
+    { key: "64020007:base", irisCode: "64020007", column: "Taxable Amount", ourCategory: "PENSION_FINAL_TAX", sourceGroup: "adjustableTaxFields", irisSection: "Tax Deductions" },
+    { key: "64020007:wht", irisCode: "64020007", column: "Tax Deducted", ourCategory: "PENSION_FINAL_TAX", sourceGroup: "adjustableTaxFields", irisSection: "Tax Deductions" },
+    { key: "923184:surcharge", irisCode: "923184", column: "Total Income", ourCategory: "PENSION_SURCHARGE", sourceGroup: "adjustableTaxFields", irisSection: "Computations" },
+    { key: "services-income", irisCode: "3101", column: "Total Amount", ourCategory: "SERVICES_INCOME" },
+  ];
+  const resolved = main.getPensionFieldsForServicesRoute(pensionFields);
+  assert.equal(resolved.invalid, false);
+  assert.deepEqual(
+    plain(resolved.fields.map((field) => [field.irisCode, field.column])),
+    pensionFields.slice(0, 6).map((field) => [field.irisCode, field.column]),
+  );
+  assert.equal(
+    main.getPensionFieldsForServicesRoute([
+      ...pensionFields,
+      { key: "unexpected-pension", irisCode: "1008", column: "Subject to Normal Tax", ourCategory: "PENSION", sourceGroup: "incomeFields", irisSection: "Salary" },
+    ]).invalid,
+    true,
+    "an unapproved pension column must not enter the Services route",
+  );
 });
 
 test("stored Services packet rows resolve only to their exact flattened Electron fields", () => {
@@ -590,6 +629,27 @@ test("combined Salary + Services handoff names both routes and keeps their field
   assert.match(scope.label, /Salary 1\/1 \+ Freelancer \/ Services 8\/8 approved field\(s\) verified/);
 });
 
+test("combined Pension + Services handoff labels both sources and exposes pension readback totals", () => {
+  const scope = main.buildHandoffScopeSummary(
+    { total: 12, filled: 12, skipped: 0 },
+    false,
+    [],
+    {
+      pensionSummary: { total: 6, filled: 6, skipped: 0 },
+      pensionIncluded: true,
+      business: {
+        total: 6, filled: 6, skipped: 0, mode: "live",
+        coverage: "services_tax_deduction_only", pending: [],
+      },
+      save: { status: "not_attempted", clicked: false, routePolicy: "services_save_once", reason: "readback required" },
+    },
+  );
+  assert.equal(scope.pension, "filled");
+  assert.deepEqual(plain(scope.pensionFields), { total: 6, filled: 6, skipped: 0 });
+  assert.equal(scope.salary, "not_applicable");
+  assert.match(scope.label, /Pension 6\/6 \+ Freelancer \/ Services 6\/6 approved field\(s\) verified/);
+});
+
 test("Services draft Save gate requires every entered field to have a unique matching post-tab readback", () => {
   const entries = [
     { key: "3101:services", irisCode: "3101", status: "filled", value: "250550" },
@@ -665,7 +725,7 @@ test("job report records one gated Services draft Save and unsupported mappings 
       finalStatus: "completed",
       savedAt: "2026-10-20T00:00:00.000Z",
       jobId: "phase6-services",
-      build: "services-picker-aliases-20261105d",
+      build: "pension-services-multifiling-20261106a",
       executionLog: [
         {
           step: "iris_save_skipped",
@@ -708,6 +768,26 @@ test("job report records one gated Services draft Save and unsupported mappings 
   assert.match(report, /SAVE \(Salary \+ Freelancer \/ Services draft-save policy\)/);
   assert.match(report, /Not pressed: the scoped post-tab readback was not complete/);
   assert.doesNotMatch(report, /Save: pressed once by the agent/);
+  const pensionReport = jobReport.buildJobReport({
+    finalStatus: "completed",
+    savedAt: "2026-10-20T00:00:00.000Z",
+    jobId: "phase6-pension-services",
+    build: "pension-services-multifiling-20261106a",
+    executionLog: [],
+    result: {
+      autofill: {
+        pensionIncluded: true,
+        salaryIncluded: false,
+        save: {
+          status: "not_attempted",
+          clicked: false,
+          routePolicy: "services_save_once",
+          reason: "the scoped readback was not complete.",
+        },
+      },
+    },
+  }).join("\\n");
+  assert.match(pensionReport, /SAVE \(Pension \+ Freelancer \/ Services draft-save policy\)/);
   assert.deepEqual(
     jobReport.classifyFieldResult({ status: "services_mapping_unverified" }),
     { outcome: "NOT_SUPPORTED_YET", category: "SCOPE" },
@@ -778,6 +858,7 @@ test("packaged agent identity, Services contract and web handoff contract stay w
   const server = read("app/actions/fbr-jobs.ts");
   assert.match(server, /route: scope\.business\.route === "services_tax_deduction"/);
   assert.match(server, /salaryFields:\s*\{/);
+  assert.match(server, /pensionFields:\s*\{/);
   assert.match(server, /hasLegacySalaryRows/);
   assert.match(server, /"1009", "64020004"/);
   assert.match(server, /"services_entered"/);
@@ -792,6 +873,10 @@ test("packaged agent identity, Services contract and web handoff contract stay w
     "Retry automatic filing",
     "servicesRouteName",
     "Salary + Freelancer / Services",
+    "Pension + Freelancer / Services",
+    "including Salary + Services or Pension + Services",
+    "it may press Save once at the end",
+    "If all scoped figures pass readback, it will press Save once at the end",
     "Draft Save was not pressed (${save?.reason",
     "saveReadbackVerified",
     "Draft Save pressed — verify in FBR",

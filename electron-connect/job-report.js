@@ -14,7 +14,7 @@
 
 const { isRetryableExpenseResult } = require("./iris-wealth-driver.js");
 
-const BUILD_TAG = "services-picker-aliases-20261105d";
+const BUILD_TAG = "pension-services-multifiling-20261106a";
 const NOISY_STEPS = new Set(["readiness_evidence"]);
 
 function clip(value, max = 300) {
@@ -634,9 +634,11 @@ function buildJobReport(input = {}) {
   if (wealthReconciliationLines.length)
     lines.push("", "WEALTH STATEMENT RECONCILIATION (Section 116, read-only)", ...wealthReconciliationLines);
   const saveLines = describeSave(autofill);
-  const servicesSaveLabel = autofill?.salaryIncluded === true
-    ? "Salary + Freelancer / Services"
-    : "Freelancer / Services";
+  const servicesSaveLabel = autofill?.pensionIncluded === true
+    ? "Pension + Freelancer / Services"
+    : autofill?.salaryIncluded === true
+      ? "Salary + Freelancer / Services"
+      : "Freelancer / Services";
   if (saveLines.length)
     lines.push(
       "",

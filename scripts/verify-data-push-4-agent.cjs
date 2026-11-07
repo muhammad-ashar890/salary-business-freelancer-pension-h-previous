@@ -341,8 +341,8 @@ test("agent wiring: main.js makes every deductions row ready before typing and a
     '"business-entry-v3", "business-entry-v4", "business-entry-v5", "business-entry-v6", "business-entry-v7"',
   ])
     assert.ok(main.includes(list), list);
-  assert.match(main, /const AGENT_BUILD_TAG = "services-picker-aliases-20261105d"/);
-  assert.equal(driver.BUILD_TAG, "services-picker-aliases-20261105d");
+  assert.match(main, /const AGENT_BUILD_TAG = "pension-services-multifiling-20261106a"/);
+  assert.equal(driver.BUILD_TAG, "pension-services-multifiling-20261106a");
   const source = fs.readFileSync(path.join(__dirname, "../electron-connect/iris-business-row-driver.js"), "utf8");
   assert.ok(!/\b(?:Save|Submit|Calculate)\b['"]/.test(source), "the driver never looks for Save / Submit / Calculate");
 });

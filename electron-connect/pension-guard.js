@@ -1,7 +1,7 @@
 // Defense in depth: the server validates source freshness before handing out a
 // pinned context. The desktop repeats the narrow packet contract because it is
 // the last process allowed to type into a live IRIS return.
-const PENSION_GUARD_BUILD_TAG = "services-picker-aliases-20261105d";
+const PENSION_GUARD_BUILD_TAG = "pension-services-multifiling-20261106a";
 
 function pensionEntryHold(snapshot) {
   const hasPension =

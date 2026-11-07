@@ -44,7 +44,8 @@ Module._load = function loadWithActionMocks(request, parent, isMain) {
           draft.taxYear === 2026 &&
           draft.filerType === "myself" &&
           ((sources.length === 1 && sources[0] === "services") ||
-            (sources.length === 2 && sources[0] === "salary" && sources[1] === "services"))
+            (sources.length === 2 && sources[0] === "salary" && sources[1] === "services") ||
+            (sources.length === 2 && sources[0] === "pension" && sources[1] === "services"))
         );
       },
     };
@@ -132,7 +133,7 @@ function validInput(overrides = {}) {
   };
 }
 
-async function runSave({ input = validInput(), invoice = invoiceRecord(), ledger = { id: "ledger-1", category: "SERVICES", entryType: "INCOME", amount: 25000, entryDate: ledgerDate } } = {}) {
+async function runSave({ input = validInput(), invoice = invoiceRecord(), incomeSources = '["services"]', ledger = { id: "ledger-1", category: "SERVICES", entryType: "INCOME", amount: 25000, entryDate: ledgerDate } } = {}) {
   const writes = [];
   const record = (model, method, result = { count: 1 }) => async (arg) => {
     writes.push({ model, method, arg });
@@ -143,7 +144,7 @@ async function runSave({ input = validInput(), invoice = invoiceRecord(), ledger
     userId: "user-1",
     taxYear: 2026,
     filerType: "myself",
-    incomeSources: '["services"]',
+    incomeSources,
     incomeSelections: [{ subcategory: "1b-service-it-ites" }],
   };
   const tx = {
@@ -194,6 +195,12 @@ test("saving reviewed cash-basis evidence reconciles gross, fees, payout and ban
   assert.equal(createdMatches.arg.data[0].withholdingTaxPkr, 2000);
   const draftUpdate = writes.find((write) => write.model === "filingDraft" && write.method === "update");
   assert.equal(draftUpdate.arg.data.servicesAccountingMethod, "CASH");
+});
+
+test("reviewed Services evidence can be saved on the exact Pension + Services route", async () => {
+  const { output } = await runSave({ incomeSources: '["services","pension"]' });
+  assert.equal(output.success, true, JSON.stringify(output));
+  assert.equal(output.incomeTotal, 28000);
 });
 
 test("missing a Services bank-credit match blocks saving before any evidence writes", async () => {

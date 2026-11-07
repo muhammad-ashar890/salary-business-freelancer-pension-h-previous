@@ -36,7 +36,7 @@
 const navigation = require("./iris-navigation");
 
 /** Must equal AGENT_BUILD_TAG in main.js. */
-const BUILD_TAG = "services-picker-aliases-20261105d";
+const BUILD_TAG = "pension-services-multifiling-20261106a";
 
 const SPEC = Object.freeze({
   leftTab: "Computations",

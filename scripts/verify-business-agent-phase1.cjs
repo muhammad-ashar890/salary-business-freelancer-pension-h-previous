@@ -602,7 +602,7 @@ test("build: every Phase 1 module carries the same build tag as main.js", () => 
   const main = fs.readFileSync(path.join(__dirname, "../electron-connect/main.js"), "utf8");
   const tag = /const AGENT_BUILD_TAG = "([^"]+)"/.exec(main)[1];
   // Phase 2 (fix47) ships the same modules under one newer tag.
-  assert.equal(tag, "services-picker-aliases-20261105d");
+  assert.equal(tag, "pension-services-multifiling-20261106a");
   for (const mod of ["iris-navigation", "iris-row-filler", "iris-business-row-driver", "iris-tour-census", "iris-wealth-driver", "iris-employer-driver"])
     assert.equal(require(`../electron-connect/${mod}`).BUILD_TAG, tag, mod);
   assert.match(main, /\["iris-tour-census\.js", irisTourCensus\.BUILD_TAG\]/);

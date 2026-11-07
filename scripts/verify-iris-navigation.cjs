@@ -288,7 +288,7 @@ function functionSource(name) {
   return found.getText(ast);
 }
 function sandbox(names, extras = {}) {
-  // The exact Services-only / Salary+Services gate is shared by navigation and
+  // The exact Services-only / Salary+Services / Pension+Services gate is shared by navigation and
   // real autofill entry point; extracted-function sandboxes need the shipped
   // helper itself, never a test-local copy of the route policy.
   if (

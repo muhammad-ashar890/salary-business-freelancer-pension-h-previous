@@ -691,7 +691,7 @@ export async function generateFilingPacketAction(
       return {
         success: false,
         error:
-          "Services income evidence supports only TY2026 Myself filings with Services alone or exactly Salary + Services. Other source combinations are unsupported, so no Services packet was generated.",
+          "Services income evidence supports only TY2026 Myself filings with Services alone, exactly Salary + Services, or exactly Pension + Services. Other source combinations are unsupported, so no Services packet was generated.",
       };
     }
 
@@ -1184,7 +1184,7 @@ export async function generateFilingPacketAction(
         }
       }
     } else if (servicesBusinessFields.length) {
-      // Services-only and Salary+Services routes have no Business Profit
+      // Services-only, Salary+Services and Pension+Services routes have no Business Profit
       // selection, so the approved 3101 row is the only Business-sheet field.
       portalFieldMap.businessFields = [...servicesBusinessFields];
       portalFieldMap.totalFields += portalFieldMap.businessFields.length;

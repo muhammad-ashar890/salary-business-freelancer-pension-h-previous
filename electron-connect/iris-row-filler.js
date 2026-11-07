@@ -47,7 +47,7 @@ const SERVICES_CAPTURE_CONTRACT = require("./iris-services-contract.json");
  * a stale copy is a correctness risk, not a cosmetic one — main.js refuses to run
  * the real-portal flow when the three files disagree.
  */
-const BUILD_TAG = "services-picker-aliases-20261105d";
+const BUILD_TAG = "pension-services-multifiling-20261106a";
 
 /** Outcome reason codes. `filled` is the only success. */
 const FILL_STATUS = {

@@ -224,11 +224,18 @@ test("save refuses unselected categories and requires every selected category to
   assert.match(uncovered.result.error, /at least one receipt to every selected Services category/);
 });
 
-test("save is Freelancer-only and does not alter tax rules or other income sources", async () => {
-  const { result, writes } = await runSave({ incomeSources: ["salary"] });
-  assert.equal(result.success, false);
-  assert.match(result.error, /Services alone or exactly Salary \+ Services/);
-  assert.equal(writes.length, 0);
+test("save supports Pension + Services but remains closed for unsupported source sets", async () => {
+  const supported = await runSave({ incomeSources: ["pension", "services"] });
+  assert.equal(supported.result.success, true, JSON.stringify(supported.result));
+  assert.equal(
+    supported.writes.some((write) => write.model === "filingIncomeRecord" && write.method === "createMany"),
+    true,
+  );
+
+  const unsupported = await runSave({ incomeSources: ["salary"] });
+  assert.equal(unsupported.result.success, false);
+  assert.match(unsupported.result.error, /Services alone.*Salary \+ Services.*Pension \+ Services/);
+  assert.equal(unsupported.writes.length, 0);
 });
 
 process.once("exit", () => {

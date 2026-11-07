@@ -148,7 +148,7 @@ test("the Services Business payload stays empty rather than guessing at a row", 
   );
   assert.throws(
     () => build({ taxYear: 2025 }),
-    /Services alone or exactly Salary \+ Services/,
+    /Services alone.*Pension \+ Services/,
     "the verified Services entry route remains scoped to TY2026 Myself filings",
   );
   const salaryServices = build({
@@ -161,9 +161,19 @@ test("the Services Business payload stays empty rather than guessing at a row", 
     [servicesIncomeRow.irisCode, servicesWithholdingRow.irisCode],
     "the exact Salary + Services combination retains only verified Services targets in this payload",
   );
+  const pensionServices = build({
+    incomeSources: ["services", "pension"],
+    businessFields: [servicesIncomeRow],
+    withholdingFields: [servicesWithholdingRow],
+  });
+  assert.deepEqual(
+    pensionServices.fields.map((field) => field.irisCode),
+    [servicesIncomeRow.irisCode, servicesWithholdingRow.irisCode],
+    "the exact Pension + Services combination keeps only evidence-backed Services targets in this payload",
+  );
   assert.throws(
     () => build({ incomeSources: ["services", "salary", "property_rent"], withholdingFields: [servicesWithholdingRow] }),
-    /Services alone or exactly Salary \+ Services/,
+    /Services alone.*Pension \+ Services/,
     "other multi-source combinations remain fail-closed",
   );
   const withholdingOnly = build({ withholdingFields: [servicesWithholdingRow] });

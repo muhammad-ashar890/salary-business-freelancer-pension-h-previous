@@ -12,7 +12,11 @@ const ts = require("typescript");
 const root = path.join(__dirname, "..");
 const oldResolve = Module._resolveFilename;
 Module._resolveFilename = function (r, ...a) {
-  return oldResolve.call(this, r.startsWith("@/") ? path.join(root, r.slice(2)) : r, ...a);
+  return oldResolve.call(
+    this,
+    r.startsWith("@/") ? path.join(root, r.slice(2)) : r,
+    ...a,
+  );
 };
 require.extensions[".ts"] = (m, f) =>
   m._compile(
@@ -47,7 +51,11 @@ const good = {
 
 test("previous_return: complete TY2025 fixture passes while filing TY2026", () => {
   assert.deepEqual(
-    review.getDocumentReviewRequiredErrors("previous_return", fields(good), 2026),
+    review.getDocumentReviewRequiredErrors(
+      "previous_return",
+      fields(good),
+      2026,
+    ),
     [],
   );
 });
@@ -66,7 +74,10 @@ for (const key of prev.PREVIOUS_RETURN_REQUIRED_KEYS) {
       fields(copy),
       2026,
     );
-    assert.ok(errs.some((e) => e.startsWith(label)), JSON.stringify(errs));
+    assert.ok(
+      errs.some((e) => e.startsWith(label)),
+      JSON.stringify(errs),
+    );
   });
 }
 
@@ -93,7 +104,10 @@ for (const badYear of [2026, 2027]) {
       fields({ ...good, "Tax Year": badYear }),
       2026,
     );
-    assert.ok(errs.some((e) => e.includes("earlier than this filing")), JSON.stringify(errs));
+    assert.ok(
+      errs.some((e) => e.includes("earlier than this filing")),
+      JSON.stringify(errs),
+    );
   });
 }
 
@@ -114,7 +128,10 @@ test("previous_return: wealth tie-out enforced (assets - liabilities = net asset
     fields({ ...good, "Net Assets (703001)": 8_000_000 }),
     2026,
   );
-  assert.ok(errs.some((e) => e.includes("do not tie out")), JSON.stringify(errs));
+  assert.ok(
+    errs.some((e) => e.includes("do not tie out")),
+    JSON.stringify(errs),
+  );
 });
 
 test("previous_return: negative net assets allowed when liabilities exceed assets and tie out", () => {
@@ -140,7 +157,10 @@ test("previous_return: Registration No must be 13 digits (dashes forgiven)", () 
       fields({ ...good, "Registration No": bad }),
       2026,
     );
-    assert.ok(errs.some((e) => e.includes("13-digit")), `${bad}: ${JSON.stringify(errs)}`);
+    assert.ok(
+      errs.some((e) => e.includes("13-digit")),
+      `${bad}: ${JSON.stringify(errs)}`,
+    );
   }
 });
 
@@ -161,27 +181,45 @@ test("previous_return: comma-formatted printed amounts parse; aliases resolve", 
 test("previous_return: duplicate canonical fields refuse instead of picking one", () => {
   const list = fields(good);
   list.push({ label: "Net Assets", value: 1 });
-  const errs = review.getDocumentReviewRequiredErrors("previous_return", list, 2026);
-  assert.ok(errs.some((e) => e.includes("duplicate")), JSON.stringify(errs));
+  const errs = review.getDocumentReviewRequiredErrors(
+    "previous_return",
+    list,
+    2026,
+  );
+  assert.ok(
+    errs.some((e) => e.includes("duplicate")),
+    JSON.stringify(errs),
+  );
 });
 
 test("previous_return: absent required fields get blank placeholders, never inferred values (optional Cash is not created)", () => {
   const payload = { fields: [] };
-  const got = review.ensureRequiredDocumentReviewFields("previous_return", payload);
+  const got = review.ensureRequiredDocumentReviewFields(
+    "previous_return",
+    payload,
+  );
   assert.equal(got.fields.length, prev.PREVIOUS_RETURN_REQUIRED_KEYS.length);
   assert.ok(got.fields.every((f) => f.value === null));
-  assert.ok(!got.fields.some((f) => f.label === prev.PREVIOUS_RETURN_LABELS.cashInHand));
+  assert.ok(
+    !got.fields.some((f) => f.label === prev.PREVIOUS_RETURN_LABELS.cashInHand),
+  );
   assert.equal(payload.fields.length, 0);
 });
 
 test("previous_return: required flag shows on the six required labels only", () => {
   for (const key of prev.PREVIOUS_RETURN_REQUIRED_KEYS)
     assert.equal(
-      review.isDocumentReviewRequiredField("previous_return", prev.PREVIOUS_RETURN_LABELS[key]),
+      review.isDocumentReviewRequiredField(
+        "previous_return",
+        prev.PREVIOUS_RETURN_LABELS[key],
+      ),
       true,
     );
   assert.equal(
-    review.isDocumentReviewRequiredField("previous_return", prev.PREVIOUS_RETURN_LABELS.cashInHand),
+    review.isDocumentReviewRequiredField(
+      "previous_return",
+      prev.PREVIOUS_RETURN_LABELS.cashInHand,
+    ),
     false,
   );
 });
@@ -196,7 +234,11 @@ test("previous_return: stored-extraction errors surface; malformed JSON refuses"
     [],
   );
   assert.ok(
-    review.storedDocumentReviewRequiredErrors("previous_return", "invalid JSON", 2026).length,
+    review.storedDocumentReviewRequiredErrors(
+      "previous_return",
+      "invalid JSON",
+      2026,
+    ).length,
   );
   assert.ok(
     review
@@ -222,7 +264,10 @@ test("previous_return: parser returns the typed carry-forward snapshot, else nul
     wealthRows: [],
   });
   assert.equal(
-    prev.parsePreviousReturnFields(fields({ ...good, "Net Assets (703001)": 5 }), 2026),
+    prev.parsePreviousReturnFields(
+      fields({ ...good, "Net Assets (703001)": 5 }),
+      2026,
+    ),
     null,
   );
 });
@@ -241,17 +286,32 @@ test("previous_return: missing liabilities AND same-year show together (no one-b
     }),
     2026,
   );
-  assert.ok(errs.some((e) => e.startsWith("Total Liabilities (7029)")), JSON.stringify(errs));
-  assert.ok(errs.some((e) => e.includes("earlier than this filing")), JSON.stringify(errs));
+  assert.ok(
+    errs.some((e) => e.startsWith("Total Liabilities (7029)")),
+    JSON.stringify(errs),
+  );
+  assert.ok(
+    errs.some((e) => e.includes("earlier than this filing")),
+    JSON.stringify(errs),
+  );
 });
 
 test("previous_return: Save & Approve Map is reachable (UI mappable + server branch + server-side error enforcement)", () => {
-  const ui = fs.readFileSync(path.join(root, "components/tax/filing/wizard-documents-step.tsx"), "utf8");
+  const ui = fs.readFileSync(
+    path.join(root, "components/tax/filing/wizard-documents-step.tsx"),
+    "utf8",
+  );
   assert.match(ui, /slot\.documentType === "previous_return" \|\|/);
-  const action = fs.readFileSync(path.join(root, "app/actions/extraction.ts"), "utf8");
+  const action = fs.readFileSync(
+    path.join(root, "app/actions/extraction.ts"),
+    "utf8",
+  );
   assert.match(action, /document\.documentType === "previous_return"/);
   assert.match(action, /"PREVIOUS_RETURN"/);
-  assert.match(action, /"business_books",\s+"previous_return",\s+\]\.includes\(document\.documentType\)/);
+  assert.match(
+    action,
+    /"business_books",\s+"previous_return",\s+\]\.includes\(document\.documentType\)/,
+  );
 });
 
 // Jasper-style extracted text (header columns interleave; Balance Sheet has
@@ -287,7 +347,10 @@ const irisWealth = [
 ].join("\n");
 
 test("previous_return text: printed IRIS codes parse exactly (3349/703002 decoys ignored)", () => {
-  const got = textParser.parseIrisPreviousReturnText(`${irisHeader}\n${irisWealth}`, irisHeader);
+  const got = textParser.parseIrisPreviousReturnText(
+    `${irisHeader}\n${irisWealth}`,
+    irisHeader,
+  );
   assert.ok(got);
   assert.equal(got.taxpayerName, "SYNTHETIC TEST TAXPAYER");
   assert.equal(got.registrationNo, "4220112345671");
@@ -303,7 +366,10 @@ test("previous_return text: absent liabilities derive 0 only when no 702x rows a
   assert.equal(got.totalLiabilities, 0);
   assert.equal(got.liabilitiesDerived, true);
   const explicit = textParser.parseIrisPreviousReturnText(
-    irisWealth.replace("Total Assets 7019 8,780,220", "Total Assets 7019 9,780,220\nTotal Liabilities 7029 1,000,000"),
+    irisWealth.replace(
+      "Total Assets 7019 8,780,220",
+      "Total Assets 7019 9,780,220\nTotal Liabilities 7029 1,000,000",
+    ),
     irisHeader,
   );
   assert.equal(explicit.totalLiabilities, 1_000_000);
@@ -321,13 +387,22 @@ test("previous_return text: conflicting 703001 or missing Wealth Statement refus
     "Reconciliation of Net Assets\nNet Assets Current Year 703001 8,780,220",
     "Reconciliation of Net Assets\nNet Assets Current Year 703001 8,000,000",
   );
-  assert.equal(textParser.parseIrisPreviousReturnText(conflict, irisHeader), null);
-  assert.equal(textParser.parseIrisPreviousReturnText("no wealth here", irisHeader), null);
+  assert.equal(
+    textParser.parseIrisPreviousReturnText(conflict, irisHeader),
+    null,
+  );
+  assert.equal(
+    textParser.parseIrisPreviousReturnText("no wealth here", irisHeader),
+    null,
+  );
   assert.equal(textParser.parseIrisPreviousReturnText("", ""), null);
 });
 
 test("previous_return text: merge corrects the model (wrong 7019, blank 703001, alias folded)", () => {
-  const parse = textParser.parseIrisPreviousReturnText(`${irisHeader}\n${irisWealth}`, irisHeader);
+  const parse = textParser.parseIrisPreviousReturnText(
+    `${irisHeader}\n${irisWealth}`,
+    irisHeader,
+  );
   const merged = textParser.applyPreviousReturnTextParse(
     {
       documentType: "previous_return",
@@ -341,10 +416,17 @@ test("previous_return text: merge corrects the model (wrong 7019, blank 703001, 
     parse,
   );
   assert.deepEqual(
-    review.getDocumentReviewRequiredErrors("previous_return", merged.fields, 2026),
+    review.getDocumentReviewRequiredErrors(
+      "previous_return",
+      merged.fields,
+      2026,
+    ),
     [],
   );
-  assert.equal(merged.fields.filter((f) => f.label === "Net Assets (703001)").length, 1);
+  assert.equal(
+    merged.fields.filter((f) => f.label === "Net Assets (703001)").length,
+    1,
+  );
   assert.equal(merged.fields.at(-1).label, "Some Other Note");
   assert.equal(merged.previousReturnTextParse.source, "iris-pdf-text");
   assert.equal(merged.previousReturnTextParse.liabilitiesDerived, true);
@@ -352,11 +434,19 @@ test("previous_return text: merge corrects the model (wrong 7019, blank 703001, 
 });
 
 test("previous_return text: extraction action runs the text parser for previous_return PDFs (unpdf)", () => {
-  const action = fs.readFileSync(path.join(root, "app/actions/extraction.ts"), "utf8");
+  const action = fs.readFileSync(
+    path.join(root, "app/actions/extraction.ts"),
+    "utf8",
+  );
   assert.match(action, /from "@\/lib\/tax\/previous-return-text"/);
-  assert.match(action, /document\.documentType === "previous_return" &&\s+document\.mimeType === "application\/pdf"/);
+  assert.match(
+    action,
+    /document\.documentType === "previous_return" &&\s+document\.mimeType === "application\/pdf"/,
+  );
   assert.match(action, /await import\("unpdf"\)/);
-  const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  const pkg = JSON.parse(
+    fs.readFileSync(path.join(root, "package.json"), "utf8"),
+  );
   assert.ok(pkg.dependencies.unpdf);
 });
 
@@ -364,18 +454,33 @@ test("previous_return Phase 3a: approved snapshot comes only from the newest MAP
   const doc = (status, data) => ({
     documentType: "previous_return",
     extractionStatus: status,
-    extractedData: typeof data === "string" ? data : JSON.stringify({ fields: fields(data) }),
+    extractedData:
+      typeof data === "string"
+        ? data
+        : JSON.stringify({ fields: fields(data) }),
   });
-  const approved = prev.approvedPreviousReturnFromDocuments([doc("MAPPED", good)], 2026);
+  const approved = prev.approvedPreviousReturnFromDocuments(
+    [doc("MAPPED", good)],
+    2026,
+  );
   assert.equal(approved.netAssets, 8_780_220);
   // Newest governs: a newer unapproved upload shadows the older approved one.
   assert.equal(
-    prev.approvedPreviousReturnFromDocuments([doc("COMPLETED", good), doc("MAPPED", good)], 2026),
+    prev.approvedPreviousReturnFromDocuments(
+      [doc("COMPLETED", good), doc("MAPPED", good)],
+      2026,
+    ),
     null,
   );
-  assert.equal(prev.approvedPreviousReturnFromDocuments([doc("MAPPED", "broken{")], 2026), null);
   assert.equal(
-    prev.approvedPreviousReturnFromDocuments([{ documentType: "cnic", extractionStatus: "MAPPED" }], 2026),
+    prev.approvedPreviousReturnFromDocuments([doc("MAPPED", "broken{")], 2026),
+    null,
+  );
+  assert.equal(
+    prev.approvedPreviousReturnFromDocuments(
+      [{ documentType: "cnic", extractionStatus: "MAPPED" }],
+      2026,
+    ),
     null,
   );
   assert.equal(prev.approvedPreviousReturnFromDocuments(undefined, 2026), null);
@@ -392,40 +497,76 @@ test("previous_return Phase 3a: CNIC mismatch only when both sides are 13 digits
 });
 
 test("previous_return Phase 3a wiring: CNIC blocker in completeness; preview carries previous net assets; UI shows it", () => {
-  const gate = fs.readFileSync(path.join(root, "lib/tax/filing-completeness.ts"), "utf8");
+  const gate = fs.readFileSync(
+    path.join(root, "lib/tax/filing-completeness.ts"),
+    "utf8",
+  );
   assert.match(gate, /"taxAuditEvent" \| "user"/);
   assert.match(gate, /previousReturnCnicMismatch\(snapshot, profile\?\.cnic\)/);
   assert.match(gate, /its Registration No does not match this taxpayer's CNIC/);
 
-  const calc = fs.readFileSync(path.join(root, "lib/tax/reconciliation-calculation.ts"), "utf8");
+  const calc = fs.readFileSync(
+    path.join(root, "lib/tax/reconciliation-calculation.ts"),
+    "utf8",
+  );
   assert.match(calc, /previousYearNetAssets: number \| null/);
   assert.match(calc, /documentType: "previous_return"/);
-  assert.match(calc, /approvedPreviousReturnFromDocuments\(\s+previousReturnDocuments,/);
+  assert.match(
+    calc,
+    /approvedPreviousReturnFromDocuments\(\s+previousReturnDocuments,/,
+  );
 
-  const ui = fs.readFileSync(path.join(root, "components/tax/filing/wizard-reconciliation-step.tsx"), "utf8");
+  const ui = fs.readFileSync(
+    path.join(root, "components/tax/filing/wizard-reconciliation-step.tsx"),
+    "utf8",
+  );
   assert.match(ui, /Previous year net assets/);
   assert.match(ui, /Net Assets Previous\s+Year \(703002\)/);
 });
 
 test("previous_return Phase 3b wiring: packet carries 703002 expectation; agent compares read-only; card surfaces it", () => {
-  const packet = fs.readFileSync(path.join(root, "app/actions/packet.ts"), "utf8");
-  assert.match(packet, /wealthExpectations: \{\s+previousYearNetAssets: \{\s+irisCode: "703002",/);
-  assert.match(packet, /approvedPreviousReturnFromDocuments\(\s+previousReturnDocuments,/);
+  const packet = fs.readFileSync(
+    path.join(root, "app/actions/packet.ts"),
+    "utf8",
+  );
+  assert.match(
+    packet,
+    /wealthExpectations: \{\s+previousYearNetAssets: \{\s+irisCode: "703002",/,
+  );
+  assert.match(
+    packet,
+    /approvedPreviousReturnFromDocuments\(\s+previousReturnDocuments,/,
+  );
   assert.match(packet, /source: "approved_previous_return_703001"/);
 
-  const main = fs.readFileSync(path.join(root, "electron-connect/main.js"), "utf8");
+  const main = fs.readFileSync(
+    path.join(root, "electron-connect/main.js"),
+    "utf8",
+  );
   assert.match(main, /snapshot\?\.wealthExpectations\?\.previousYearNetAssets/);
   assert.match(main, /previous_wealth_check_differs/);
   assert.match(main, /The agent left IRIS exactly as it is/);
-  assert.match(main, /const AGENT_BUILD_TAG = "services-picker-aliases-20261105d"/);
+  assert.match(
+    main,
+    /const AGENT_BUILD_TAG = "pension-services-multifiling-20261106a"/,
+  );
 
-  const report = fs.readFileSync(path.join(root, "electron-connect/job-report.js"), "utf8");
+  const report = fs.readFileSync(
+    path.join(root, "electron-connect/job-report.js"),
+    "utf8",
+  );
   assert.match(report, /describePreviousWealthCheck/);
   assert.match(report, /PREVIOUS YEAR NET ASSETS/);
 
-  const jobs = fs.readFileSync(path.join(root, "app/actions/fbr-jobs.ts"), "utf8");
+  const jobs = fs.readFileSync(
+    path.join(root, "app/actions/fbr-jobs.ts"),
+    "utf8",
+  );
   assert.match(jobs, /readHandoffPreviousWealthCheck/);
-  const client = fs.readFileSync(path.join(root, "components/tax/fbr-connect-client.tsx"), "utf8");
+  const client = fs.readFileSync(
+    path.join(root, "components/tax/fbr-connect-client.tsx"),
+    "utf8",
+  );
   assert.match(client, /Previous year net assets \(703002\) — differs in IRIS/);
 });
 
@@ -452,35 +593,53 @@ const irisWealthDetailed = [
 ].join("\n");
 
 test("previous_return Phase 4a: printed wealth rows parse with aggregates/details and tie out", () => {
-  const got = textParser.parseIrisPreviousReturnText(irisWealthDetailed, irisHeader);
+  const got = textParser.parseIrisPreviousReturnText(
+    irisWealthDetailed,
+    irisHeader,
+  );
   assert.ok(got.wealthRows);
   assert.equal(got.wealthRows.length, 11);
   const agg = got.wealthRows.filter((r) => !r.detail);
-  assert.equal(agg.reduce((s, r) => s + r.amount, 0), 7_780_220 + 1_000_000);
+  assert.equal(
+    agg.reduce((s, r) => s + r.amount, 0),
+    7_780_220 + 1_000_000,
+  );
   const vAgg = got.wealthRows.find((r) => r.code === "7008" && !r.detail);
   assert.equal(vAgg.amount, 2_220_000);
-  assert.equal(got.wealthRows.filter((r) => r.code === "7008" && r.detail).length, 2);
+  assert.equal(
+    got.wealthRows.filter((r) => r.code === "7008" && r.detail).length,
+    2,
+  );
   assert.equal(got.wealthRows.find((r) => r.code === "7021").amount, 500_000);
   assert.equal(got.wealthRowsNote, null);
 });
 
 test("previous_return Phase 4a: rows that do not tie to the totals are dropped with a note, scalars stand", () => {
   const broken = textParser.parseIrisPreviousReturnText(
-    irisWealthDetailed.replace("Household Effects 7010 250,000", "Household Effects 7010 999,000"),
+    irisWealthDetailed.replace(
+      "Household Effects 7010 250,000",
+      "Household Effects 7010 999,000",
+    ),
     irisHeader,
   );
   assert.equal(broken.wealthRows, null);
   assert.match(broken.wealthRowsNote, /did not add up to the printed totals/);
   assert.equal(broken.totalAssets, 7_780_220);
-  const merged = textParser.applyPreviousReturnTextParse({ fields: [], notes: [] }, broken);
+  const merged = textParser.applyPreviousReturnTextParse(
+    { fields: [], notes: [] },
+    broken,
+  );
   assert.equal(merged.previousReturnWealthRows, undefined);
   assert.ok(merged.notes.some((n) => n.includes("did not add up")));
 });
 
 test("previous_return Phase 4a: snapshot carries only rows that still validate against the totals", () => {
-  const parse = textParser.parseIrisPreviousReturnText(irisWealthDetailed, irisHeader);
-  const docWith = (rows) =>
-    [{
+  const parse = textParser.parseIrisPreviousReturnText(
+    irisWealthDetailed,
+    irisHeader,
+  );
+  const docWith = (rows) => [
+    {
       documentType: "previous_return",
       extractionStatus: "MAPPED",
       extractedData: JSON.stringify({
@@ -493,24 +652,46 @@ test("previous_return Phase 4a: snapshot carries only rows that still validate a
         }),
         previousReturnWealthRows: rows,
       }),
-    }];
-  const snap = prev.approvedPreviousReturnFromDocuments(docWith(parse.wealthRows), 2026);
+    },
+  ];
+  const snap = prev.approvedPreviousReturnFromDocuments(
+    docWith(parse.wealthRows),
+    2026,
+  );
   assert.equal(snap.wealthRows.length, 11);
-  const tampered = parse.wealthRows.map((r) => r.code === "7010" ? { ...r, amount: 5 } : r);
-  assert.deepEqual(prev.approvedPreviousReturnFromDocuments(docWith(tampered), 2026).wealthRows, []);
-  assert.deepEqual(prev.approvedPreviousReturnFromDocuments(docWith("nope"), 2026).wealthRows, []);
-  const merged = textParser.applyPreviousReturnTextParse({ fields: [], notes: [] }, parse);
+  const tampered = parse.wealthRows.map((r) =>
+    r.code === "7010" ? { ...r, amount: 5 } : r,
+  );
+  assert.deepEqual(
+    prev.approvedPreviousReturnFromDocuments(docWith(tampered), 2026)
+      .wealthRows,
+    [],
+  );
+  assert.deepEqual(
+    prev.approvedPreviousReturnFromDocuments(docWith("nope"), 2026).wealthRows,
+    [],
+  );
+  const merged = textParser.applyPreviousReturnTextParse(
+    { fields: [], notes: [] },
+    parse,
+  );
   assert.equal(merged.previousReturnWealthRows.length, 11);
   assert.equal(merged.previousReturnTextParse.wealthRowCount, 11);
 });
 
 test("previous_return Phase 4b: continuity flags missing/new/carried codes and never blocks", () => {
   const cont = require(path.join(root, "lib/tax/wealth-continuity.ts"));
-  const parse = textParser.parseIrisPreviousReturnText(irisWealthDetailed, irisHeader);
+  const parse = textParser.parseIrisPreviousReturnText(
+    irisWealthDetailed,
+    irisHeader,
+  );
   const got = cont.buildWealthContinuity(
     parse.wealthRows,
     2025,
-    cont.currentFilingWealthRows({ bankClosingTotal: 2_000_000, cashMovement: 100_000 }),
+    cont.currentFilingWealthRows({
+      bankClosingTotal: 2_000_000,
+      cashMovement: 100_000,
+    }),
   );
   assert.equal(got.previousReturnTaxYear, 2025);
   const byCode = Object.fromEntries(got.items.map((i) => [i.code, i]));
@@ -525,71 +706,135 @@ test("previous_return Phase 4b: continuity flags missing/new/carried codes and n
   assert.match(got.note, /never blocks filing and nothing is written to IRIS/);
   assert.match(got.note, /7003/);
   // Detail children never match on their own.
-  assert.ok(!got.items.some((i) => i.code === "7006" && i.status === "carried" && i.previousAmount !== 1_119_666));
+  assert.ok(
+    !got.items.some(
+      (i) =>
+        i.code === "7006" &&
+        i.status === "carried" &&
+        i.previousAmount !== 1_119_666,
+    ),
+  );
   assert.equal(cont.buildWealthContinuity([], 2025, []), null);
-  const noBanks = cont.currentFilingWealthRows({ bankClosingTotal: null, cashMovement: 500 });
-  assert.deepEqual(noBanks.map((r) => r.code), ["7012"]);
+  const noBanks = cont.currentFilingWealthRows({
+    bankClosingTotal: null,
+    cashMovement: 500,
+  });
+  assert.deepEqual(
+    noBanks.map((r) => r.code),
+    ["7012"],
+  );
 });
 
 test("previous_return gate: uploaded-but-unapproved blocks Continue; Remove is the escape hatch", () => {
-  const wizard = fs.readFileSync(path.join(root, "components/tax/filing/filing-wizard.tsx"), "utf8");
+  const wizard = fs.readFileSync(
+    path.join(root, "components/tax/filing/filing-wizard.tsx"),
+    "utf8",
+  );
   assert.match(wizard, /previousReturnDocument/);
   assert.match(wizard, /must be reviewed and approved before continuing/);
   assert.match(wizard, /previousReturnDocument\.extractionStatus !== "MAPPED"/);
-  const docs = fs.readFileSync(path.join(root, "app/actions/documents.ts"), "utf8");
+  const docs = fs.readFileSync(
+    path.join(root, "app/actions/documents.ts"),
+    "utf8",
+  );
   assert.match(docs, /export async function removeFilingDocumentAction/);
   assert.match(docs, /Only the Previous Year Tax Return can be removed here/);
-  const step = fs.readFileSync(path.join(root, "components/tax/filing/wizard-documents-step.tsx"), "utf8");
+  const step = fs.readFileSync(
+    path.join(root, "components/tax/filing/wizard-documents-step.tsx"),
+    "utf8",
+  );
   assert.match(step, /handleRemoveDocument/);
   assert.match(step, /slot\.documentType === "previous_return" &&/);
   const hook = fs.readFileSync(
-    path.join(root, "components/tax/filing/hooks/use-filing-documents.ts"), "utf8");
+    path.join(root, "components/tax/filing/hooks/use-filing-documents.ts"),
+    "utf8",
+  );
   assert.match(hook, /removeFilingDocumentAction/);
   assert.match(hook, /Previous Year Tax Return removed/);
 });
 
 test("previous_return Phase 4b wiring: Mizan preview carries the continuity guidance", () => {
-  const calc = fs.readFileSync(path.join(root, "lib/tax/reconciliation-calculation.ts"), "utf8");
+  const calc = fs.readFileSync(
+    path.join(root, "lib/tax/reconciliation-calculation.ts"),
+    "utf8",
+  );
   assert.match(calc, /previousWealthContinuity: WealthContinuity \| null/);
   assert.match(calc, /buildWealthContinuity\(/);
   assert.match(calc, /currentFilingWealthRows\(/);
   const hook = fs.readFileSync(
-    path.join(root, "components/tax/filing/hooks/use-filing-reconciliation.ts"), "utf8");
+    path.join(root, "components/tax/filing/hooks/use-filing-reconciliation.ts"),
+    "utf8",
+  );
   assert.match(hook, /previousWealthContinuity\?:/);
   const step = fs.readFileSync(
-    path.join(root, "components/tax/filing/wizard-reconciliation-step.tsx"), "utf8");
+    path.join(root, "components/tax/filing/wizard-reconciliation-step.tsx"),
+    "utf8",
+  );
   assert.match(step, /Wealth continuity — Tax Year/);
-  assert.match(step, /Not in this filing&#x27;s Wealth Statement|Not in this filing&apos;s Wealth Statement|Not in this filing.s Wealth Statement/);
+  assert.match(
+    step,
+    /Not in this filing&#x27;s Wealth Statement|Not in this filing&apos;s Wealth Statement|Not in this filing.s Wealth Statement/,
+  );
   assert.match(step, /previousWealthContinuity\.items/);
 });
 
 test("previous_return Phase 4a wiring: documents step shows the read-only wealth detail", () => {
-  const ui = fs.readFileSync(path.join(root, "components/tax/filing/wizard-documents-step.tsx"), "utf8");
+  const ui = fs.readFileSync(
+    path.join(root, "components/tax/filing/wizard-documents-step.tsx"),
+    "utf8",
+  );
   assert.match(ui, /previousReturnWealthRows\?:/);
   assert.match(ui, /Wealth detail in this return/);
-  assert.match(ui, /slot\.documentType === "previous_return" &&\s+\(extracted\?\.previousReturnWealthRows\?\.length/);
+  assert.match(
+    ui,
+    /slot\.documentType === "previous_return" &&\s+\(extracted\?\.previousReturnWealthRows\?\.length/,
+  );
 });
 
 test("previous_return: uploaded-but-unapproved blocks filing; extraction prompt/slot wired", () => {
-  const gate = fs.readFileSync(path.join(root, "lib/tax/filing-completeness.ts"), "utf8");
-  assert.match(gate, /DOCUMENT_TYPES_REQUIRING_MAPPING = new Set\(\[[\s\S]*?"previous_return",/);
+  const gate = fs.readFileSync(
+    path.join(root, "lib/tax/filing-completeness.ts"),
+    "utf8",
+  );
+  assert.match(
+    gate,
+    /DOCUMENT_TYPES_REQUIRING_MAPPING = new Set\(\[[\s\S]*?"previous_return",/,
+  );
   assert.match(gate, /previousReturnDocument\.extractionStatus !== "MAPPED"/);
-  assert.match(gate, /you uploaded a previous return, so review and approve\/map it/);
-  assert.match(gate, /storedDocumentReviewRequiredErrors\(\s+"previous_return",/);
+  assert.match(
+    gate,
+    /you uploaded a previous return, so review and approve\/map it/,
+  );
+  assert.match(
+    gate,
+    /storedDocumentReviewRequiredErrors\(\s+"previous_return",/,
+  );
 
-  const action = fs.readFileSync(path.join(root, "app/actions/extraction.ts"), "utf8");
-  assert.match(action, /previous_return: \{\n\s+label: "previous year tax return printed from FBR IRIS"/);
+  const action = fs.readFileSync(
+    path.join(root, "app/actions/extraction.ts"),
+    "utf8",
+  );
+  assert.match(
+    action,
+    /previous_return: \{\r?\n\s+label: "previous year tax return printed from FBR IRIS"/,
+  );
   assert.match(action, /previousReturnInstruction/);
   assert.match(action, /"Net Assets \(703001\)"/);
   assert.match(action, /never add up the detail lines/);
 
   // Phase 1 contract still holds: the slot itself stays OPTIONAL.
-  const reqs = fs.readFileSync(path.join(root, "lib/tax/document-requirements.ts"), "utf8");
+  const reqs = fs.readFileSync(
+    path.join(root, "lib/tax/document-requirements.ts"),
+    "utf8",
+  );
   assert.match(reqs, /documentType: "previous_return"[\s\S]*?required: false/);
 });
 
 test("previous_return Phase 5a wiring: packet carries validated wealth rows + packet PDF prints them", () => {
-  const packet = fs.readFileSync(path.join(root, "app/actions/packet.ts"), "utf8");
+  const packet = fs.readFileSync(
+    path.join(root, "app/actions/packet.ts"),
+    "utf8",
+  );
 
   // The snapshot contract: rows travel only inside wealthCarryForward.
   assert.match(
@@ -608,17 +853,32 @@ test("previous_return Phase 5a wiring: packet carries validated wealth rows + pa
     packet,
     /wealthCarryForward: \{\s+previousReturnTaxYear: approvedPreviousReturn\.taxYear,/,
   );
-  assert.match(packet, /rows: approvedPreviousReturn\.wealthRows\.map\(\(row\) => \(\{/);
+  assert.match(
+    packet,
+    /rows: approvedPreviousReturn\.wealthRows\.map\(\(row\) => \(\{/,
+  );
 
   // 703002 keeps its own read-only contract; the carry-forward block never
   // claims to write it.
   assert.match(packet, /irisCode: "703002"/);
 
   // Packet PDF evidences the rows and states how they are used.
-  assert.match(packet, /document\.fontSize\(14\)\.text\("Previous Return Wealth Carried Forward"\)/);
-  assert.match(packet, /the position at that year's closing date, not this year's movement/);
-  assert.match(packet, /entered as the opening balance of the same IRIS 116 row/);
-  assert.match(packet, /Net Assets Previous Year \(703002\) is IRIS's own figure and is never changed/);
+  assert.match(
+    packet,
+    /document\.fontSize\(14\)\.text\("Previous Return Wealth Carried Forward"\)/,
+  );
+  assert.match(
+    packet,
+    /the position at that year's closing date, not this year's movement/,
+  );
+  assert.match(
+    packet,
+    /entered as the opening balance of the same IRIS 116 row/,
+  );
+  assert.match(
+    packet,
+    /Net Assets Previous Year \(703002\) is IRIS's own figure and is never changed/,
+  );
   assert.match(packet, /Cash in hand was not stated in the printed return/);
 });
 
@@ -627,7 +887,9 @@ test("previous_return: a printed return with NIL liabilities still approves (702
   // cells because the taxpayer has no liabilities. Extraction must read that as
   // zero, not as "missing", otherwise Save & Approve Map is blocked by a
   // required-field error on a figure that is genuinely nil.
-  const textParser = require(path.join(root, "lib/tax/previous-return-text.ts"));
+  const textParser = require(
+    path.join(root, "lib/tax/previous-return-text.ts"),
+  );
   const fields = require(path.join(root, "lib/tax/previous-return-fields.ts"));
 
   const header = [
@@ -645,8 +907,14 @@ test("previous_return: a printed return with NIL liabilities still approves (702
     "Net Assets Current Year 703001 8,780,220",
   ].join("\n");
 
-  const parsed = textParser.parseIrisPreviousReturnText(`${header}\n${wealth}`, header);
-  assert.ok(parsed, "the parser must anchor a printed return even with nil liabilities");
+  const parsed = textParser.parseIrisPreviousReturnText(
+    `${header}\n${wealth}`,
+    header,
+  );
+  assert.ok(
+    parsed,
+    "the parser must anchor a printed return even with nil liabilities",
+  );
   assert.equal(parsed.totalAssets, 8780220);
   assert.equal(parsed.totalLiabilities, 0);
   assert.equal(parsed.liabilitiesDerived, true);
@@ -687,7 +955,9 @@ test("previous_return: derivation never guesses when assets exceed net assets", 
   assert.equal(resolved.totalLiabilities, null);
   assert.equal(resolved.liabilitiesDerived, false);
   const errors = fields.getPreviousReturnReviewErrors(list, 2026);
-  assert.ok(errors.some((e) => /Total Liabilities \(7029\) is required/.test(e)));
+  assert.ok(
+    errors.some((e) => /Total Liabilities \(7029\) is required/.test(e)),
+  );
 });
 
 test("previous_return: the review cell itself is filled with the derived 0 (see == save)", () => {
@@ -714,7 +984,9 @@ test("previous_return: the review cell itself is filled with the derived 0 (see 
   );
 
   // A row that is missing entirely is added, so the reviewer can see and map it.
-  const withoutRow = blank.filter((f) => f.label !== "Total Liabilities (7029)");
+  const withoutRow = blank.filter(
+    (f) => f.label !== "Total Liabilities (7029)",
+  );
   const added = fields.withDerivedPreviousReturnFields(withoutRow);
   assert.equal(
     added.find((f) => f.label === "Total Liabilities (7029)").value,
@@ -726,9 +998,9 @@ test("previous_return: the review cell itself is filled with the derived 0 (see 
     f.label === "Total Liabilities (7029)" ? { ...f, value: 500000 } : f,
   );
   assert.equal(
-    fields.withDerivedPreviousReturnFields(stated).find(
-      (f) => f.label === "Total Liabilities (7029)",
-    ).value,
+    fields
+      .withDerivedPreviousReturnFields(stated)
+      .find((f) => f.label === "Total Liabilities (7029)").value,
     500000,
   );
   const bank = [
@@ -752,7 +1024,10 @@ test("previous_return: the documents hook shows the derived figure (display == s
     "utf8",
   );
   assert.match(composer, /withDerivedPreviousReturnFields\(fields\)/);
-  assert.match(composer, /withDerivedNilBusinessBooksFigures\(previousReturn\)/);
+  assert.match(
+    composer,
+    /withDerivedNilBusinessBooksFigures\(previousReturn\)/,
+  );
   assert.match(composer, /withDerivedNilBalanceSheetRows\(previousReturn\)/);
 });
 
@@ -763,7 +1038,9 @@ test("previous_return: the LIVE FBR print layout parses (code first, 4-digit cod
   // wraps onto the next page is printed twice, "7015 Total Assets inside
   // Pakistan" is a printed total rather than an asset row, and the
   // liabilities rows carry no amount at all (nil).
-  const textParser = require(path.join(root, "lib/tax/previous-return-text.ts"));
+  const textParser = require(
+    path.join(root, "lib/tax/previous-return-text.ts"),
+  );
   const live = [
     "NAVEED-UR-REHMAN",
     "4220106970933",
@@ -809,8 +1086,14 @@ test("previous_return: the LIVE FBR print layout parses (code first, 4-digit cod
     "703000 0Unreconciled Amount",
   ].join("\n");
 
-  const parsed = textParser.parseIrisPreviousReturnText(live, live.slice(0, 200));
-  assert.ok(parsed, "the live print must parse without the 'Wealth Statement' heading");
+  const parsed = textParser.parseIrisPreviousReturnText(
+    live,
+    live.slice(0, 200),
+  );
+  assert.ok(
+    parsed,
+    "the live print must parse without the 'Wealth Statement' heading",
+  );
   // (The name comes from the acknowledgement-slip header, which this fixture
   // does not reproduce; the real PDF parses it — checked by the diag script.)
   assert.equal(parsed.registrationNo, "4220106970933");
@@ -827,15 +1110,29 @@ test("previous_return: the LIVE FBR print layout parses (code first, 4-digit cod
   const agg = parsed.wealthRows.filter((r) => !r.detail);
   assert.deepEqual(
     agg.map((r) => [r.code, r.amount]),
-    [["7006", 1119666], ["7008", 2220000], ["7010", 250000], ["7012", 280554],
-     ["7013", 3910000], ["7014", 1000000]],
+    [
+      ["7006", 1119666],
+      ["7008", 2220000],
+      ["7010", 250000],
+      ["7012", 280554],
+      ["7013", 3910000],
+      ["7014", 1000000],
+    ],
   );
   // The page-break repeat of 7006 must not become a second aggregate, and the
   // "Total Assets inside Pakistan" line must not be counted as an asset row.
-  assert.equal(parsed.wealthRows.filter((r) => r.code === "7006" && !r.detail).length, 1);
-  assert.equal(parsed.wealthRows.some((r) => r.code === "7015"), false);
+  assert.equal(
+    parsed.wealthRows.filter((r) => r.code === "7006" && !r.detail).length,
+    1,
+  );
+  assert.equal(
+    parsed.wealthRows.some((r) => r.code === "7015"),
+    false,
+  );
   // Detail rows carry readable descriptions even when IRIS printed none inline.
-  const vehicleDetail = parsed.wealthRows.find((r) => r.code === "7008" && r.detail);
+  const vehicleDetail = parsed.wealthRows.find(
+    (r) => r.code === "7008" && r.detail,
+  );
   assert.match(vehicleDetail.description, /AAU-408-Suzuki/);
   for (const row of parsed.wealthRows) assert.ok(row.description.length > 0);
 });

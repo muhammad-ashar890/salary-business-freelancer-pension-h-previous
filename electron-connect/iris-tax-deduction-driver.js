@@ -47,7 +47,7 @@
 const navigation = require("./iris-navigation");
 
 /** Must equal AGENT_BUILD_TAG in main.js. */
-const BUILD_TAG = "services-picker-aliases-20261105d";
+const BUILD_TAG = "pension-services-multifiling-20261106a";
 
 const SECTION_ID = "business_tax_deduction";
 /** Census view key of this tab (iris-tour-census.js: "<panel> > <left tab>"). */
