@@ -279,8 +279,8 @@ test("A2: a dialog that is not our picker is never touched", async () => {
 });
 
 // ── A2: recognising agent pickers in the navigator ────────────────────────
-const fixture = (name) =>
-  fs.readFileSync(path.join(__dirname, "../test-fixtures/iris/wealth", name), "utf8");
+const { renderWealthModal } = require("./lib/iris-wealth-dom-from-contract.cjs");
+const fixture = (name) => renderWealthModal(name);
 async function dialogKinds(html) {
   let kinds;
   await withPage(html, async (_page, win) => {

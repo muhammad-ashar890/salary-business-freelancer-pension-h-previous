@@ -835,14 +835,14 @@ const MARKERS = [
     "the Continue gate refuses an own-account transfer booked as income or an expense",
   ],
   [
-    "test-fixtures/iris/employer/salary-employer-panel.html",
-    ["salary-employer-add-btn"],
-    "fixture read by the employer driver tests (a missing folder fails 24 tests with ENOENT)",
+    "scripts/contracts/iris-employer-contract.json",
+    ["salary-employer-add-btn", "rawHtmlPersisted"],
+    "permanent employer panel & dialog contract (raw HTML never needed)",
   ],
   [
-    "test-fixtures/iris/employer/modal-add-employer.html",
-    ["mat-dialog-container"],
-    "fixture read by the employer driver tests",
+    "scripts/contracts/iris-core-rows-contract.json",
+    ["Subject to Normal Income", "rawHtmlPersisted"],
+    "permanent core IRIS rows contract (Salary, Withholding, Computations, Assets, Reconciliation)",
   ],
   [
     "scripts/lib/fake-iris-employer.cjs",
@@ -890,19 +890,19 @@ const MARKERS = [
     "the packet test for gifts that carry a donor",
   ],
   [
-    "test-fixtures/iris/wealth/modal-gift.html",
-    ["app-nitr-gift-dialog"],
-    "fixture: the Gift dialog (new in this round)",
+    "scripts/contracts/iris-wealth-contract.json",
+    ["app-nitr-gift-dialog", "Add Personal Expenses", "Bank Account"],
+    "permanent 116 Wealth Statement section & modal contract (Expenses, Financial Assets, Outflow, Bank, Gift)",
   ],
   [
-    "test-fixtures/iris/wealth/reconciliation-with-gift.html",
-    ["sub-child"],
-    "fixture: a saved Gift child row (new in this round)",
+    "scripts/lib/iris-wealth-dom-from-contract.cjs",
+    ["sub-child", "renderWealthModal"],
+    "renders 116 Wealth Statement sections & modals directly from iris-wealth-contract.json",
   ],
   [
-    "test-fixtures/iris/wealth/modal-bank.html",
-    ["mat-dialog-container"],
-    "fixture read by the wealth driver tests",
+    "scripts/portal-coverage-inventory.cjs",
+    ["mergeEvidence", "loadSavedEvidence"],
+    "merge-safe evidence generator (never wipes existing PORTAL_ROW_EVIDENCE codes)",
   ],
   [
     "lib/sales-tax/types.ts",
@@ -1015,19 +1015,9 @@ const MARKERS = [
     "sales tax dates and penalties suite",
   ],
   [
-    "test-fixtures/sales-tax/month-2026-06.json",
-    ["SYNTHETIC"],
-    "synthetic month fixture (June 2026)",
-  ],
-  [
-    "test-fixtures/sales-tax/month-2026-07.json",
-    ["SYNTHETIC"],
-    "synthetic month fixture (July 2026)",
-  ],
-  [
-    "test-fixtures/sales-tax/month-2026-08.json",
-    ["SYNTHETIC"],
-    "synthetic month fixture (August 2026)",
+    "scripts/lib/sales-tax-contract-months.cjs",
+    ["month-2026-06", "month-2026-07", "month-2026-08", "SYNTHETIC"],
+    "self-contained synthetic sales-tax month contracts (June, July, August 2026)",
   ],
   [
     "lib/tax/filing-draft-identity.ts",

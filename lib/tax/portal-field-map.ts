@@ -26,6 +26,7 @@ import {
   WEALTH_TAX_OUTFLOW_CODE,
   WEALTH_TAX_OUTFLOW_DESCRIPTION,
   classifyExpenseToWealthCode,
+  servicesWithholdingOutflowDescription,
 } from "./wealth-rows";
 
 export type PortalFieldMapEntry = {
@@ -775,6 +776,18 @@ export function buildPortalFieldMap(params: {
   salaryCertificateTaxWithheld?: number | null;
   /** Annual gross pay is the salary tax base; bank deposits remain cash evidence. */
   salaryCertificateGrossSalary?: number | null;
+  /**
+   * Backlog item #2: genuine Services tax withheld at source, already gated by
+   * `validateServicesAutofillField`, grouped by statutory section. The amount
+   * never shows up as a bank debit, so the ledger cannot supply it and the
+   * `7098` outflow row is otherwise missing — which is exactly what leaves
+   * `703000` negative by the withheld sum.
+   */
+  servicesTaxDeductedAtSource?: readonly {
+    section: string;
+    amount: number;
+    sourceEntryCount?: number;
+  }[];
   /** Employer names from the reviewed salary certificate. */
   employers?: string[];
   /**
@@ -1848,12 +1861,31 @@ export function buildPortalFieldMap(params: {
     salaryCertificateTaxWithheld === null ||
     salaryCertificateTaxWithheld === undefined
       ? 0
-      : toNumber(salaryCertificateTaxWithheld);
-  if (salaryTaxOutflow > 0) {
+      : Math.max(0, toNumber(salaryCertificateTaxWithheld));
+  const rawPensionNetOutflow = pensionSource
+    ? pensionSource.creditToAdd !== undefined && pensionSource.creditToAdd !== null
+      ? Math.max(0, toNumber(pensionSource.creditToAdd))
+      : Math.max(
+          0,
+          toNumber(pensionSource.taxDeducted) -
+            toNumber(pensionSource.taxAlreadyInLedger ?? 0),
+        )
+    : 0;
+  const pensionTaxOutflow =
+    pensionSource &&
+    !pensionManualReview &&
+    (pensionSource.treatment === "final_above_10m" ||
+      (pensionSource.treatment === "salary" &&
+        !hasExplicitSalary149Credit &&
+        (hasCertificateGrossSalary || certSalaryTaxWithheld === 0)))
+      ? rawPensionNetOutflow
+      : 0;
+  const totalSection149TaxOutflow = salaryTaxOutflow + pensionTaxOutflow;
+  if (totalSection149TaxOutflow > 0) {
     wealthFields.push({
       ourCategory: "SALARY_TAX_OUTFLOW",
       ourDescription: WEALTH_TAX_OUTFLOW_DESCRIPTION,
-      ourAmount: Math.round(salaryTaxOutflow),
+      ourAmount: Math.round(totalSection149TaxOutflow),
       irisCode: WEALTH_TAX_OUTFLOW_CODE,
       irisDescription: `Adjustments in Outflows - ${WEALTH_TAX_OUTFLOW_DESCRIPTION}`,
       portalArea: "116 - Wealth Statement",
@@ -1864,7 +1896,55 @@ export function buildPortalFieldMap(params: {
       // IRIS words the created row "Adjustments in Outflows - <description>"
       // and every such row shares the id 7098; only ours may be written.
       rowDescriptionIncludes: WEALTH_TAX_OUTFLOW_DESCRIPTION,
-      sourceEntryCount: 1,
+      sourceEntryCount:
+        (salaryTaxOutflow > 0 ? 1 : 0) + (pensionTaxOutflow > 0 ? 1 : 0),
+    });
+  }
+
+  /**
+   * Backlog item #2 — Services tax deducted at source belongs on the same
+   * `7098` grid. One row per statutory section: the withholding certificate
+   * names the section, and IRIS words these rows the same way, so a mixed
+   * 154A + 153(1)(b) book keeps two verifiable rows instead of one merged
+   * number nobody can tie back to a certificate.
+   *
+   * Only amounts the agent already accepted as evidence-gated may land here
+   * (`app/actions/packet.ts` sums the gated `withholdingFields`, never the
+   * `withholdingGaps`), and nothing is invented to balance the statement: the
+   * figure is the per-invoice `gross = net + withholding + fees` identity,
+   * which the income evidence pass already proves.
+   *
+   * Deliberately NOT tagged with `servicesMappingKind`, and the category does
+   * not start with `SERVICES_`: the Electron Services gate owns the income and
+   * tax-deduction grids, not this row.
+   *
+   * Nothing is subtracted again for a matching ledger TAX_PAYMENT. A Services
+   * withholding is deducted by the payer before the credit lands, so there is
+   * no debit to double-count — the same reasoning that keeps the Section 149
+   * row above on the certificate figure.
+   */
+  for (const group of params.servicesTaxDeductedAtSource ?? []) {
+    const section = String(group?.section ?? "").trim();
+    // Rupees, like `ourAmount` everywhere else in this map.
+    const amountRupees = Math.round(Number(group?.amount ?? 0));
+    if (!section || !Number.isFinite(amountRupees) || amountRupees <= 0) continue;
+    const description = servicesWithholdingOutflowDescription(section);
+    wealthFields.push({
+      ourCategory: "TAX_DEDUCTED_AT_SOURCE_OUTFLOW",
+      ourDescription: description,
+      ourAmount: amountRupees,
+      irisCode: WEALTH_TAX_OUTFLOW_CODE,
+      irisDescription: `Adjustments in Outflows - ${description}`,
+      portalArea: "116 - Wealth Statement",
+      section: "Reconciliation of Net Assets",
+      column: "Amount",
+      isTaxField: false,
+      filerStatus: taxpayerListStatus || undefined,
+      rowDescriptionIncludes: description,
+      sourceEntryCount: Math.max(
+        0,
+        Math.round(Number(group?.sourceEntryCount ?? 0) || 0),
+      ),
     });
   }
 

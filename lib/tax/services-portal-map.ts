@@ -2,8 +2,10 @@ import { SERVICES_WITHHOLDING_DOCUMENT_TYPES } from "./services-withholding-evid
 import type { PortalFieldMapEntry } from "./portal-field-map";
 import {
   SERVICES_WITHHOLDING_IRIS_ROW_CANDIDATES,
+  SERVICES_WITHHOLDING_SECTION_BY_SUBCATEGORY,
   resolveServicesIncomeIrisMapping,
   resolveServicesWithholdingIrisMapping,
+  type ServicesTy2026Subcategory,
 } from "./services-iris-mapping";
 
 type MoneyLike = number | string | { toString(): string } | null | undefined;
@@ -173,6 +175,10 @@ export function buildServicesPortalMappings(input: {
     for (const [code, rows] of byCode) {
       const amountCents = rows.reduce((sum, row) => sum + row.amountCents, 0);
       const isOthers = code === "3128";
+      const incomeCharacter =
+        rows[0] && (rows[0] as any).incomeCharacter
+          ? (rows[0] as any).incomeCharacter
+          : "TECHNICAL_PROFESSIONAL_FEE";
       businessFields.push({
         ourCategory: isOthers ? "SERVICES_IT_ITES_EXPORT" : "SERVICES_TECHNICAL_PROFESSIONAL_FEE",
         ourDescription: isOthers
@@ -195,12 +201,58 @@ export function buildServicesPortalMappings(input: {
         servicesSubcategories: unique(
           rows.map((row) => row.invoice.subcategory),
         ),
-        servicesIncomeCharacter: rows[0] && (rows[0] as any).incomeCharacter ? (rows[0] as any).incomeCharacter : "TECHNICAL_PROFESSIONAL_FEE",
+        servicesIncomeCharacter: incomeCharacter,
         servicesHumanReviewConfirmed: true,
         sourceEvidenceReferences: unique(
           rows.map((row) => row.evidenceReference),
         ),
       });
+
+      // Section 154A export services are taxed under the Final Tax Regime (FTR).
+      // Live IRIS leaves "Subject to Normal Tax" equal to "Total Amount" unless
+      // "Subject to Final Tax" is also populated, causing 154A revenue to be
+      // double-taxed under normal slabs on top of the 154A final tax.
+      if (!isOthers) {
+        const finalTaxRows = rows.filter(
+          (row) =>
+            SERVICES_WITHHOLDING_SECTION_BY_SUBCATEGORY[
+              String(row.invoice.subcategory ?? "") as ServicesTy2026Subcategory
+            ] === "154A",
+        );
+        const finalTaxCents = finalTaxRows.reduce(
+          (sum, row) => sum + row.amountCents,
+          0,
+        );
+        if (finalTaxCents > 0) {
+          businessFields.push({
+            ourCategory: "SERVICES_TECHNICAL_PROFESSIONAL_FEE",
+            ourDescription:
+              "Human-confirmed Section 154A export Services income subject to final tax",
+            ourAmount: pkr(finalTaxCents),
+            irisCode: code,
+            irisDescription: "Fee for Technical / Professional Services",
+            portalArea: "Business",
+            section: "Other Revenues",
+            column: "Subject to Final Tax",
+            isTaxField: false,
+            rowDescriptionIncludes: "Fee for Technical / Professional Services",
+            sourceEntryCount: finalTaxRows.length,
+            servicesMappingKind: "SERVICES_INCOME",
+            servicesInvoiceEvidenceIds: finalTaxRows.map((row) => row.invoice.id),
+            servicesEvidenceDocumentIds: unique(
+              finalTaxRows.map((row) => row.invoice.sourceDocumentId),
+            ),
+            servicesSubcategories: unique(
+              finalTaxRows.map((row) => row.invoice.subcategory),
+            ),
+            servicesIncomeCharacter: incomeCharacter,
+            servicesHumanReviewConfirmed: true,
+            sourceEvidenceReferences: unique(
+              finalTaxRows.map((row) => row.evidenceReference),
+            ),
+          });
+        }
+      }
     }
   }
 

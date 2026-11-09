@@ -5212,10 +5212,22 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     // that draft clean.
     try {
       const rowsSeen = await irisRowFiller.snapshotIrisRows(windowInstance);
-      const unexpected = irisRowFiller.findUnexpectedPrefill(
+      const rawUnexpected = irisRowFiller.findUnexpectedPrefill(
         rowsSeen,
         packetPromisedCodes,
       );
+      const priorSalaryResults = results.concat(out);
+      const unexpected =
+        group.sectionId === "tax_deductions" &&
+        typeof irisRowFiller.isAutoMirroredSalaryDeductionBase === "function"
+          ? rawUnexpected.filter(
+              (row) =>
+                !irisRowFiller.isAutoMirroredSalaryDeductionBase(
+                  row,
+                  priorSalaryResults,
+                ),
+            )
+          : rawUnexpected;
       onStep(
         "real_autofill_prefill_snapshot",
         `${group.sectionId}: ${rowsSeen.length} row(s) read, ${unexpected.length} unexpected pre-filled row(s).${passNote}`,
@@ -5341,10 +5353,19 @@ async function runRealIrisAutofill(jobContext, job, mode) {
           outcome.results = retried.results;
         } else outcome.results[0].sectionStatus = ready.status;
       }
+      const taxDeductionCensusViews = {
+        tax_deductions: "Employment > Tax Deductions",
+        property_tax_deductions: "Property > Tax Deductions",
+        business_tax_deduction: "Business > Tax Deduction",
+      };
+      const sectionCensusView = taxDeductionCensusViews[group.sectionId];
       const entries = outcome.results.map((entry) => ({
         ...(taken ? checkTakenOverEntry(entry) : entry),
         sourceGroup: field.sourceGroup,
         sectionId: group.sectionId,
+        ...(sectionCensusView && !entry.censusView
+          ? { censusView: sectionCensusView }
+          : {}),
       }));
       if (taken) {
         onStep(

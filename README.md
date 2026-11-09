@@ -2,6 +2,9 @@
 
 > ### Engineering Rule #1 — Never Guess, Always Verify Root Cause First
 > **Never fix or change anything by guessing.** Always trace, reproduce, and verify the actual bug, root cause, live code path, and existing test assertions directly in the codebase before writing or applying any fix.
+>
+> ### Engineering Rule #2 — Permanent IRIS Contracts (`rawHtmlPersisted: false`)
+> Once an IRIS page or modal has been inspected once, its row codes, column shapes, and modal selectors are saved permanently in code/JSON contracts (`lib/tax/portal-row-evidence.ts`, `electron-connect/iris-*-contract.json`, `scripts/contracts/*.json`). **Raw HTML captures are transient and never kept in the repo — never ask the operator to re-upload HTML captures for sections (`Salary`, `Wealth 116`, `Business`, `Services`, `Employer`) already recorded in these contracts.** Only request a capture when integrating a genuinely brand-new IRIS tab or modal for the first time.
 
 **TaxRocket** is a guided Pakistan income-tax filing workspace. It takes a taxpayer from documents and bank statements to an approved filing packet, then hands the numbers to a supervised Windows desktop agent that types the packet-approved figures into the real **FBR IRIS** return, in front of the taxpayer, and reads every figure back. The taxpayer always reviews and submits the return themselves — TaxRocket never submits.
 
@@ -344,8 +347,8 @@ scripts/ui/                   Playwright browser suites
 electron-connect/             TR Filing Agent (Electron): IRIS navigation, row filler,
                               business/depreciation/balance-sheet drivers, wealth driver,
                               employer driver, pension guard, one-time Save, job reports
+scripts/contracts/            Permanent sanitized IRIS & QA JSON contracts (rawHtmlPersisted: false)
 test-data/                    Clearly labelled synthetic test documents
-test-fixtures/iris/           Local IRIS DOM fixtures for agent suites
 INSTALLER_BUILD.md            Windows installer build notes
 ```
 

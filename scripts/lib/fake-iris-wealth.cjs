@@ -1,6 +1,6 @@
 /**
- * A small stand-in for the IRIS Wealth Statement pages, built from the real
- * captures in test-fixtures/iris/wealth/. It reproduces the behaviour the
+ * A small stand-in for the IRIS Wealth Statement pages, built from the
+ * permanent contract in `scripts/contracts/iris-wealth-contract.json`. It reproduces the behaviour the
  * driver depends on and nothing more:
  *
  *   + Expenses      -> "Add Personal Expenses" dialog; ADD enables once a box is ticked;
@@ -22,12 +22,16 @@
  */
 "use strict";
 
-const fs = require("node:fs");
-const path = require("node:path");
 const { JSDOM } = require("jsdom");
+const {
+  renderWealthModal,
+  renderWealthSection,
+} = require("./iris-wealth-dom-from-contract.cjs");
 
-const DIR = path.join(__dirname, "..", "..", "test-fixtures", "iris", "wealth");
-const read = (name) => fs.readFileSync(path.join(DIR, name), "utf8");
+const read = (name) =>
+  name.startsWith("modal-")
+    ? renderWealthModal(name)
+    : renderWealthSection(name);
 
 const EXPENSE_LABEL_TO_CODE = {};
 

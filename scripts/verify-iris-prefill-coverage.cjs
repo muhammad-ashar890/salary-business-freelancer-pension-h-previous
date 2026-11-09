@@ -118,3 +118,49 @@ test("the section loop compares against the whole packet, not its own fields", (
     "the per-section comparison must not come back",
   );
 });
+
+test("Fix B: IRIS's auto-mirrored 64020004 Taxable Amount from entered 1009 Salary is ignored, while real 64020004 Tax Deducted or mismatched base still warns", () => {
+  const salaryEntered = [
+    { sectionId: "salary", irisCode: "1009", columnIndex: 0, readback: "4,200,000", status: filler.FILL_STATUS.FILLED },
+    { sectionId: "salary", irisCode: "1008", columnIndex: 0, readback: "12,000,000", status: filler.FILL_STATUS.FILLED },
+    { sectionId: "salary", irisCode: "1008", columnIndex: 1, readback: "2,000,000", status: filler.FILL_STATUS.FILLED },
+    { sectionId: "salary", irisCode: "1008", columnIndex: 2, readback: "10,000,000", status: filler.FILL_STATUS.FILLED },
+  ];
+  const mirroredSnap = [
+    row("64020004", "Salary of Employees u/s 149", [cell("4,200,000"), cell("")]),
+  ];
+  const rawMirrored = filler.findUnexpectedPrefill(mirroredSnap, ["1009", "1008", "64020007"]);
+  assert.equal(rawMirrored.length, 1);
+  assert.equal(filler.isAutoMirroredSalaryDeductionBase(rawMirrored[0], salaryEntered), true);
+  const withTaxDeducted = filler.findUnexpectedPrefill(
+    [row("64020004", "Salary of Employees u/s 149", [cell("4,200,000"), cell("50,000")])],
+    ["1009"],
+  );
+  assert.equal(filler.isAutoMirroredSalaryDeductionBase(withTaxDeducted[0], salaryEntered), false);
+  assert.equal(filler.isAutoMirroredSalaryDeductionBase(rawMirrored[0], []), false);
+});
+
+test("Fix C: Employment > Tax Deductions entries carry censusView so 64020007 mirrored onto Withholding Tax still reads back as MATCH", () => {
+  const census = require("../electron-connect/iris-tour-census.js");
+  const pensionTaxEntries = [
+    { key: "64020007:Taxable Amount", irisCode: "64020007", columnIndex: 0, readback: "2,000,000", status: filler.FILL_STATUS.ALREADY_CORRECT, rowDescription: "149-Pension exceeding Rs. 10 million", censusView: "Employment > Tax Deductions" },
+    { key: "64020007:Tax Deducted", irisCode: "64020007", columnIndex: 1, readback: "100,000", status: filler.FILL_STATUS.FILLED, rowDescription: "149-Pension exceeding Rs. 10 million", censusView: "Employment > Tax Deductions" },
+  ];
+  const rowShape = {
+    code: "64020007",
+    description: "149-Pension exceeding Rs. 10 million",
+    descriptionRaw: "149-Pension exceeding Rs. 10 million",
+    cells: [{ value: "2,000,000" }, { value: "100,000" }, { value: "100,000" }],
+  };
+  const liveTour = {
+    views: [
+      { key: "Employment > Tax Deductions", rows: [rowShape] },
+      { key: "Tax Chargeable / Payments > Withholding Tax", rows: [rowShape] },
+    ],
+  };
+  const checks = census.compareTypedEntries(liveTour, pensionTaxEntries);
+  assert.equal(checks.length, 2);
+  assert.equal(checks[0].status, "match");
+  assert.equal(checks[1].status, "match");
+  assert.equal(census.allEnteredEntriesReadBack(pensionTaxEntries, checks), true);
+});

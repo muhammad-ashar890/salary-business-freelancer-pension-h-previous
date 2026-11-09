@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 /**
  * Portal coverage inventory — what this codebase can prove about IRIS's real DOM,
- * and exactly which captures would close each gap.
+ * and which genuinely UNSEEN pages would close remaining gaps.
  *
- *   HOME=<dir with "IRIS 2.0 *.html"> node scripts/portal-coverage-inventory.cjs
- *   npm run inventory:portal-coverage -- --csv IRIS_System_Field_Codes_Extracted.csv
+ *   npm run inventory:portal-coverage
+ *   CAPTURE_DIR=/path/to/new-captures npm run inventory:portal-coverage -- --emit-evidence
  *
- * Why this exists: the map of IRIS codes we write against comes from a client CSV
- * (463 codes) and only a fraction of those have ever been SEEN rendered in a real
- * page. "Seen" is the only standard that matters here — an unverified code must not
- * be guessed into a taxpayer's return, so every unmapped category has to stay a
- * reported manual-entry gap until a capture proves it. This script turns that
- * situation into a concrete shopping list instead of a vague "needs more captures".
+ * IMPORTANT CONTRACT RULE:
+ *   Once an IRIS row's render & writeability has been proven and recorded in
+ *   `lib/tax/portal-row-evidence.ts`, that evidence is PERMANENT. Raw HTML captures
+ *   are transient inspection inputs (`rawHtmlPersisted: false`) and NEVER need to
+ *   be kept on disk or re-requested for already-recorded codes.
  *
- * Read-only: nothing here writes, navigates, or changes the packet.
+ *   `--emit-evidence` therefore MERGES newly scanned captures additively onto the
+ *   existing `PORTAL_ROW_EVIDENCE` baseline by default. Pass `--replace-evidence`
+ *   only when intentionally rebuilding the entire table from a full archive.
  */
 
 "use strict";
@@ -50,7 +51,12 @@ function arg(name, fallback) {
   return i > -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
 
+const EVIDENCE_PATH = path.resolve(
+  arg("evidence", path.join(projectRoot, "lib", "tax", "portal-row-evidence.ts")),
+);
 const CAPTURE_DIR = arg("captures", process.env.CAPTURE_DIR || path.join(os.homedir(), "uploads"));
+const REPLACE_EVIDENCE = process.argv.includes("--replace-evidence");
+
 const CSV_CANDIDATES = [
   arg("csv", ""),
   path.join(CAPTURE_DIR, "IRIS_System_Field_Codes_Extracted.csv"),
@@ -58,8 +64,6 @@ const CSV_CANDIDATES = [
 ].filter(Boolean);
 const CSV = CSV_CANDIDATES.find((file) => fs.existsSync(file)) || CSV_CANDIDATES[0];
 
-// IRIS does not keep a stable class order. Capture the class and id, then
-// check both marker tokens in code so start-of-attribute rows are handled too.
 const ROW_RE = /(?:class="([^"]*)"[^>]*id="(\d+)"|id="(\d+)"[^>]*class="([^"]*)")/g;
 function rowMatchCode(match) {
   const className = match[1] || match[4] || "";
@@ -69,10 +73,21 @@ function rowMatchCode(match) {
     : null;
 }
 
+function loadSavedEvidence(filePath) {
+  if (!fs.existsSync(filePath)) return {};
+  try {
+    delete require.cache[require.resolve(filePath)];
+    const mod = require(filePath);
+    return mod.PORTAL_ROW_EVIDENCE || {};
+  } catch {
+    return {};
+  }
+}
+
 function readCaptures(dir) {
-  if (!fs.existsSync(dir)) return null;
   const byFile = new Map();
   const all = new Set();
+  if (!dir || !fs.existsSync(dir)) return { byFile, seen: all, dirExists: false };
   for (const file of fs.readdirSync(dir).filter((f) => /\.html$/i.test(f))) {
     const html = fs.readFileSync(path.join(dir, file), "utf8");
     const codes = new Set(
@@ -83,17 +98,13 @@ function readCaptures(dir) {
       for (const code of codes) all.add(code);
     }
   }
-  return { byFile, seen: all };
+  return { byFile, seen: all, dirExists: true };
 }
 
 function readCsvCodes(file) {
-  if (!fs.existsSync(file)) return null;
+  if (!file || !fs.existsSync(file)) return null;
   const text = fs.readFileSync(file, "utf8");
   const codes = new Set();
-  // The client extract is TAB-separated (despite the .csv name) with the code in a
-  // `System_Code` column, and some fields contain "|" and quotes. A naive
-  // leading-column regex silently returns zero codes, which reads as "nothing is
-  // verified" — so locate the column from the header instead.
   const lines = text.split(/\r?\n/).filter((line) => line.trim().length);
   if (!lines.length) return null;
   const delimiter = lines[0].includes("\t") ? "\t" : ",";
@@ -112,192 +123,9 @@ function readCsvCodes(file) {
   return codes.size ? codes : null;
 }
 
-const captures = readCaptures(CAPTURE_DIR);
-if (!captures) {
-  console.error(
-    `No captures found at ${CAPTURE_DIR}.\n` +
-      `Point at the folder holding the saved "IRIS 2.0 *.html" pages:\n` +
-      `  HOME=/path/to/captures npm run inventory:portal-coverage`,
-  );
-  process.exit(1);
-}
-
-const catalog = readCsvCodes(CSV);
-const mapped = Object.values(IRIS_CODES);
-const mappedCodes = new Set(mapped.map((c) => c.code));
-
-const areas = new Map();
-for (const entry of mapped) {
-  const area = entry.portalArea || "(unlabelled)";
-  if (!areas.has(area)) areas.set(area, { have: [], missing: [], summary: [] });
-  const bucket = areas.get(area);
-  if (entry.rowLevel === "Summary") bucket.summary.push(entry);
-  if (captures.seen.has(entry.code)) bucket.have.push(entry);
-  else bucket.missing.push(entry);
-}
-
-if (process.argv.includes("--emit-evidence")) {
-  const rows = readRowCells(CAPTURE_DIR);
-  if (rows.size === 0) {
-    console.error(`no rendered grid rows under ${CAPTURE_DIR} — refusing to write an empty evidence file`);
-    process.exit(1);
-  }
-  const target = path.join(projectRoot, "lib", "tax", "portal-row-evidence.ts");
-  const before = fs.existsSync(target) ? fs.readFileSync(target, "utf8") : "";
-  const after = renderEvidenceFile(rows);
-  if (before === after) {
-    console.log(`
-evidence: unchanged (${rows.size} rendered rows) at lib/tax/portal-row-evidence.ts`);
-  } else {
-    fs.writeFileSync(target, after);
-    const writeable = [...rows.values()].filter((r) => r.writeable.size).length;
-    console.log(
-      `\nevidence: wrote lib/tax/portal-row-evidence.ts — ${rows.size} rendered rows, ` +
-        `${writeable} writeable, ${rows.size - writeable} computed/read-only`,
-    );
-    console.log("          re-run the packet afterwards: held codes become targets only through this file.");
-  }
-}
-
-console.log("=== IRIS coverage inventory ===");
-console.log(`captures:   ${CAPTURE_DIR} (${captures.byFile.size} pages with data rows)`);
-console.log(`rows seen:  ${captures.seen.size} distinct row ids rendered by the portal`);
-if (catalog) {
-  const unseen = [...catalog].filter((code) => !captures.seen.has(code));
-  console.log(
-    `client csv:   ${catalog.size} codes; ${unseen.length} of them have never been ` +
-      `seen rendered (${((unseen.length / catalog.size) * 100).toFixed(0)}% unverified)`,
-  );
-  const unmapped = [...catalog].filter((code) => !mappedCodes.has(code));
-  console.log(
-    `            ${unmapped.length} codes exist in the portal extract but this agent ` +
-      `has no IRIS_CODES entry (never written, never reported as a gap either)`,
-  );
-}
-console.log(`this map:   ${mapped.length} codes the agent is allowed to write`);
-if (fs.existsSync(path.join(projectRoot, "lib/tax/portal-row-evidence.ts"))) {
-  let PORTAL_WRITEABLE_CODES, PORTAL_ROW_EVIDENCE;
-  try {
-    ({ PORTAL_WRITEABLE_CODES, PORTAL_ROW_EVIDENCE } = require(path.join(
-      projectRoot,
-      "lib/tax/portal-row-evidence.ts",
-    )));
-  } catch (error) {
-    console.log(
-      `evidence:   lib/tax/portal-row-evidence.ts is unreadable (${error.message.split("\n")[0]}) — re-run with --emit-evidence`,
-    );
-    PORTAL_WRITEABLE_CODES = null;
-  }
-  if (!PORTAL_WRITEABLE_CODES) {
-    process.exitCode = 1;
-  } else {
-  const writeable = mapped.filter((c) => PORTAL_WRITEABLE_CODES.has(c.code));
-  const computedHere = mapped.filter(
-    (c) => !PORTAL_WRITEABLE_CODES.has(c.code) && PORTAL_ROW_EVIDENCE[c.code],
-  );
-  const unseen = mapped.filter((c) => !PORTAL_ROW_EVIDENCE[c.code]);
-  console.log(
-    `evidence:   ${writeable.length} codes proven enterable (targeted), ` +
-      `${unseen.length} never rendered (held as manual-entry), ` +
-      `${computedHere.length} rendered but read-only ` +
-      `(${Object.values(PORTAL_ROW_EVIDENCE).filter((e) => e.writeableInputIndexes.length === 0).length}/${Object.keys(PORTAL_ROW_EVIDENCE).length} captured rows are computed)`,
-  );
-  }
-}
-console.log("");
-console.log("area                              written-where  verified  deliberately-skipped");
-for (const [area, bucket] of [...areas.entries()].sort()) {
-  const skippedSummary = bucket.summary
-    .filter((entry) => !captures.seen.has(entry.code))
-    .map((entry) => entry.code);
-  console.log(
-    area.padEnd(32) +
-      `${String(bucket.have.length).padStart(3)}/${String(bucket.have.length + bucket.missing.length).padEnd(3)}` +
-      `          ${(bucket.missing.length === 0 ? "complete" : `${bucket.missing.length} gap(s)`).padEnd(12)}` +
-      `${skippedSummary.length ? `summary rows never rendered: ${skippedSummary.join(", ")}` : "—"}`,
-  );
-}
-
-// The shopping list: one line per capture that would actually unlock a route.
-const NEEDS = [
-  {
-    page: "Property receipts / deductions (Income from Property)",
-    unlocks: ["2001", "2031"],
-    note: "rent receipts and the 1/5th repair deduction; 2000/2029/2099 are computed and must stay unwritten",
-  },
-  {
-    page: "Other Sources receipts (bank profit, dividends, annuity)",
-    unlocks: ["500312", "5003041", "5005", "5007", "5028"],
-    note: "this is what today turns BANK_PROFIT/DIVIDEND into a reported gap instead of a fill",
-  },
-  {
-    page: "Capital Gain (securities held long term and short term)",
-    unlocks: ["4006", "4016", "4017", "4026", "4036", "4037"],
-    note: "net-gain rows are derived — the capture shows which of the six are enterable",
-  },
-  {
-    page: "Adjustable Tax grid: bank profit / rent / imports / 231AB / 236C / 236K / 236Y rows",
-    unlocks: [
-      "64040002",
-      "64040001",
-      "64080001",
-      "64010002",
-      "64100101",
-      "64150301",
-      "64151101",
-    ],
-    note: "tax-deduction credits other than s.149 cannot be queued until their row ids are seen",
-  },
-  {
-    page: "116 Wealth Statement (assets + liabilities + reconciliation)",
-    unlocks: ["7001", "7002", "7006", "7008"],
-    note: "116 is a separate document; the 114 tour cannot reach it, so this needs its own capture set",
-  },
-];
-
-const unresolved = NEEDS.filter((item) =>
-  item.unlocks.some((code) => !captures.seen.has(code)),
-);
-console.log("");
-console.log("=== captures that would move the needle (in order of taxpayer volume) ===");
-for (const item of unresolved) {
-  const stillMissing = item.unlocks.filter((code) => !captures.seen.has(code));
-  console.log(`\n${item.page}`);
-  console.log(`  codes: ${stillMissing.join(", ")}`);
-  console.log(`  why:   ${item.note}`);
-  const files = [...captures.byFile.entries()]
-    .filter(([, codes]) => item.unlocks.some((code) => codes.has(code)))
-    .map(([file]) => file);
-  console.log(
-    `  already partly covered by: ${files.length ? files.join(", ") : "no capture in this folder"}`,
-  );
-}
-
-// Categories the packet builder treats as gaps only because no verified code exists.
-const gapCategories = Object.keys(CATEGORY_TO_IRIS_MAP || {}).length;
-console.log("");
-console.log(
-  `category map: ${gapCategories} ledger categories have a verified IRIS line; ` +
-    `everything else is reported in portalFieldMap.mappingGaps and entered manually.`,
-);
-console.log(
-  "Until a capture above lands, DO NOT add codes for these — the agent will write a\n" +
-    "wrong number into a government return, which is worse than filling nothing.",
-);
-
-/* ------------------------------------------------------------------ *
- * Evidence census (lib/tax/portal-row-evidence.ts)                   *
- * ------------------------------------------------------------------ */
-
-/**
- * The packet map may only target row ids that a capture has proven ENTERABLE.
- * That list lives in lib/tax/portal-row-evidence.ts and must never be edited by
- * hand — `--emit-evidence` regenerates it from whatever HTML is in the captures
- * folder, so a new capture is the only way a code becomes fillable.
- */
 function readRowCells(dir) {
   const rows = new Map();
-  if (!fs.existsSync(dir)) return rows;
+  if (!dir || !fs.existsSync(dir)) return rows;
   for (const file of fs.readdirSync(dir).filter((f) => /\.html$/i.test(f))) {
     const html = fs.readFileSync(path.join(dir, file), "utf8");
     const rowMatches = [...html.matchAll(ROW_RE)];
@@ -318,12 +146,14 @@ function readRowCells(dir) {
         .filter((index) => index !== null);
       const cells = (segment.match(/data-middle-child-wapper/g) || []).length;
       const entry = rows.get(code) || {
+        captureCount: 0,
         captures: new Set(),
         inputs: 0,
         writeable: new Set(),
         cells: 0,
       };
       entry.captures.add(file);
+      entry.captureCount = entry.captures.size;
       entry.inputs = Math.max(entry.inputs, inputs.length);
       entry.cells = Math.max(entry.cells, cells);
       for (const index of writeable) entry.writeable.add(index);
@@ -333,6 +163,39 @@ function readRowCells(dir) {
   return rows;
 }
 
+function mergeEvidence(savedEvidence, scannedRows, replace = false) {
+  const merged = new Map();
+  if (!replace) {
+    for (const [code, ev] of Object.entries(savedEvidence || {})) {
+      merged.set(String(code), {
+        writeable: new Set(
+          Array.isArray(ev?.writeableInputIndexes) ? ev.writeableInputIndexes : [],
+        ),
+        captureCount: Math.max(1, Number(ev?.captureCount) || 1),
+      });
+    }
+  }
+  for (const [code, scanned] of scannedRows.entries()) {
+    const prev = merged.get(String(code));
+    if (!prev) {
+      merged.set(String(code), {
+        writeable: new Set(scanned.writeable),
+        captureCount: Math.max(1, scanned.captureCount || scanned.captures?.size || 1),
+      });
+    } else {
+      const writeable = new Set([...prev.writeable, ...scanned.writeable]);
+      merged.set(String(code), {
+        writeable,
+        captureCount: Math.max(
+          prev.captureCount,
+          scanned.captureCount || scanned.captures?.size || 1,
+        ),
+      });
+    }
+  }
+  return merged;
+}
+
 function renderEvidenceFile(rows) {
   const lines = [];
   for (const code of [...rows.keys()].sort((a, b) => Number(a) - Number(b))) {
@@ -340,14 +203,14 @@ function renderEvidenceFile(rows) {
     lines.push(
       `  "${code}": { writeableInputIndexes: [${[...entry.writeable]
         .sort((a, b) => a - b)
-        .join(", ")}], captureCount: ${entry.captures.size} },`,
+        .join(", ")}], captureCount: ${entry.captureCount} },`,
     );
   }
-  return `// GENERATED — do not edit by hand.
-// Source: the portal capture folder, via:
-//   npm run inventory:portal-coverage -- --emit-evidence
-// Regenerate it whenever new IRIS captures land; that is the ONLY way an IRIS code
-// becomes eligible for auto-fill in lib/tax/portal-field-map.ts.
+  return `// GENERATED / MERGE-SAFE EVIDENCE CONTRACT — see scripts/portal-coverage-inventory.cjs.
+// Proven IRIS row codes saved here are PERMANENT across sessions (raw HTML captures
+// do NOT need to be kept or re-requested once a row's writeability is recorded here).
+// Running \`npm run inventory:portal-coverage -- --emit-evidence\` merges new captures
+// additively onto this baseline without deleting previously proven codes.
 
 /** What a captured IRIS grid row allowed a human to do. */
 export type PortalRowEvidence = {
@@ -389,4 +252,167 @@ export function portalCodeHasCaptureEvidence(code: string): boolean {
 `;
 }
 
+if (require.main === module) {
+  const savedEvidence = loadSavedEvidence(EVIDENCE_PATH);
+  const savedCodes = new Set(Object.keys(savedEvidence));
+  const captures = readCaptures(CAPTURE_DIR);
 
+  if (process.argv.includes("--emit-evidence")) {
+    const scannedRows = readRowCells(CAPTURE_DIR);
+    if (REPLACE_EVIDENCE && scannedRows.size === 0) {
+      console.error(
+        `no rendered grid rows under ${CAPTURE_DIR} — refusing --replace-evidence with an empty capture folder`,
+      );
+      process.exit(1);
+    }
+    const mergedRows = mergeEvidence(savedEvidence, scannedRows, REPLACE_EVIDENCE);
+    if (mergedRows.size === 0) {
+      console.error(
+        `no saved evidence at ${EVIDENCE_PATH} and no rendered grid rows under ${CAPTURE_DIR}`,
+      );
+      process.exit(1);
+    }
+    const before = fs.existsSync(EVIDENCE_PATH)
+      ? fs.readFileSync(EVIDENCE_PATH, "utf8")
+      : "";
+    const after = renderEvidenceFile(mergedRows);
+    if (before === after) {
+      console.log(
+        `\nevidence: unchanged (${mergedRows.size} permanent rows) at ${path.relative(projectRoot, EVIDENCE_PATH)}`,
+      );
+    } else {
+      fs.writeFileSync(EVIDENCE_PATH, after);
+      const writeable = [...mergedRows.values()].filter((r) => r.writeable.size).length;
+      console.log(
+        `\nevidence: wrote ${path.relative(projectRoot, EVIDENCE_PATH)} — ${mergedRows.size} permanent rows ` +
+          `(${scannedRows.size} scanned in this run), ${writeable} writeable, ${mergedRows.size - writeable} computed/read-only`,
+      );
+    }
+  }
+
+  const effectiveEvidence = loadSavedEvidence(EVIDENCE_PATH);
+  const allProvenCodes = new Set([
+    ...Object.keys(effectiveEvidence),
+    ...captures.seen,
+  ]);
+
+  const catalog = readCsvCodes(CSV);
+  const mapped = Object.values(IRIS_CODES);
+  const mappedCodes = new Set(mapped.map((c) => c.code));
+
+  const areas = new Map();
+  for (const entry of mapped) {
+    const area = entry.portalArea || "(unlabelled)";
+    if (!areas.has(area)) areas.set(area, { have: [], missing: [], summary: [] });
+    const bucket = areas.get(area);
+    if (entry.rowLevel === "Summary") bucket.summary.push(entry);
+    if (allProvenCodes.has(entry.code)) bucket.have.push(entry);
+    else bucket.missing.push(entry);
+  }
+
+  console.log("=== IRIS coverage inventory ===");
+  console.log(
+    `saved contract: ${savedCodes.size} permanent row ids in ${path.relative(projectRoot, EVIDENCE_PATH)}`,
+  );
+  console.log(
+    `live captures:  ${captures.dirExists ? `${CAPTURE_DIR} (${captures.byFile.size} HTML page(s))` : "none needed (using permanent saved contract)"}`,
+  );
+  console.log(`rows proven:    ${allProvenCodes.size} distinct row ids verified`);
+  if (catalog) {
+    const unseen = [...catalog].filter((code) => !allProvenCodes.has(code));
+    console.log(
+      `client csv:     ${catalog.size} codes; ${unseen.length} not yet verified (${((unseen.length / catalog.size) * 100).toFixed(0)}% unverified)`,
+    );
+    const unmapped = [...catalog].filter((code) => !mappedCodes.has(code));
+    console.log(
+      `                ${unmapped.length} codes exist in portal extract with no IRIS_CODES entry`,
+    );
+  }
+  console.log(`this map:       ${mapped.length} codes the agent is allowed to write`);
+
+  const writeableCount = mapped.filter(
+    (c) => (effectiveEvidence[c.code]?.writeableInputIndexes || []).length > 0,
+  ).length;
+  const computedCount = mapped.filter(
+    (c) =>
+      effectiveEvidence[c.code] &&
+      (effectiveEvidence[c.code].writeableInputIndexes || []).length === 0,
+  ).length;
+  const unseenCount = mapped.filter((c) => !effectiveEvidence[c.code]).length;
+  console.log(
+    `evidence:       ${writeableCount} codes proven enterable (targeted), ` +
+      `${unseenCount} never rendered (held as manual-entry), ` +
+      `${computedCount} rendered but read-only`,
+  );
+  console.log("");
+  console.log("area                              written-where  verified  deliberately-skipped");
+  for (const [area, bucket] of [...areas.entries()].sort()) {
+    const skippedSummary = bucket.summary
+      .filter((entry) => !allProvenCodes.has(entry.code))
+      .map((entry) => entry.code);
+    console.log(
+      area.padEnd(32) +
+        `${String(bucket.have.length).padStart(3)}/${String(bucket.have.length + bucket.missing.length).padEnd(3)}` +
+        `          ${(bucket.missing.length === 0 ? "complete" : `${bucket.missing.length} gap(s)`).padEnd(12)}` +
+        `${skippedSummary.length ? `summary rows never rendered: ${skippedSummary.join(", ")}` : "—"}`,
+    );
+  }
+
+  const NEEDS = [
+    {
+      page: "Property receipts / deductions (Income from Property)",
+      unlocks: ["2001", "2031"],
+      note: "rent receipts and the 1/5th repair deduction; 2000/2029/2099 are computed and must stay unwritten",
+    },
+    {
+      page: "Other Sources receipts (bank profit, dividends, annuity)",
+      unlocks: ["500312", "5003041", "5005", "5007", "5028"],
+      note: "this is what today turns BANK_PROFIT/DIVIDEND into a reported gap instead of a fill",
+    },
+    {
+      page: "Capital Gain (securities held long term and short term)",
+      unlocks: ["4006", "4016", "4017", "4026", "4036", "4037"],
+      note: "net-gain rows are derived — the capture shows which of the six are enterable",
+    },
+    {
+      page: "Adjustable Tax grid: bank profit / imports / 231AB / 236C / 236K / 236Y rows",
+      unlocks: [
+        "64040002",
+        "64040001",
+        "64080001",
+        "64010002",
+        "64100101",
+        "64150301",
+        "64151101",
+      ],
+      note: "tax-deduction credits other than already-captured rows stay manual until seen",
+    },
+    {
+      page: "116 Wealth Statement non-bank asset modals (immovable property / investments / vehicles)",
+      unlocks: ["7001", "7002", "7006", "7008"],
+      note: "core 116 reconciliation, expenses, 7098 outflow, 7037 gift & 7030 bank modals are ALREADY captured; only non-bank asset modals remain",
+    },
+  ];
+
+  const unresolved = NEEDS.filter((item) =>
+    item.unlocks.some((code) => !allProvenCodes.has(code)),
+  );
+  if (unresolved.length) {
+    console.log("");
+    console.log("=== genuinely uncaptured pages (already-saved codes NEVER need re-capture) ===");
+    for (const item of unresolved) {
+      const stillMissing = item.unlocks.filter((code) => !allProvenCodes.has(code));
+      console.log(`\n${item.page}`);
+      console.log(`  missing codes: ${stillMissing.join(", ")}`);
+      console.log(`  why:           ${item.note}`);
+    }
+  }
+}
+
+module.exports = {
+  loadSavedEvidence,
+  readCaptures,
+  readRowCells,
+  mergeEvidence,
+  renderEvidenceFile,
+};

@@ -1,0 +1,30 @@
+{
+  "contractVersion": "1.0.0",
+  "captureProvenance": {
+    "kind": "Permanent sanitized IRIS 2.0 Bank Cross-Section (7030 vs 3320) & Economic Transactions Start Gate contract",
+    "rawHtmlPersisted": false,
+    "workflowUrlOrTokenPersisted": false,
+    "personalDataOrAmountsPersisted": false
+  },
+  "bankCrossSection": {
+    "sharedIban": "PK36SCBL0000001123456702",
+    "personal": {
+      "sectionHeader": { "id": "999901", "description": "Financial Assets & Investments (Non-Business)", "addLabel": "+ Assets" },
+      "summaryRow": { "id": "7030", "description": "Bank Account(s)" },
+      "childRow": { "id": "7030", "description": "Bank Account(s) - PK36SCBL0000001123456702 - TEST ACCOUNT - TEST BANK - Self" }
+    },
+    "business": {
+      "summaryRow": { "id": "3320", "description": "Bank Account" },
+      "childRow": { "id": "3320", "description": "Bank Account - PK36SCBL0000001123456702 - TEST ACCOUNT - TEST BANK - Self" }
+    }
+  },
+  "economicTransactionsGate": {
+    "routePath": "/nitr/summary-economic-transactions",
+    "heading": "Summary of Economic Transactions",
+    "startButton": {
+      "label": "Start Return Filling",
+      "className": "btn btn-primary btn-start",
+      "disabled": false
+    }
+  }
+}

@@ -33,6 +33,32 @@ export const WEALTH_TAX_OUTFLOW_CODE = "7098";
 /** Description the `+` modal must be given so the new row is recognisable. */
 export const WEALTH_TAX_OUTFLOW_DESCRIPTION = "Income tax deducted u/s 149";
 
+/**
+ * Backlog item #2 (TY2026 Services). Tax withheld at source from a Services
+ * receipt never appears as a bank DEBIT — the money arrives already net — so it
+ * is absent from the ledger's outflow codes and must be packet-supplied, exactly
+ * like the Section 149 deduction above. Same no-plug rule: only an
+ * evidence-gated, per-invoice-reconciled withholding amount may be written here.
+ *
+ * One IRIS row per statutory section, because that is how the Wealth Statement
+ * words them and how the certificates read: `Income tax deducted u/s 154A`,
+ * `Income tax deducted u/s 153(1)(b)`, `Income tax deducted u/s 153(2)`. Keeping
+ * the 149 row byte-identical is deliberate: the row filler and the wealth driver
+ * both match an existing outflow row by description text, so a re-run on a saved
+ * draft verifies the 149 row as `already_correct` instead of overwriting it or
+ * adding a second one.
+ */
+export const WEALTH_SERVICES_TAX_OUTFLOW_PREFIX = "Income tax deducted u/s";
+
+export function servicesWithholdingOutflowDescription(
+  section: string,
+): string {
+  const trimmed = String(section ?? "").trim();
+  return trimmed
+    ? `${WEALTH_SERVICES_TAX_OUTFLOW_PREFIX} ${trimmed}`
+    : WEALTH_SERVICES_TAX_OUTFLOW_PREFIX;
+}
+
 export const WEALTH_EXPENSE_ROWS: Readonly<Record<string, { label: string }>> = {
   "7066": { label: "Asset Insurance / Security" },
   "7070": { label: "Medical" },

@@ -1,0 +1,160 @@
+{
+  "contractVersion": "1.0.0",
+  "captureProvenance": {
+    "kind": "Permanent sanitized IRIS 2.0 core section contract (Salary, Withholding, Computations, Tax Deductions, Assets, Reconciliation)",
+    "rawHtmlPersisted": false,
+    "workflowUrlOrTokenPersisted": false,
+    "personalDataOrAmountsPersisted": false,
+    "note": "Derived from lib/tax/portal-row-evidence.ts, docs/IRIS-116-editable-rows.md, and verified IRIS 2.0 column contracts. Never ask the operator to re-upload HTML captures for rows already recorded here."
+  },
+  "sections": {
+    "salary": {
+      "title": "Salary",
+      "leftNav": ["Salary", "Other Sources"],
+      "activeTab": "Salary",
+      "columns": [
+        "Description",
+        "Code",
+        "Total Income",
+        "Subject to Final Tax",
+        "Subject to Exemption",
+        "Subject to Normal Income"
+      ],
+      "rows": [
+        { "id": "1000", "description": "Total Income from Salary", "cellCount": 4, "writeableInputIndexes": [] },
+        { "id": "1009", "description": "Pay, Wages or Other Remuneration (including Arrears of Salary)", "cellCount": 4, "writeableInputIndexes": [0, 2] },
+        { "id": "1008", "description": "Pension / Annuity", "cellCount": 4, "writeableInputIndexes": [0, 1, 2] },
+        { "id": "1010", "description": "Bonus / Commission", "cellCount": 4, "writeableInputIndexes": [0, 1, 2] },
+        { "id": "1049", "description": "Allowances (including Flying / Submarine Allowance)", "cellCount": 4, "writeableInputIndexes": [0, 2] },
+        { "id": "1059", "description": "Expenditure Reimbursement", "cellCount": 4, "writeableInputIndexes": [0, 2] },
+        { "id": "1089", "description": "Value of Perquisites", "cellCount": 4, "writeableInputIndexes": [0, 1, 2] },
+        { "id": "1099", "description": "Profits in Lieu of or in Addition to Pay or Wages", "cellCount": 4, "writeableInputIndexes": [0, 1] }
+      ]
+    },
+    "withholding": {
+      "title": "Withholding Tax",
+      "leftNav": ["Computations", "Withholding Tax"],
+      "activeTab": "Withholding Tax",
+      "columns": [
+        "Description",
+        "Code",
+        "Taxable Amount",
+        "Tax Deducted"
+      ],
+      "rows": [
+        { "id": "64000101", "description": "Total Adjustable Tax", "cellCount": 2, "writeableInputIndexes": [] },
+        { "id": "64150002", "description": "Cellphone / Mobile / Telephone Bill u/s 236", "cellCount": 2, "writeableInputIndexes": [] },
+        { "id": "64150002", "description": "Cellphone / Mobile / Telephone Bill u/s 236 - 03000000000", "cellCount": 2, "writeableInputIndexes": [0, 1] },
+        { "id": "64151905", "description": "Foreign Transaction via Debit / Credit Card u/s 236Y", "cellCount": 2, "writeableInputIndexes": [0, 1] }
+      ]
+    },
+    "tax-deductions": {
+      "title": "Tax Deductions",
+      "leftNav": ["Salary", "Tax Deductions"],
+      "activeTab": "Tax Deductions",
+      "columns": [
+        "Description",
+        "Code",
+        "Taxable Amount",
+        "Tax Deducted"
+      ],
+      "rows": [
+        { "id": "640000", "description": "Adjustable Tax", "cellCount": 2, "writeableInputIndexes": [] },
+        { "id": "64020004", "description": "Salary of Employees u/s 149", "cellCount": 2, "writeableInputIndexes": [0, 1] },
+        { "id": "64020005", "description": "Directorship Fee / Board Meeting u/s 149(3)", "cellCount": 2, "writeableInputIndexes": [0, 1] },
+        { "id": "64020007", "description": "Pension above PKR 10M u/s 149(1B)", "cellCount": 2, "writeableInputIndexes": [0, 1] },
+        { "id": "64210051", "description": "Charitable Donations u/s 61", "cellCount": 2, "writeableInputIndexes": [0, 1] },
+        { "id": "64210054", "description": "Investment in Shares / Life Insurance u/s 62", "cellCount": 2, "writeableInputIndexes": [0, 1] },
+        { "id": "64210056", "description": "Approved Pension Fund Contribution u/s 63", "cellCount": 2, "writeableInputIndexes": [0, 1] }
+      ]
+    },
+    "computations": {
+      "title": "Computations",
+      "leftNav": ["Computations", "Withholding Tax"],
+      "activeTab": "Computations",
+      "columns": [
+        "Description",
+        "Code",
+        "Total Income",
+        "Tax Chargeable",
+        "Tax Reducted"
+      ],
+      "rows": [
+        { "id": "9009", "description": "Deductible Allowances", "cellCount": 3, "writeableInputIndexes": [] },
+        { "id": "9201", "description": "Normal Income Tax", "cellCount": 3, "writeableInputIndexes": [] },
+        { "id": "9210", "description": "Tax Payable / Refundable", "cellCount": 3, "writeableInputIndexes": [] },
+        { "id": "92101", "description": "Admitted Income Tax", "cellCount": 3, "writeableInputIndexes": [0] },
+        { "id": "923184", "description": "Surcharge u/s 4AB", "cellCount": 3, "writeableInputIndexes": [0] },
+        { "id": "923198", "description": "Tax Reductions / Credits", "cellCount": 3, "writeableInputIndexes": [0, 1, 2] },
+        { "id": "9231822", "description": "Super Tax u/s 4C", "cellCount": 3, "writeableInputIndexes": [0] }
+      ]
+    },
+    "assets": {
+      "title": "Personal Assets / Liabilities",
+      "leftNav": ["Personal Assets / Liabilities", "Reconciliation of Net Assets"],
+      "activeTab": "Personal Assets / Liabilities",
+      "columns": [
+        "Description",
+        "Code",
+        "Amount"
+      ],
+      "rows": [
+        { "id": "7003", "description": "Business Capital", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7012", "description": "Cash (Non-Business) / Cash in hand", "cellCount": 1, "writeableInputIndexes": [0] },
+        { "id": "7013", "description": "Any Other Asset", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7014", "description": "Assets in Others' Name", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7019", "description": "Total Assets inside Pakistan", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7021", "description": "Credit (Non-Business)", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7029", "description": "Total Liabilities", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "703001", "description": "Net Assets Current Year", "cellCount": 1, "writeableInputIndexes": [] }
+      ]
+    },
+    "assets-with-bank": {
+      "title": "Personal Assets / Liabilities",
+      "leftNav": ["Personal Assets / Liabilities", "Reconciliation of Net Assets"],
+      "activeTab": "Personal Assets / Liabilities",
+      "columns": [
+        "Description",
+        "Code",
+        "Amount"
+      ],
+      "rows": [
+        { "id": "7003", "description": "Business Capital", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7030", "description": "Bank Account(s)", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7030", "description": "Bank Account(s) - PK35HABB0000001234567801 - Ahmed - HBL", "cellCount": 1, "writeableInputIndexes": [0] },
+        { "id": "7012", "description": "Cash (Non-Business) / Cash in hand", "cellCount": 1, "writeableInputIndexes": [0] },
+        { "id": "7019", "description": "Total Assets inside Pakistan", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "703001", "description": "Net Assets Current Year", "cellCount": 1, "writeableInputIndexes": [] }
+      ]
+    },
+    "reconciliation": {
+      "title": "Reconciliation of Net Assets",
+      "leftNav": ["Personal Assets / Liabilities", "Reconciliation of Net Assets"],
+      "activeTab": "Reconciliation of Net Assets",
+      "columns": [
+        "Description",
+        "Code",
+        "Amount"
+      ],
+      "rows": [
+        { "id": "703001", "description": "Net Assets Current Year", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "703002", "description": "Net Assets Previous Year", "cellCount": 1, "writeableInputIndexes": [0] },
+        { "id": "703003", "description": "Increase / (Decrease) in Assets", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7031", "description": "Income Declared as per Return for the year subject to Normal Tax", "cellCount": 1, "writeableInputIndexes": [0] },
+        { "id": "7032", "description": "Income Declared as per Return for the year Exempt from Tax", "cellCount": 1, "writeableInputIndexes": [0] },
+        { "id": "7033", "description": "Income Attributable to Receipts, etc. Declared as per Return for the year subject to Final / Fixed Tax", "cellCount": 1, "writeableInputIndexes": [0] },
+        { "id": "7034", "description": "Adjustments in Inflows", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7035", "description": "Foreign Remittance", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7036", "description": "Inheritance", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7037", "description": "Gift", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7088", "description": "Contribution in Expenses by Family Members", "cellCount": 1, "writeableInputIndexes": [0] },
+        { "id": "7049", "description": "Total Inflows", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7089", "description": "Personal Expenses", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7091", "description": "Gift (Outflow)", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7098", "description": "Adjustments in Outflows", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "7099", "description": "Total Outflows", "cellCount": 1, "writeableInputIndexes": [] },
+        { "id": "703000", "description": "Unreconciled Amount", "cellCount": 1, "writeableInputIndexes": [] }
+      ]
+    }
+  }
+}

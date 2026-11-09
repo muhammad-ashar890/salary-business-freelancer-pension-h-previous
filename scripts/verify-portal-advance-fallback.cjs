@@ -127,12 +127,11 @@ test("the gate is given time to finish painting before it is read or pressed", (
   assert.match(press.slice(0, 900), /await settleGate\(4, 700\);/);
 });
 
-test("the captured page that produced the stop is kept as the fixture", () => {
-  const fixture = path.join(
-    root,
-    "test-fixtures/iris/econ/economic-transactions-gate.html",
-  );
-  const html = fs.readFileSync(fixture, "utf8");
+test("the captured page that produced the stop is kept as the contract", () => {
+  const {
+    renderEconomicTransactionsGate,
+  } = require("./lib/iris-bank-and-econ-dom-from-contract.cjs");
+  const html = renderEconomicTransactionsGate();
   const dom = new JSDOM(html);
   const buttons = [...dom.window.document.querySelectorAll("button")].filter(
     (button) => /start return filling/i.test(button.textContent || ""),

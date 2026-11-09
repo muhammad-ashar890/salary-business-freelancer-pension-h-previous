@@ -55,8 +55,10 @@ const filler = require(path.join(
   projectRoot,
   "electron-connect/iris-row-filler.js",
 ));
-
-const FIXTURE_DIR = path.join(projectRoot, "test-fixtures", "iris");
+const { renderIrisCoreSection } = require(path.join(
+  projectRoot,
+  "scripts/lib/iris-core-dom-from-contract.cjs",
+));
 const LIVE_CAPTURE_DIR = path.join(os.homedir(), "uploads");
 const LIVE_SALARY_CAPTURE = path.join(LIVE_CAPTURE_DIR, "IRIS 2.0 form3.html");
 
@@ -340,7 +342,11 @@ test("withholding credits land on the verified Tax Deductions line", () => {
 // ───────────────────────────────────────────────────────────────────────────
 
 function runFillerOn(htmlPath, fields) {
-  const dom = new JSDOM(fs.readFileSync(htmlPath, "utf8"));
+  return runFillerOnHtml(fs.readFileSync(htmlPath, "utf8"), fields);
+}
+
+function runFillerOnHtml(html, fields) {
+  const dom = new JSDOM(html);
   global.document = dom.window.document;
   global.window = dom.window;
   global.Event = dom.window.Event;
@@ -358,7 +364,7 @@ const salaryLedger = [
 
 test("replay on the repo salary fixture: 1009 fills on the Total column", () => {
   const { fields } = buildOver(salaryLedger);
-  const { results } = runFillerOn(path.join(FIXTURE_DIR, "salary.html"), fields);
+  const { results } = runFillerOnHtml(renderIrisCoreSection("salary"), fields);
   const payWages = results.find((r) => r.irisCode === "1009");
   check("filled", payWages.status, filler.FILL_STATUS.FILLED);
   check("into column 0 (Total Income)", payWages.columnIndex, 0);

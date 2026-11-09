@@ -618,3 +618,11 @@ test("unexplained credit: it can never be approved or classified under the place
   assert.match(ui, /"Choose what this income is"/);
   assert.doesNotMatch(ui, /"Approve as income"/);
 });
+
+test("Fix A: unselected Salary or Pension bank credits cannot enter a single-source filing", async () => {
+  const categories = require(path.join(root, "lib/tax/business-bank-categories.ts"));
+  assert.match(categories.unselectedIncomeSourceBankError("INCOME", "SALARY", ["pension"]) || "", /Salary income is not selected/);
+  assert.equal(categories.unselectedIncomeSourceBankError("INCOME", "PENSION", ["pension"]), null);
+  assert.match(categories.unselectedIncomeSourceBankError("INCOME", "PENSION", ["salary"]) || "", /Pension income is not selected/);
+  assert.equal(categories.unselectedIncomeSourceBankError("INCOME", "SALARY", ["salary", "pension"]), null);
+});

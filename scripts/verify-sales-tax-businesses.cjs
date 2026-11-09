@@ -42,9 +42,8 @@ Module._load = function (request, ...rest) {
   return originalLoad.call(this, request, ...rest);
 };
 
-const august = require(
-  path.join(root, "test-fixtures/sales-tax/month-2026-08.json"),
-);
+const { getSalesTaxMonthContract } = require("./lib/sales-tax-contract-months.cjs");
+const august = getSalesTaxMonthContract("month-2026-08");
 
 async function gridToWorkbook(grid) {
   const wb = new ExcelJS.Workbook();

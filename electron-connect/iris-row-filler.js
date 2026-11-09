@@ -172,9 +172,19 @@ function validateServicesAutofillField(field) {
     const supportedSubcategories = Object.keys(
       approved.withholdingBySubcategory || {},
     );
+    const isTotalColumn = field.column === income?.column;
+    const isFinalTaxColumn =
+      Boolean(income?.finalTaxColumn) &&
+      field.column === income.finalTaxColumn &&
+      subcategories.length > 0 &&
+      subcategories.every(
+        (subcategory) =>
+          approved.withholdingBySubcategory?.[subcategory]?.statutorySection ===
+          "154A",
+      );
     const business = SERVICES_CAPTURE_CONTRACT.businessOtherRevenues;
     const row = business?.rows?.[income?.irisCode];
-    const columnIndex = business?.columns?.indexOf(income?.column) ?? -1;
+    const columnIndex = business?.columns?.indexOf(String(field.column || "")) ?? -1;
     if (
       field.sourceGroup !== "businessFields" ||
       field.ourCategory !== "SERVICES_TECHNICAL_PROFESSIONAL_FEE" ||
@@ -186,7 +196,7 @@ function validateServicesAutofillField(field) {
       field.irisSection !== income?.portalSection ||
       field.leftPanel !== income?.portalArea ||
       field.leftSection !== income?.portalSection ||
-      field.column !== income?.column ||
+      (!isTotalColumn && !isFinalTaxColumn) ||
       field.rowDescriptionIncludes !== income?.rowLabel ||
       field.isTaxField !== false ||
       Boolean(field.portalGroup) ||
@@ -991,6 +1001,83 @@ function findUnexpectedPrefill(snapshot, plannedCodes) {
 }
 
 /**
+ * When IRIS Auto Calculate is ON, typing normal-tax salary on Employment > Salary
+ * (e.g. 1009 Total Amount = 4,200,000) causes IRIS itself to mirror that exact
+ * normal-tax salary base into Employment > Tax Deductions row 64020004 column 0
+ * ("Taxable Amount") while leaving column 1 ("Tax Deducted") blank.
+ */
+function isAutoMirroredSalaryDeductionBase(prefillRow, enteredResults) {
+  if (!prefillRow || String(prefillRow.code) !== "64020004") return false;
+  const cells = Array.isArray(prefillRow.cells) ? prefillRow.cells : [];
+  if (cells.length !== 1 || cells[0]?.columnIndex !== 0) return false;
+  const seenDigits = String(cells[0]?.value ?? "").replace(/[\s,]/g, "");
+  if (!/^\d+(?:\.0+)?$/.test(seenDigits)) return false;
+  const seenAmount = Math.round(Number(seenDigits));
+  if (!(seenAmount > 0)) return false;
+
+  const byCode = new Map();
+  for (const entry of enteredResults || []) {
+    if (entry?.sectionId && entry.sectionId !== "salary") continue;
+    if (!SUCCESS_STATUSES.has(entry?.status)) continue;
+    const code = String(entry?.irisCode || "");
+    if (!["1009", "1049", "1010", "1059", "1089", "1099", "1008"].includes(code)) continue;
+    const rawVal = String(entry.readback ?? entry.plannedValue ?? entry.value ?? "").replace(/[\s,]/g, "");
+    const amount = /^\d+(?:\.\d+)?$/.test(rawVal) ? Math.round(Number(rawVal)) : 0;
+    const cols = byCode.get(code) || { 0: 0, 1: 0, 2: 0 };
+    if (entry.columnIndex === 0 || entry.columnIndex === 1 || entry.columnIndex === 2) {
+      cols[entry.columnIndex] = amount;
+    }
+    byCode.set(code, cols);
+  }
+  let expectedNormalSalary = 0;
+  for (const cols of byCode.values()) {
+    expectedNormalSalary += Math.max(0, (cols[0] || 0) - (cols[1] || 0) - (cols[2] || 0));
+  }
+  return expectedNormalSalary > 0 && seenAmount === expectedNormalSalary;
+}
+
+/**
+ * When IRIS Auto Calculate is ON, typing normal-tax salary on Employment > Salary
+ * (e.g. 1009 Total Amount = 4,200,000) causes IRIS itself to mirror that exact
+ * normal-tax salary base into Employment > Tax Deductions row 64020004 column 0
+ * ("Taxable Amount") while leaving column 1 ("Tax Deducted") blank.
+ *
+ * When the packet has zero salary withholding, 64020004 is not in `plannedCodes`.
+ * Recognise that exact IRIS-derived column-0 mirror so it is not misreported as
+ * a foreign pre-filled figure, while still flagging 64020004 whenever Tax Deducted
+ * (col 1) is non-blank or Taxable Amount differs from the entered normal salary.
+ */
+function isAutoMirroredSalaryDeductionBase(prefillRow, enteredResults) {
+  if (!prefillRow || String(prefillRow.code) !== "64020004") return false;
+  const cells = Array.isArray(prefillRow.cells) ? prefillRow.cells : [];
+  if (cells.length !== 1 || cells[0]?.columnIndex !== 0) return false;
+  const seenDigits = String(cells[0]?.value ?? "").replace(/[\s,]/g, "");
+  if (!/^\d+(?:\.0+)?$/.test(seenDigits)) return false;
+  const seenAmount = Math.round(Number(seenDigits));
+  if (!(seenAmount > 0)) return false;
+
+  const byCode = new Map();
+  for (const entry of enteredResults || []) {
+    if (entry?.sectionId && entry.sectionId !== "salary") continue;
+    if (!SUCCESS_STATUSES.has(entry?.status)) continue;
+    const code = String(entry?.irisCode || "");
+    if (!["1009", "1049", "1010", "1059", "1089", "1099", "1008"].includes(code)) continue;
+    const rawVal = String(entry.readback ?? entry.plannedValue ?? entry.value ?? "").replace(/[\s,]/g, "");
+    const amount = /^\d+(?:\.\d+)?$/.test(rawVal) ? Math.round(Number(rawVal)) : 0;
+    const cols = byCode.get(code) || { 0: 0, 1: 0, 2: 0 };
+    if (entry.columnIndex === 0 || entry.columnIndex === 1 || entry.columnIndex === 2) {
+      cols[entry.columnIndex] = amount;
+    }
+    byCode.set(code, cols);
+  }
+  let expectedNormalSalary = 0;
+  for (const cols of byCode.values()) {
+    expectedNormalSalary += Math.max(0, (cols[0] || 0) - (cols[1] || 0) - (cols[2] || 0));
+  }
+  return expectedNormalSalary > 0 && seenAmount === expectedNormalSalary;
+}
+
+/**
  * Every IRIS code the packet promises to fill, across all sections, plus the
  * child rows its detail drivers create (bank 3320, vehicles 3304, land 3301,
  * building 3302, deduction rows).
@@ -1191,6 +1278,7 @@ module.exports = {
   snapshotIrisRows,
   packetPromisedIrisCodes,
   findUnexpectedPrefill,
+  isAutoMirroredSalaryDeductionBase,
   isNonBlankAmount,
   SUCCESS_STATUSES,
   fillIrisRows,

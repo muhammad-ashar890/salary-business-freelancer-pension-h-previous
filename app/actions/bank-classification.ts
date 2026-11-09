@@ -26,6 +26,7 @@ import {
   normalizeBankCategory,
   businessBankDecisionError,
   freelancerBankDecisionError,
+  unselectedIncomeSourceBankError,
   bankEntryDirectionError,
   applySafeBankAiSuggestion,
   hasOwnerCapitalMovementDescription,
@@ -807,9 +808,14 @@ export async function autoReviewSafeBankTransactionsAction(
           (transaction.suggestedEntryType === "INCOME" &&
             // Pension payouts are as recognisable as payroll (same keyword
             // rule family), so a rule-matched PENSION suggestion is bulk-safe
-            // exactly like SALARY. All other income stays manual.
+            // exactly like SALARY — provided that income source is selected.
             ["SALARY", "PENSION"].includes(
               transaction.suggestedCategory ?? "",
+            ) &&
+            !unselectedIncomeSourceBankError(
+              transaction.suggestedEntryType,
+              transaction.suggestedCategory,
+              draft.incomeSources,
             )) ||
           (isMyselfBusinessBankFlow(draft) &&
             isBusinessBankCategory(transaction.suggestedCategory) &&
@@ -1082,10 +1088,15 @@ export async function manuallyClassifyBankTransactionAction(
       category,
       isSingleFreelancerServicesFiling(draft),
     );
-    if (directionError || businessError || freelancerError)
+    const sourceSelectionError = unselectedIncomeSourceBankError(
+      entryType,
+      category,
+      draft.incomeSources,
+    );
+    if (directionError || businessError || freelancerError || sourceSelectionError)
       return {
         success: false,
-        error: directionError || businessError || freelancerError,
+        error: directionError || businessError || freelancerError || sourceSelectionError,
       };
     if (!category.trim())
       return { success: false, error: "Category is required" };
@@ -1370,10 +1381,15 @@ export async function reviewBankTransactionClassificationAction(
       transaction.suggestedCategory,
       isSingleFreelancerServicesFiling(draft),
     );
-    if (directionError || businessError || freelancerError)
+    const sourceSelectionError = unselectedIncomeSourceBankError(
+      transaction.suggestedEntryType,
+      transaction.suggestedCategory,
+      draft.incomeSources,
+    );
+    if (directionError || businessError || freelancerError || sourceSelectionError)
       return {
         success: false,
-        error: directionError || businessError || freelancerError,
+        error: directionError || businessError || freelancerError || sourceSelectionError,
       };
 
     const amount = toMoneyAmount(

@@ -1,0 +1,129 @@
+{
+  "contractVersion": "1.0.0",
+  "captureProvenance": {
+    "kind": "Permanent sanitized IRIS 2.0 116 Wealth Statement section & modal contract",
+    "rawHtmlPersisted": false,
+    "workflowUrlOrTokenPersisted": false,
+    "personalDataOrAmountsPersisted": false,
+    "note": "Encodes the verified IRIS 2.0 116 Wealth Statement row ids, button classes, and modal contracts (Add Personal Expenses, Add Financial Assets & Investments, Adjustments in Outflows, Bank Account, Gift). Never ask the operator to re-upload HTML captures for modals or rows already recorded here."
+  },
+  "dialogs": {
+    "expenses": {
+      "kind": "picker",
+      "title": "Add Personal Expenses",
+      "componentTag": "app-add-amount-code-row",
+      "searchPlaceholder": "Search Amount Code/Description",
+      "optionsByCode": {
+        "7066": "Asset Insurance / Security",
+        "7070": "Medical",
+        "7071": "Educational",
+        "7072": "Club",
+        "7073": "Functions / Gatherings",
+        "7076": "Donation, Zakat, Annuity, Profit on Debt, Life Insurance Premium, etc.",
+        "7087": "Other Personal / Household Expenses",
+        "705601": "Foreign Traveling",
+        "7056": "Local Traveling",
+        "7051": "Rent",
+        "707302": "Wedding Events",
+        "707301": "Other Events / Functions / Gathering",
+        "7052": "Rates / Taxes / Charge / Cess",
+        "7055": "Vehicle Running / Maintenance",
+        "7058": "Electricity",
+        "7059": "Water",
+        "7060": "Gas",
+        "7061": "Telephone"
+      },
+      "buttons": [
+        { "label": "ADD", "disabledInitially": true },
+        { "label": "Cancel", "disabledInitially": false }
+      ]
+    },
+    "financialAssets": {
+      "kind": "picker",
+      "title": "Add Financial Assets & Investments (Non-Business)",
+      "componentTag": "app-add-amount-code-row",
+      "searchPlaceholder": "Search Amount Code/Description",
+      "options": [
+        "Bank Account(s)",
+        "Investments / Stocks / Bonds / etc.",
+        "Insurance / Takaful Policy",
+        "Any Other Asset(s)"
+      ],
+      "buttons": [
+        { "label": "ADD", "disabledInitially": true },
+        { "label": "Cancel", "disabledInitially": false }
+      ]
+    },
+    "outflow": {
+      "kind": "form",
+      "title": "Adjustments in Outflows",
+      "fields": [
+        { "tag": "textarea", "formcontrolname": "description" }
+      ],
+      "buttons": [
+        { "label": "SAVE", "disabledInitially": true },
+        { "label": "CLOSE", "disabledInitially": false }
+      ]
+    },
+    "bank": {
+      "kind": "form",
+      "title": "Bank Account",
+      "fields": [
+        { "tag": "input", "type": "text", "placeholder": "IBAN", "hasSearchSuffix": true },
+        { "tag": "input", "type": "text", "placeholder": "Account Title", "disabled": true },
+        { "tag": "input", "type": "text", "placeholder": "Bank Name", "disabled": true }
+      ],
+      "checkboxCards": ["Joint Account"],
+      "buttons": [
+        { "label": "ADD", "disabledInitially": true },
+        { "label": "CLOSE", "disabledInitially": false }
+      ]
+    },
+    "gift": {
+      "kind": "form",
+      "title": "Gift",
+      "componentTag": "app-nitr-gift-dialog",
+      "fields": [
+        { "tag": "input", "type": "text", "formcontrolname": "idNumber", "hasSearchSuffix": true },
+        { "tag": "input", "type": "text", "formcontrolname": "name", "disabled": true },
+        { "tag": "textarea", "formcontrolname": "description" }
+      ],
+      "buttons": [
+        { "label": "SAVE", "disabledInitially": true },
+        { "label": "CLOSE", "disabledInitially": false }
+      ]
+    }
+  },
+  "sections": {
+    "reconciliationDefault": [
+      { "id": "703001", "description": "Net Assets Current Year", "editable": false },
+      { "id": "703002", "description": "Net Assets Previous Year", "editable": true },
+      { "id": "703003", "description": "Increase / (Decrease) in Assets", "editable": false },
+      { "id": "7031", "description": "Income Declared as per Return for the year subject to Normal Tax", "editable": true },
+      { "id": "7032", "description": "Income Declared as per Return for the year Exempt from Tax", "editable": true },
+      { "id": "7033", "description": "Income Attributable to Receipts, etc. Declared as per Return for the year subject to Final / Fixed Tax", "editable": true },
+      { "id": "7034", "description": "Adjustments in Inflows", "editable": false, "purpleAddIcon": true },
+      { "id": "7035", "description": "Foreign Remittance", "editable": false, "purpleAddIcon": true },
+      { "id": "7036", "description": "Inheritance", "editable": false, "purpleAddIcon": true },
+      { "id": "7037", "description": "Gift", "editable": false, "purpleAddIcon": true },
+      { "id": "7088", "description": "Contribution in Expenses by Family Members", "editable": true },
+      { "id": "7049", "description": "Total Inflows", "editable": false },
+      { "id": "7089", "description": "Personal Expenses", "editable": false, "sectionAddLabel": "+ Expenses" },
+      { "id": "7091", "description": "Gift", "editable": false, "purpleAddIcon": true },
+      { "id": "7098", "description": "Adjustments in Outflows", "editable": false, "purpleAddIcon": true },
+      { "id": "7099", "description": "Total Outflows", "editable": false },
+      { "id": "703000", "description": "Unreconciled Amount", "editable": false }
+    ],
+    "assetsDefault": [
+      { "id": "7003", "description": "Business Capital", "editable": false },
+      { "id": "999901", "description": "Financial Assets & Investments (Non-Business)", "editable": false, "sectionAddLabel": "+ Assets" },
+      { "id": "7012", "description": "Cash (Non-Business)", "editable": true },
+      { "id": "7013", "description": "Any Other Asset", "editable": false },
+      { "id": "7014", "description": "Assets in Others' Name", "editable": false },
+      { "id": "7019", "description": "Total Assets inside Pakistan", "editable": false },
+      { "id": "7021", "description": "Credit (Non-Business)", "editable": false },
+      { "id": "7029", "description": "Total Liabilities", "editable": false },
+      { "id": "703001", "description": "Net Assets Current Year", "editable": false }
+    ]
+  }
+}

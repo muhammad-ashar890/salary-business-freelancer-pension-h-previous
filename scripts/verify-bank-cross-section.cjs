@@ -1,6 +1,7 @@
 const {test,before,after}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {chromium}=require('playwright');const guard=require('../electron-connect/iris-bank-cross-section-guard');
-const iban='PK36SCBL0000001123456702',other='PK35HABB0018067900476803';const fixture=name=>fs.readFileSync(path.join(__dirname,'../test-fixtures/bank-cross-section',name),'utf8');
+const {renderBankCrossSection}=require('./lib/iris-bank-and-econ-dom-from-contract.cjs');
+const iban='PK36SCBL0000001123456702',other='PK35HABB0018067900476803';const fixture=name=>renderBankCrossSection(name);
 let browser;before(async()=>{browser=await chromium.launch({headless:true,args:['--no-sandbox']})});after(async()=>{if(browser)await browser.close()});
 async function run({personal=fixture('personal.html'),business=fixture('business.html'),personalIbans=[],businessIbans=[],navigateOk=true,mutate=null,angularStable=null}={}){
  const page=await browser.newPage();let count=0;const win={webContents:{executeJavaScript:script=>page.evaluate(script)}};

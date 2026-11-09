@@ -107,6 +107,34 @@ export function freelancerBankDecisionError(
   return null;
 }
 
+export function unselectedIncomeSourceBankError(
+  entryType: string | null | undefined,
+  category: unknown,
+  incomeSources?: string | string[] | null,
+): string | null {
+  const normalized = normalizeBankCategory(category);
+  if (normalized !== "SALARY" && normalized !== "PENSION") return null;
+  const sources = readIncomeSources(incomeSources);
+  if (sources.length === 0) return null;
+  if (normalized === "SALARY") {
+    if (!sources.includes("salary")) {
+      return "Salary income is not selected in Income sources for this filing. Select Salary in Setup (and upload the Salary Certificate) if you earned salary, or change/exclude this transaction.";
+    }
+    if (entryType !== "INCOME") {
+      return "Choose Income for salary receipts.";
+    }
+  }
+  if (normalized === "PENSION") {
+    if (!sources.includes("pension")) {
+      return "Pension income is not selected in Income sources for this filing. Select Pension in Setup (and upload the Pension Statement) if you received a pension, or change/exclude this transaction.";
+    }
+    if (entryType !== "INCOME") {
+      return "Choose Income for pension receipts.";
+    }
+  }
+  return null;
+}
+
 export function bankTransactionDirection(input: BankAmounts): BankDirection {
   const debit = Number(input.debit ?? 0), credit = Number(input.credit ?? 0);
   if (!Number.isFinite(debit) || !Number.isFinite(credit) || debit < 0 || credit < 0) return "invalid";

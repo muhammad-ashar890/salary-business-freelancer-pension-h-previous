@@ -926,7 +926,7 @@ test("packaged agent identity, Services contract and web handoff contract stay w
     .digest("hex");
   assert.equal(
     contractHash,
-    "2232a6c762b0f0157f5b9553fa4a83ecdcfac62cedbc1963672a8389250a0e89",
+    "b0e834fa8df94c3ee4bd888504ed9073a72e75877cce560ed0f33bd799a2ed88",
   );
 
   const server = read("app/actions/fbr-jobs.ts");

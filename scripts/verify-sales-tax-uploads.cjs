@@ -53,8 +53,8 @@ const { analyzeUploads, isUploadKind } = kit.load(
   "lib/sales-tax/analyze-uploads.ts",
 );
 
-const fixture = (name) =>
-  require(path.join(root, `test-fixtures/sales-tax/${name}.json`));
+const { getSalesTaxMonthContract } = require("./lib/sales-tax-contract-months.cjs");
+const fixture = (name) => getSalesTaxMonthContract(name);
 const august = fixture("month-2026-08");
 
 /**

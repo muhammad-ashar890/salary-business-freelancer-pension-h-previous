@@ -1,8 +1,8 @@
-// GENERATED — do not edit by hand.
-// Source: the portal capture folder, via:
-//   npm run inventory:portal-coverage -- --emit-evidence
-// Regenerate it whenever new IRIS captures land; that is the ONLY way an IRIS code
-// becomes eligible for auto-fill in lib/tax/portal-field-map.ts.
+// GENERATED / MERGE-SAFE EVIDENCE CONTRACT — see scripts/portal-coverage-inventory.cjs.
+// Proven IRIS row codes saved here are PERMANENT across sessions (raw HTML captures
+// do NOT need to be kept or re-requested once a row's writeability is recorded here).
+// Running `npm run inventory:portal-coverage -- --emit-evidence` merges new captures
+// additively onto this baseline without deleting previously proven codes.
 
 /** What a captured IRIS grid row allowed a human to do. */
 export type PortalRowEvidence = {

@@ -188,7 +188,7 @@ From this folder:
 npm run verify:branding   # product name, shortcuts, protocol, profile continuity
 ```
 
-Some agent suites need local IRIS fixtures (`test-fixtures/iris/`) or a seeded database and report fixture-missing without them.
+Agent unit suites (`verify-iris-row-filler`, `verify-iris-wealth-driver`, `verify-iris-employer-driver`, `verify-fbr-contracts`) run offline against the permanent JSON contracts in `electron-connect/iris-*-contract.json` and `scripts/contracts/*.json` — raw IRIS HTML captures never need to be stored or re-uploaded once a contract is recorded.
 
 ---
 

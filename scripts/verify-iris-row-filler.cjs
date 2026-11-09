@@ -7,7 +7,7 @@
  * cell. Every assertion below encodes a fact observed in the captured HTML.
  *
  * Run: node --test scripts/verify-iris-row-filler.cjs
- * Requires: jsdom (devDependency), fixtures in test-fixtures/iris/.
+ * Requires: jsdom (devDependency), contract in scripts/contracts/iris-core-rows-contract.json.
  */
 
 "use strict";
@@ -18,8 +18,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const filler = require("../electron-connect/iris-row-filler.js");
-
-const FIXTURE_DIR = path.join(__dirname, "..", "test-fixtures", "iris");
+const { renderIrisCoreSection } = require("./lib/iris-core-dom-from-contract.cjs");
 
 let JSDOM;
 try {
@@ -32,13 +31,7 @@ try {
 }
 
 function loadFixture(name) {
-  const file = path.join(FIXTURE_DIR, name);
-  if (!fs.existsSync(file)) {
-    throw new Error(
-      `Missing fixture ${name}. Regenerate with scripts/extract-iris-fixtures.cjs`,
-    );
-  }
-  return fs.readFileSync(file, "utf8");
+  return renderIrisCoreSection(name);
 }
 
 /**

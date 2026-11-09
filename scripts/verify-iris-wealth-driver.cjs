@@ -37,6 +37,10 @@ require.extensions[".ts"] = function (module, filename) {
 const driver = require("../electron-connect/iris-wealth-driver.js");
 const filler = require("../electron-connect/iris-row-filler.js");
 const { FakeIris } = require("./lib/fake-iris-wealth.cjs");
+const {
+  renderWealthModal,
+  renderWealthSection,
+} = require("./lib/iris-wealth-dom-from-contract.cjs");
 const { WEALTH_EXPENSE_ROWS } = require(path.join(root, "lib/tax/wealth-rows.ts"));
 const { buildPortalFieldMap, flattenPortalFieldMap } = require(path.join(root, "lib/tax/portal-field-map.ts"));
 
@@ -125,7 +129,7 @@ test("drift guard: the driver's expense labels equal lib/tax/wealth-rows.ts", ()
 
 test("drift guard: dialog titles and labels are the ones in the captured modals", () => {
   const titleOf = (name) => {
-    const html = fs.readFileSync(path.join(root, "test-fixtures/iris/wealth", name), "utf8");
+    const html = renderWealthModal(name);
     return new JSDOM(html).window.document.querySelector("[mat-dialog-title] .left").textContent.trim();
   };
   assert.equal(titleOf("modal-expenses.html"), driver.DIALOG_TITLES.expenses);
@@ -133,7 +137,7 @@ test("drift guard: dialog titles and labels are the ones in the captured modals"
   assert.equal(titleOf("modal-outflow.html"), driver.DIALOG_TITLES.outflow);
   assert.equal(titleOf("modal-bank.html"), driver.DIALOG_TITLES.bank);
   assert.equal(titleOf("modal-gift.html"), driver.DIALOG_TITLES.gift);
-  const html = fs.readFileSync(path.join(root, "test-fixtures/iris/wealth/modal-expenses.html"), "utf8");
+  const html = renderWealthModal("modal-expenses.html");
   const doc = new JSDOM(html).window.document;
   const labels = [...doc.querySelectorAll(".source-card p")].map((p) => p.textContent.trim());
   assert.deepEqual(labels.sort(), Object.values(driver.EXPENSE_ROWS).sort());
@@ -188,8 +192,8 @@ test("safety: the only clicks the driver can request are on the documented surfa
 test("page op: the add icon is the purple one on the summary row, never edit (orange) or delete (red)", async () => {
   const fake = new FakeIris({ knownIbans: KNOWN });
   fake.show("wealth_reconciliation");
-  // Use the capture that already has a child 7098 row carrying orange + red icons.
-  const full = new JSDOM(fs.readFileSync(path.join(root, "test-fixtures/iris/wealth/reconciliation-with-expenses-and-outflow.html"), "utf8")).window.document;
+  // Use the contract state that already has a child 7098 row carrying orange + red icons.
+  const full = new JSDOM(renderWealthSection("reconciliation-with-expenses-and-outflow.html")).window.document;
   fake.container().innerHTML = full.querySelector(".iris-data").innerHTML;
   const r = await fake.webContents.executeJavaScript(driver.buildPageScript({ op: "open_row_add", rowId: "7098" }));
   assert.equal(r.status, "clicked");
@@ -331,7 +335,7 @@ test("failure: an unexpected dialog already on screen stops everything with zero
 });
 
 test("failure: a category missing from the modal cancels it, adds nothing, and says why", async () => {
-  const raw = fs.readFileSync(path.join(root, "test-fixtures/iris/wealth/modal-expenses.html"), "utf8");
+  const raw = renderWealthModal("modal-expenses.html");
   const doc = new JSDOM(raw);
   const card = [...doc.window.document.querySelectorAll(".source-card")].find((c) => c.querySelector("p").textContent.trim() === "Rent");
   card.remove();
@@ -360,7 +364,7 @@ test("failure: an IBAN IRIS cannot resolve closes the dialog and adds no bank ro
 });
 
 test("failure: if the 7098 description is not accepted nothing is saved", async () => {
-  const raw = fs.readFileSync(path.join(root, "test-fixtures/iris/wealth/modal-outflow.html"), "utf8");
+  const raw = renderWealthModal("modal-outflow.html");
   const doc = new JSDOM(raw);
   doc.window.document.querySelector("textarea").setAttribute("disabled", "");
   const fake = new FakeIris({ knownIbans: KNOWN, modalOverrides: { outflow: doc.serialize() } });
@@ -682,7 +686,7 @@ test("failure: a donor id IRIS cannot resolve closes the dialog, saves nothing a
 });
 
 test("failure: a description IRIS does not accept closes the dialog without saving", async () => {
-  const raw = fs.readFileSync(path.join(root, "test-fixtures/iris/wealth/modal-gift.html"), "utf8");
+  const raw = renderWealthModal("modal-gift.html");
   const dom = new JSDOM(raw);
   dom.window.document.querySelector("textarea").setAttribute("disabled", "");
   const fake = new FakeIris({ knownIbans: KNOWN, knownDonors: { [DONOR]: DONOR_NAME }, modalOverrides: { gift: dom.serialize() } });
@@ -993,4 +997,109 @@ test("verify a hand-added tax outflow: own wording and a different amount -> not
   const out = await h.runStepwise([wf("7098", 210000, { rowDescriptionIncludes: OUTFLOW_HINT })], verifyOpts);
   assert.equal(out.stopped, true);
   assert.notEqual(out.results[0].status, filler.FILL_STATUS.ALREADY_CORRECT);
+});
+// ── Backlog #2: several tax-outflow rows in ONE run (Section 149 + Services sections).
+// A Services packet can now carry `Income tax deducted u/s 154A` next to the
+// employer's `u/s 149` row, and the wealth statement is only honest if BOTH rows
+// exist: one created row per planned field, never one row serving two figures.
+const SERVICES_OUTFLOW_HINT = "Income tax deducted u/s 154A";
+const outflowFields = (amount149, amountServices) => [
+  wf("7098", amount149, { rowDescriptionIncludes: OUTFLOW_HINT }),
+  wf("7098", amountServices, { rowDescriptionIncludes: SERVICES_OUTFLOW_HINT }),
+];
+/** Child rows IRIS created under Adjustments in Outflows: [description, value]. */
+const outflowRows = (fake) => {
+  fake.show("wealth_reconciliation");
+  return fake
+    .rowsWithId("7098")
+    .slice(1)
+    .map((row) => [
+      String(row.querySelector(".row-description-text").textContent).replace(/\s+/g, " ").trim(),
+      fake.inputValue(row),
+    ]);
+};
+const valueOfRowWorded = (fake, hint) => {
+  const hit = outflowRows(fake).find(([text]) =>
+    text.toLowerCase().includes(hint.toLowerCase()),
+  );
+  return hit ? hit[1] : null;
+};
+const resultFor = (out, hint) => {
+  const r = out.results.find((x) =>
+    String(x.rowDescriptionIncludes || "").toLowerCase().includes(hint.toLowerCase()),
+  );
+  assert.ok(r, `no result for "${hint}" in ${JSON.stringify(out.results.map((x) => [x.rowDescriptionIncludes, x.status]))}`);
+  return r;
+};
+
+test("live: two tax-outflow fields create and fill two separate 7098 rows", async () => {
+  const h = harness();
+  const { results } = await h.run(outflowFields(210000, 7000));
+  assert.equal(results.length, 2, JSON.stringify(results));
+  for (const r of results)
+    assert.equal(r.status, filler.FILL_STATUS.FILLED, `${r.rowDescriptionIncludes}: ${r.status}`);
+
+  const rows = outflowRows(h.fake);
+  assert.equal(rows.length, 2, `one child row per field, got ${JSON.stringify(rows)}`);
+  assert.equal(valueOfRowWorded(h.fake, OUTFLOW_HINT), "210000");
+  assert.equal(valueOfRowWorded(h.fake, SERVICES_OUTFLOW_HINT), "7000");
+  assert.equal(
+    h.fake.inputValue(h.fake.rowsWithId("7098")[0]),
+    "",
+    "the disabled summary row is never written",
+  );
+  assert.equal(
+    h.fake.clicks.filter((c) => /^save$/i.test(c.text)).length,
+    2,
+    "each row went through its own `+` modal, so neither figure can overwrite the other",
+  );
+  assert.equal(h.fake.dialogs().length, 0, "no dialog left open");
+});
+
+test("re-run on a saved draft: the 149 row verifies, only the missing Services row is created", async () => {
+  const h = harness();
+  // First run: only the salary/pension deduction was known, and it was saved.
+  await h.runStepwise([wf("7098", 210000, { rowDescriptionIncludes: OUTFLOW_HINT })]);
+  assert.equal(outflowRows(h.fake).length, 1);
+  h.fake.clicks.length = 0;
+
+  // Second run: the Services withholding was evidenced since. Nothing about the
+  // saved 149 row may change and no second 149 row may appear — that is exactly
+  // why the Services row keeps its own description instead of reusing the 149 one.
+  const out = await h.runStepwise(outflowFields(210000, 7000));
+  assert.equal(resultFor(out, OUTFLOW_HINT).status, filler.FILL_STATUS.ALREADY_CORRECT);
+  assert.equal(resultFor(out, SERVICES_OUTFLOW_HINT).status, filler.FILL_STATUS.FILLED);
+  const rows = outflowRows(h.fake);
+  assert.equal(rows.length, 2, `no duplicate row, got ${JSON.stringify(rows)}`);
+  assert.equal(rows.filter(([text]) => /u\/s 149/.test(text)).length, 1);
+  assert.equal(valueOfRowWorded(h.fake, OUTFLOW_HINT), "210000", "the saved figure was not rewritten");
+  assert.equal(valueOfRowWorded(h.fake, SERVICES_OUTFLOW_HINT), "7000");
+});
+
+test("dry verify: a present 149 row and a missing Services row are reported per field", async () => {
+  const h = harness();
+  await h.runStepwise([wf("7098", 210000, { rowDescriptionIncludes: OUTFLOW_HINT })]);
+  const out = await h.runStepwise(outflowFields(210000, 7000), verifyOpts);
+  assert.equal(resultFor(out, OUTFLOW_HINT).status, filler.FILL_STATUS.ALREADY_CORRECT);
+  assert.equal(
+    resultFor(out, SERVICES_OUTFLOW_HINT).status,
+    driver.WEALTH_STATUS.DRY_ROW_MISSING,
+    "the missing row is named as needing the modal, not blamed on the row that exists",
+  );
+});
+
+test("dry verify: one hand-made outflow row cannot satisfy two planned deductions", async () => {
+  // Both figures equal, so only the amount fallback can tell them apart. Without
+  // a claim per row, the taxpayer's single hand-written row would be accepted
+  // twice and a real deduction would go unfiled.
+  // Built here instead of reusing handOutflowHarness, so this block stands alone
+  // on a branch that does not have that helper yet.
+  const h = harness();
+  await h.runStepwise([wf("7098", 7000, { rowDescriptionIncludes: "Tax deducted at source" })]);
+  const out = await h.runStepwise(outflowFields(7000, 7000), verifyOpts);
+  const accepted = out.results.filter(
+    (r) => r.status === filler.FILL_STATUS.ALREADY_CORRECT,
+  );
+  assert.equal(accepted.length, 1, JSON.stringify(out.results));
+  assert.equal(out.stopped, true, "the unproven second figure stops the run");
 });

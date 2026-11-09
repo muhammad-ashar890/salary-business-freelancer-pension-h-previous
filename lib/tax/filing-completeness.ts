@@ -9,6 +9,7 @@ import {
   bankEntryDirectionError,
   businessBankDecisionError,
   freelancerBankDecisionError,
+  unselectedIncomeSourceBankError,
   isMyselfBusinessBankFlow,
   isSingleFreelancerServicesFiling,
   normalizeBankCategory,
@@ -522,6 +523,11 @@ export async function validateFilingCompleteness(
         transaction.suggestedEntryType ?? "",
         transaction.suggestedCategory,
         freelancerEnabled,
+      ) ||
+      unselectedIncomeSourceBankError(
+        transaction.suggestedEntryType,
+        transaction.suggestedCategory,
+        incomeSources,
       );
     if (error)
       blockers.push(`${error} Undo and review: ${transaction.description}`);

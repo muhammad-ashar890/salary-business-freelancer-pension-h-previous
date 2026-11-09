@@ -451,8 +451,10 @@ check("C13 clean export", checks.checkExports([{ documentNo: "E1", documentDate:
 // E. The three synthetic months, worked by hand.
 // ---------------------------------------------------------------------------
 
+const { getSalesTaxMonthContract } = require("./lib/sales-tax-contract-months.cjs");
+
 function loadMonth(name) {
-  const data = JSON.parse(fs.readFileSync(path.join(projectRoot, "test-fixtures", "sales-tax", name), "utf8"));
+  const data = getSalesTaxMonthContract(name);
   const adj = data.adjustments || {};
   const adjustments = {};
   if (adj.creditBroughtForwardRupees) adjustments.creditBroughtForward = R(adj.creditBroughtForwardRupees);
@@ -546,9 +548,9 @@ function loadMonth(name) {
   check("E-C refund warning", codesOf(r.problems).includes("refund_needs_annex_h"), true);
 }
 
-// The fixtures carry their synthetic label.
+// The contract months carry their synthetic label.
 for (const name of ["month-2026-06.json", "month-2026-07.json", "month-2026-08.json"]) {
-  const data = JSON.parse(fs.readFileSync(path.join(projectRoot, "test-fixtures", "sales-tax", name), "utf8"));
+  const data = getSalesTaxMonthContract(name);
   check(`E fixture ${name} is labelled synthetic`, /SYNTHETIC/.test(data._note), true);
 }
 

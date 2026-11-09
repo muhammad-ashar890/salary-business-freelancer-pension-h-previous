@@ -17,10 +17,8 @@
  *     `+` icon on "Bank Account(s)" (row 7030)
  *                               -> "Bank Account" modal -> IBAN -> search -> ADD
  *
- * Evidence for every selector below is the 2026-10-01 capture set in
- * ~/uploads ("expense modal", "Adjustments in Outflows modal", "Bank Account(s)
- * modal", "Add Financial Assets & Investments modal", "7098 added", "bank
- * account field visible"). Fixtures cut from them live in test-fixtures/iris/.
+ * Evidence for every selector below is permanently encoded in
+ * `scripts/contracts/iris-wealth-contract.json` (`rawHtmlPersisted: false`).
  *
  * HARD LIMITS (the README rules still stand):
  *   - The page-side operations can click ONLY: the two `+ Expenses` / `+ Assets`
@@ -735,9 +733,11 @@ async function runWealthDriver(windowInstance, fields, options = {}) {
     timeoutMs = 8000,
     cashStore = null,
     // Shared across the one-figure-at-a-time calls of a verify pass, so one
-    // IRIS gift row is never matched to two planned gifts.
+    // IRIS gift row is never matched to two planned gifts, and one outflow row
+    // to two planned tax deductions (Section 149 and a Services section row).
     giftClaims = null,
     bankClaims = null,
+    outflowClaims = null,
   } = options;
   const live = mode === "live";
   const plan = planWealthWork(fields);
@@ -934,8 +934,14 @@ async function runWealthDriver(windowInstance, fields, options = {}) {
       }
     }
 
-    if (plan.outflows.length) {
-      const f = plan.outflows[0];
+    // One IRIS row per tax-deduction row, so every field of this group needs its
+    // own row: `Income tax deducted u/s 149` for salary/pension and one
+    // `Income tax deducted u/s <section>` per Services withholding section
+    // (backlog item #2). Addressing only `outflows[0]` made the second field look
+    // like a row that needed creating when the first was already there — and in
+    // dry mode it failed both fields on one missing row, hiding which one the
+    // taxpayer had already entered. Gifts below use the same per-field loop.
+    for (const f of plan.outflows) {
       let hint = String(f.rowDescriptionIncludes || "");
       const matching = (rows) =>
         (rows[OUTFLOW_CODE] || []).filter(
@@ -950,7 +956,12 @@ async function runWealthDriver(windowInstance, fields, options = {}) {
       // same amount is the right place and the right figure, so it counts.
       if (!matching(seen.rows).length && !live && f.outflowVerifyByAmount) {
         const candidate = (seen.rows[OUTFLOW_CODE] || []).find(
-          (row) => row.editable && digitsOf(row.value) === digitsOf(f.value),
+          (row) =>
+            row.editable &&
+            digitsOf(row.value) === digitsOf(f.value) &&
+            // Never claim a row another outflow field already matched: the 154A
+            // row that proves a 154A figure is not also proof of the 149 one.
+            !(outflowClaims && outflowClaims.has(String(row.description))),
         );
         if (candidate) {
           hint = String(candidate.description);
@@ -961,31 +972,35 @@ async function runWealthDriver(windowInstance, fields, options = {}) {
           );
         }
       }
-      if (matching(seen.rows).length) {
+      const matched = matching(seen.rows);
+      if (matched.length) {
+        // Claim these rows so a later outflow field cannot be satisfied by the
+        // same row twice, which would leave a real row unfilled.
+        if (outflowClaims)
+          for (const row of matched) outflowClaims.add(String(row.description));
         note(
           "outflow_present",
-          "The tax-outflow row already exists; no modal needed.",
+          `The "${hint || "tax-outflow"}" row already exists; no modal needed.`,
         );
-      } else if (!live) {
+        continue;
+      }
+      if (!live) {
         note(
           "outflow_would_add",
           `DRY: would add "${hint}" under Adjustments in Outflows.`,
         );
-        failAll(
-          plan.outflows,
-          WEALTH_STATUS.DRY_ROW_MISSING,
-          "outflow_row_needs_modal",
-        );
-        ready = ready.filter((x) => !plan.outflows.includes(x));
-      } else {
-        const failed = await addOutflowRow(
-          hint || "Income tax deducted u/s 149",
-          matching,
-        );
-        if (failed) {
-          failAll(plan.outflows, WEALTH_STATUS.SETUP_FAILED, failed);
-          ready = ready.filter((x) => !plan.outflows.includes(x));
-        }
+        failAll([f], WEALTH_STATUS.DRY_ROW_MISSING, "outflow_row_needs_modal");
+        ready = ready.filter((x) => x !== f);
+        continue;
+      }
+      const failed = await addOutflowRow(
+        // Only reached when the packet carried no wording of its own.
+        hint || "Income tax deducted u/s 149",
+        matching,
+      );
+      if (failed) {
+        failAll([f], WEALTH_STATUS.SETUP_FAILED, failed);
+        ready = ready.filter((x) => x !== f);
       }
     }
 
@@ -1703,6 +1718,7 @@ async function runWealthDriverStepwise(windowInstance, fields, options = {}) {
   const setup = [];
   const giftClaims = new Set();
   const bankClaims = new Set();
+  const outflowClaims = new Set();
   let stopped = false;
   let attempted = 0;
   for (const field of ordered) {
@@ -1732,7 +1748,9 @@ async function runWealthDriverStepwise(windowInstance, fields, options = {}) {
     const outcome = await runWealthDriver(
       windowInstance,
       [probe],
-      checking ? { ...rest, mode: "dry", giftClaims, bankClaims } : rest,
+      checking
+        ? { ...rest, mode: "dry", giftClaims, bankClaims, outflowClaims }
+        : rest,
     );
     const entries = checking
       ? outcome.results.map(checkEntry)

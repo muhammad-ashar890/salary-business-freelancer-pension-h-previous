@@ -1,0 +1,27 @@
+{
+  "contractVersion": "1.0.0",
+  "captureProvenance": {
+    "kind": "Permanent sanitized IRIS 2.0 Salary Employer Details panel & Add Employer modal contract",
+    "rawHtmlPersisted": false,
+    "workflowUrlOrTokenPersisted": false,
+    "personalDataOrAmountsPersisted": false,
+    "note": "Encodes the verified IRIS 2.0 Employment > Salary employer panel and Add Employer dialog contract. Never ask the operator to re-upload HTML captures for selectors already recorded here."
+  },
+  "panel": {
+    "headerClass": "salary-employer-header",
+    "headerTitle": "Employer Details",
+    "addButtonClass": "salary-employer-add-btn",
+    "addButtonLabel": "+ Add Employer Details",
+    "listBodyClass": "panel-body"
+  },
+  "dialog": {
+    "componentTag": "app-add-employer",
+    "title": "Add Employer",
+    "regInputFormControlName": "employerRegNo",
+    "nameInputFormControlName": "employerName",
+    "buttons": [
+      { "label": "Add", "disabledInitially": false },
+      { "label": "Cancel", "disabledInitially": false }
+    ]
+  }
+}

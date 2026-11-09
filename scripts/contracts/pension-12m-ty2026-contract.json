@@ -1,5 +1,5 @@
 {
-  "description": "Synthetic QA fixture reconstructed for the pension merge: ordinary annual pension statement, TY2026, PKR 12,000,000 gross, explicit nil medical allowance and nil tax deducted, no CNIC or date of birth printed.",
+  "description": "Synthetic QA contract reconstructed for the pension merge: ordinary annual pension statement, TY2026, PKR 12,000,000 gross, explicit nil medical allowance and nil tax deducted, no CNIC or date of birth printed.",
   "issuer": "QA Pension Disbursement Office (Synthetic)",
   "pensionerName": "Bilal Ahmed",
   "ppoNumber": "QA-PENSION-12M-TY2026",

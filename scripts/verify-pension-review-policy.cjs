@@ -7,7 +7,8 @@ const { renderToStaticMarkup } = require("react-dom/server");
 const { JSDOM } = require("jsdom");
 const { harness, root } = require("./helpers/pension-harness.cjs");
 const { pensionEntryHold } = require("../electron-connect/pension-guard.js");
-const fixture = require("../test-fixtures/pension/above-10m-ty2026.json");
+const fixture = require("./contracts/pension-12m-ty2026-contract.json");
+const { buildPension12mPdfBuffer } = require("./generate-pension-qa-fixture.cjs");
 const labels = {
   gross: "Gross Pension (Annual PKR)",
   medical: "Medical Allowance (Annual PKR)",
@@ -351,7 +352,7 @@ test("monthly-only source never auto-annualizes to satisfy annual gross", async 
 });
 
 test("12M fixture covers PDF bytes -> approval/calculation/automated packet/PDF/desktop pass", async () => {
-  const pdfBytes = fs.readFileSync(path.join(root, "test-fixtures/pension/SYNTHETIC-Pension-12M-TY2026.pdf"));
+  const pdfBytes = await buildPension12mPdfBuffer();
   const response = { documentType: "pension_statement", fields: facts().map((f) => ({ ...f, confidence: 0.99 })), transactions: [], notes: [] };
   const h = qa({ status: "PENDING", modelResponse: response, extractionFileBuffer: pdfBytes });
   Object.assign(h.state.documents[0], { extractedData: null, mimeType: "application/pdf", fileUrl: "/uploads/synthetic-pension.pdf", extractionStartedAt: null });

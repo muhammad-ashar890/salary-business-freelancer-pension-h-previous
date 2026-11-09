@@ -1149,7 +1149,12 @@ export async function generateFilingPacketAction(
           })
         : [];
     const mappedServicesIncomeForComputations = sumMoney(
-      (servicesPortalMappings?.businessFields ?? []).map((f) => f.ourAmount),
+      // Only the gross "Total Amount" row carries income; the 154A "Subject to
+      // Final Tax" row is a reclassification of the same money on the same IRIS
+      // row, so summing every Services business field would count it twice.
+      (servicesPortalMappings?.businessFields ?? [])
+        .filter((f) => String(f.column ?? "") === "Total Amount")
+        .map((f) => f.ourAmount),
     );
     const unmappedServicesIncomeForComputations = sumMoney(
       (servicesPortalMappings?.incomeGaps ?? []).map((g) => g.totalAmount),
@@ -1166,11 +1171,46 @@ export async function generateFilingPacketAction(
           business?.expectedIrisTotals?.computations ?? null,
       });
 
+    // Backlog item #2 — the same certificate-gated withholding money has to show
+    // up as an outflow on the Wealth Statement: the payer kept it at source, so
+    // it never leaves the bank as a debit and the ledger cannot report it. Left
+    // out, section 116 closes negative by exactly this sum (live run
+    // job-cmw8w6yzr0157kr84ao1959a9: 703000 = -7,000 on a 7,000 withholding).
+    // Only amounts the Services map actually emitted count; a `withholdingGaps`
+    // figure is unproven and must not appear on the return either here or there.
+    const servicesTaxDeductedBySection = new Map<
+      string,
+      { section: string; amount: number; sourceEntryCount: number }
+    >();
+    for (const field of servicesPortalMappings?.withholdingFields ?? []) {
+      const section = String(field.servicesStatutorySection ?? "").trim();
+      const amount = Math.round(Number(field.ourAmount ?? 0));
+      const entryCount = Math.max(
+        0,
+        Math.round(Number(field.sourceEntryCount ?? 0) || 0),
+      );
+      if (!section || !Number.isFinite(amount) || amount <= 0) continue;
+      const group = servicesTaxDeductedBySection.get(section);
+      if (group) {
+        group.amount += amount;
+        group.sourceEntryCount += entryCount;
+      } else {
+        servicesTaxDeductedBySection.set(section, {
+          section,
+          amount,
+          sourceEntryCount: entryCount,
+        });
+      }
+    }
+
     // Build portalFieldMap using IRIS codes for Electron agent
     const portalFieldMap = buildPortalFieldMap({
       taxYear: draftData.taxYear,
       filerType: draftData.filerType,
       taxpayerListStatus: draftData.taxpayerListStatus,
+      servicesTaxDeductedAtSource: Array.from(
+        servicesTaxDeductedBySection.values(),
+      ),
       businessBankEntriesCoveredByDeclaredProfit:
         Boolean(business) && isMyselfBusinessBankFlow(draftData),
       businessDepreciationAdditionsTotal,

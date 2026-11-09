@@ -1,6 +1,6 @@
 /**
  * A small stand-in for the IRIS Salary page's employer panel, built from the
- * real capture in test-fixtures/iris/employer/. It reproduces what the employer
+ * permanent contract in `scripts/contracts/iris-employer-contract.json`. It reproduces what the employer
  * driver depends on and nothing more:
  *
  *   + Add Employer Details -> "Add Employer" dialog (the real captured markup)
@@ -18,12 +18,37 @@
  */
 "use strict";
 
-const fs = require("node:fs");
-const path = require("node:path");
 const { JSDOM } = require("jsdom");
+const EMPLOYER_CONTRACT = require("../contracts/iris-employer-contract.json");
 
-const DIR = path.join(__dirname, "..", "..", "test-fixtures", "iris", "employer");
-const read = (name) => fs.readFileSync(path.join(DIR, name), "utf8");
+function renderEmployerPanelHtml() {
+  const p = EMPLOYER_CONTRACT.panel;
+  return (
+    `<div class="iris-data">` +
+    `<div class="${p.headerClass}"><span>${p.headerTitle}</span>` +
+    `<button type="button" class="${p.addButtonClass}">${p.addButtonLabel}</button></div>` +
+    `<div class="${p.listBodyClass}"></div>` +
+    `</div>`
+  );
+}
+
+function renderEmployerModalHtml() {
+  const d = EMPLOYER_CONTRACT.dialog;
+  const buttons = (d.buttons || [])
+    .map(
+      (b) =>
+        `<button type="button"${b.disabledInitially ? " disabled" : ""}>${b.label}</button>`,
+    )
+    .join("");
+  return (
+    `<mat-dialog-container role="dialog"><${d.componentTag}>` +
+    `<h6 mat-dialog-title><span class="left">${d.title}</span><mat-icon>close</mat-icon></h6>` +
+    `<div class="mat-mdc-form-field"><input type="text" formcontrolname="${d.regInputFormControlName}" disabled></div>` +
+    `<div class="mat-mdc-form-field"><input type="text" formcontrolname="${d.nameInputFormControlName}"></div>` +
+    `<mat-dialog-actions>${buttons}</mat-dialog-actions>` +
+    `</${d.componentTag}></mat-dialog-container>`
+  );
+}
 const bodyOf = (html) => new JSDOM(html).window.document.body;
 
 class FakeIrisEmployer {
@@ -54,9 +79,9 @@ class FakeIrisEmployer {
     );
     this.window = this.dom.window;
     this.document = this.window.document;
-    const panel = bodyOf(read("salary-employer-panel.html")).querySelector(".iris-data");
+    const panel = bodyOf(renderEmployerPanelHtml()).querySelector(".iris-data");
     this.document.querySelector(".iris-data").innerHTML = panel.innerHTML;
-    this.modalHtml = bodyOf(read("modal-add-employer.html")).querySelector("mat-dialog-container").outerHTML;
+    this.modalHtml = bodyOf(renderEmployerModalHtml()).querySelector("mat-dialog-container").outerHTML;
     for (const item of existing) this.appendCard(item);
     this.document.addEventListener("click", (event) => this.onClick(event), true);
     this.document.addEventListener("input", (event) => this.onInput(event));

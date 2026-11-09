@@ -66,9 +66,8 @@ const {
   isApprovalCurrent,
 } = estimateLib;
 
-const august = require(
-  path.join(root, "test-fixtures/sales-tax/month-2026-08.json"),
-);
+const { getSalesTaxMonthContract } = require("./lib/sales-tax-contract-months.cjs");
+const august = getSalesTaxMonthContract("month-2026-08");
 const owner = { registrationNo: august.registrationNo, period: august.period };
 
 function form(overrides = {}) {

@@ -52,7 +52,8 @@ const { prepareMonth } = kit.load("lib/sales-tax/prepare-month.ts");
 const { analyzeUploads } = kit.load("lib/sales-tax/analyze-uploads.ts");
 const { SALES_COLUMNS, PURCHASE_COLUMNS } = reader;
 
-const august = require(path.join(root, "test-fixtures/sales-tax/month-2026-08.json"));
+const { getSalesTaxMonthContract } = require("./lib/sales-tax-contract-months.cjs");
+const august = getSalesTaxMonthContract("month-2026-08");
 const period = august.period;
 const registrationNo = august.registrationNo;
 

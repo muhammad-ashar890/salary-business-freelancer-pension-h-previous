@@ -80,6 +80,8 @@
     "verify:services-ui-phase4": "node --test scripts/verify-services-ui-phase4.cjs",
     "verify:services-multi-category-action": "node --test scripts/verify-services-multi-category-action.cjs",
     "verify:services-portal-map": "node --test scripts/verify-services-portal-map.cjs",
+"verify:services-final-tax-row": "node --test scripts/verify-services-final-tax-row.cjs",
+"verify:services-withholding-outflow": "node --test scripts/verify-services-withholding-outflow.cjs",
     "verify:services-income-evidence-packet": "node --test scripts/verify-services-income-evidence-packet.cjs",
     "verify:services-withholding-prefill": "node --test scripts/verify-services-withholding-prefill.cjs",
     "verify:services-phase5": "node --test scripts/verify-services-multi-category-action.cjs scripts/verify-services-portal-map.cjs scripts/verify-services-income-evidence-packet.cjs scripts/verify-services-withholding-prefill.cjs",

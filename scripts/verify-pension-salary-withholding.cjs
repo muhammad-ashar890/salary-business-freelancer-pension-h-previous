@@ -449,3 +449,71 @@ test("pension-only salary treatment tags both 64020004 cells as PENSION_SALARY_1
   assert.equal(cells.length, 2);
   assert.ok(cells.every((f) => f.ourCategory === "PENSION_SALARY_149"));
 });
+
+test("Fix D: final_above_10m pension with actual source-deducted WHT emits 7098 outflow; nil WHT or ledger-overlapped WHT never invents or duplicates 7098", () => {
+  // 1) Actual source-deducted WHT = 100,000 (not in bank TAX_PAYMENT ledger) -> 7098 = 100,000
+  const withSourceWht = build({
+    treatment: "final_above_10m",
+    source: pensionSource("final_above_10m", {
+      taxDeducted: 100_000,
+      taxAlreadyInLedger: 0,
+      creditToAdd: 100_000,
+      baseTax: 100_000,
+      surcharge: 10_000,
+      taxDue: 110_000,
+    }),
+  });
+  const outflow1 = flattenPortalFieldMap(withSourceWht).filter((f) => f.irisCode === "7098");
+  assert.equal(outflow1.length, 1);
+  assert.equal(outflow1[0].value, "100000");
+  assert.equal(outflow1[0].rowDescriptionIncludes, "Income tax deducted u/s 149");
+
+  // 2) Nil WHT (taxDeducted = 0, even though calculated taxDue = 110,000) -> NO 7098 emitted
+  const nilWht = build({
+    treatment: "final_above_10m",
+    source: pensionSource("final_above_10m", {
+      taxDeducted: 0,
+      taxAlreadyInLedger: 0,
+      creditToAdd: 0,
+      baseTax: 100_000,
+      surcharge: 10_000,
+      taxDue: 110_000,
+    }),
+  });
+  assert.equal(flattenPortalFieldMap(nilWht).filter((f) => f.irisCode === "7098").length, 0);
+
+  // 3) WHT already booked in bank ledger (taxAlreadyInLedger = 100,000 -> creditToAdd = 0) -> NO duplicate 7098
+  const alreadyInLedger = build({
+    treatment: "final_above_10m",
+    source: pensionSource("final_above_10m", {
+      taxDeducted: 100_000,
+      taxAlreadyInLedger: 100_000,
+      creditToAdd: 0,
+      baseTax: 100_000,
+      surcharge: 10_000,
+      taxDue: 110_000,
+    }),
+  });
+  assert.equal(flattenPortalFieldMap(alreadyInLedger).filter((f) => f.irisCode === "7098").length, 0);
+
+  // 4) Combined Salary + Pension sums both genuine Section 149 source deductions into one 7098 row
+  const combined = buildPortalFieldMap({
+    taxYear: 2026,
+    filerType: "myself",
+    taxpayerListStatus: "ATL",
+    ledgerEntries: [
+      { id: "p1", entryType: "INCOME", category: "PENSION", description: "Pension", amount: PENSION },
+    ],
+    taxCredits: [],
+    salaryCertificateGrossSalary: 4_000_000,
+    salaryCertificateTaxWithheld: 500_000,
+    pensionSource: pensionSource("salary", {
+      taxDeducted: 100_000,
+      taxAlreadyInLedger: 0,
+      creditToAdd: 100_000,
+    }),
+  });
+  const combinedOutflow = flattenPortalFieldMap(combined).filter((f) => f.irisCode === "7098");
+  assert.equal(combinedOutflow.length, 1);
+  assert.equal(combinedOutflow[0].value, "600000");
+});
