@@ -69,9 +69,83 @@ function pensionEntryHold(snapshot) {
       const excess = Math.max(0, annual - 10_000_000);
       const baseTax = Math.round(excess * 0.05);
       const surcharge = Math.round(baseTax * 0.1);
+      const incomeSources = Array.isArray(snapshot?.filing?.incomeSources)
+        ? snapshot.filing.incomeSources
+        : [];
+      const includesSalary = incomeSources.includes("salary");
+      const includesBusiness = incomeSources.includes("business");
+      const hasUnmappedPortalIncome =
+        (detailed?.mappingGaps?.unmappedCategories?.length ?? 0) > 0;
+      const salaryGrossRow = (() => {
+        const rows = fields.filter(
+          (field) =>
+            String(field.irisCode) === "1009" &&
+            field.column === "Total Amount",
+        );
+        if (rows.length !== 1) return null;
+        return Number(rows[0].value ?? rows[0].ourAmount);
+      })();
+      const rawNormalSurcharge = detailed?.computationHints?.normalSlabSurcharge;
+      const businessComputations =
+        snapshot?.business?.expectedIrisTotals?.computations ?? null;
+      const expectedBusinessNormalSurcharge = (() => {
+        if (!includesBusiness || hasUnmappedPortalIncome) return 0;
+        if (
+          !incomeSources.every(
+            (s) => s === "business" || s === "salary" || s === "pension",
+          )
+        ) {
+          return 0;
+        }
+        if (
+          businessComputations?.version === "computations-v1" &&
+          businessComputations.minimumTaxRegime !== "minimum" &&
+          businessComputations.surcharge?.action === "TYPE" &&
+          Number.isInteger(businessComputations.surcharge.value) &&
+          businessComputations.surcharge.value > 0 &&
+          Number.isFinite(businessComputations.expectedTaxableIncome) &&
+          businessComputations.expectedTaxableIncome > 10_000_000 &&
+          Number.isFinite(businessComputations.expectedNormalTax) &&
+          businessComputations.expectedNormalTax > 0 &&
+          (businessComputations.surcharge.ratePercent === 9 ||
+            businessComputations.surcharge.ratePercent === 10) &&
+          Math.abs(
+            Math.round(
+              (businessComputations.expectedNormalTax *
+                businessComputations.surcharge.ratePercent) /
+                100,
+            ) - businessComputations.surcharge.value,
+          ) <= 1
+        ) {
+          return businessComputations.surcharge.value;
+        }
+        return 0;
+      })();
+      const normalSurchargeValid = includesBusiness
+        ? expectedBusinessNormalSurcharge > 0
+          ? rawNormalSurcharge === expectedBusinessNormalSurcharge
+          : rawNormalSurcharge === undefined
+        : rawNormalSurcharge === undefined
+          ? !(
+              includesSalary &&
+              !hasUnmappedPortalIncome &&
+              salaryGrossRow !== null &&
+              salaryGrossRow > 10_000_000
+            )
+          : includesSalary &&
+            !hasUnmappedPortalIncome &&
+            Number.isInteger(rawNormalSurcharge) &&
+            rawNormalSurcharge > 0 &&
+            (salaryGrossRow === null || salaryGrossRow > 10_000_000);
+      const expectedTotalSurcharge =
+        surcharge +
+        (normalSurchargeValid && rawNormalSurcharge !== undefined
+          ? rawNormalSurcharge
+          : 0);
       if (
         !(annual > 10_000_000) ||
         !fingerprintMatches ||
+        !normalSurchargeValid ||
         source.baseTax !== baseTax ||
         source.surcharge !== surcharge ||
         source.taxDue !== baseTax + surcharge ||
@@ -80,7 +154,7 @@ function pensionEntryHold(snapshot) {
         !match("1008", "Subject to Exemption", 10_000_000) ||
         !match("64020007", "Taxable Amount", excess) ||
         !match("64020007", "Tax Deducted", Number(source.taxDeducted)) ||
-        !match("923184", "Total Income", surcharge) ||
+        !match("923184", "Total Income", expectedTotalSurcharge) ||
         detailed?.mappingGaps?.pensionManualReview
       ) {
         message =
@@ -99,6 +173,34 @@ function pensionEntryHold(snapshot) {
       // ordinary salary route is fed by row 1009 and the portal derives that
       // cell itself; a pension charged as salary arrives on row 1008, so the
       // packet has to carry the base explicitly.
+      const includesSalary =
+        Array.isArray(snapshot?.filing?.incomeSources) &&
+        snapshot.filing.incomeSources.includes("salary");
+      const salaryGrossRow = (() => {
+        const rows = fields.filter(
+          (field) =>
+            String(field.irisCode) === "1009" &&
+            field.column === "Total Amount",
+        );
+        if (rows.length !== 1) return null;
+        return Number(rows[0].value ?? rows[0].ourAmount);
+      })();
+      const rawCertWht = detailed?.computationHints?.salaryCertificateTaxWithheld;
+      const certWhtValid =
+        !includesSalary ||
+        rawCertWht === undefined ||
+        (salaryGrossRow !== null &&
+          Number.isFinite(salaryGrossRow) &&
+          salaryGrossRow > 0 &&
+          Number.isFinite(Number(rawCertWht)) &&
+          Number(rawCertWht) >= 0 &&
+          Number(rawCertWht) <= salaryGrossRow);
+      const certWht =
+        includesSalary && certWhtValid && rawCertWht !== undefined
+          ? Number(rawCertWht)
+          : 0;
+      const pensionWht = Number(source.taxDeducted);
+      const expectedTotal149 = Math.round((certWht + pensionWht) * 100) / 100;
       const salaryBase = (() => {
         const rows = fields.filter(
           (field) =>
@@ -108,21 +210,26 @@ function pensionEntryHold(snapshot) {
         if (rows.length !== 1) return null;
         return Number(rows[0].value ?? rows[0].ourAmount);
       })();
+      const noFinalTaxRow =
+        fields.filter((field) => String(field.irisCode) === "64020007")
+          .length === 0;
       const salaryCreditOk =
         source.treatment !== "salary" ||
-        (Number(source.taxDeducted) > 0
-          ? match(
-              "64020004",
-              "Tax Collected / Deducted",
-              Number(source.taxDeducted),
-            ) &&
-            salaryBase !== null &&
-            Number.isFinite(salaryBase) &&
-            salaryBase >= Number(source.taxDeducted) &&
-            fields.filter((field) => String(field.irisCode) === "64020007")
-              .length === 0
-          : fields.filter((field) => String(field.irisCode) === "64020004")
-              .length === 0);
+        (certWhtValid &&
+          (pensionWht > 0
+            ? match("64020004", "Tax Collected / Deducted", expectedTotal149) &&
+              salaryBase !== null &&
+              Number.isFinite(salaryBase) &&
+              salaryBase >= expectedTotal149 &&
+              noFinalTaxRow
+            : certWht > 0
+              ? match("64020004", "Tax Collected / Deducted", certWht) &&
+                (salaryBase === null ||
+                  (Number.isFinite(salaryBase) && salaryBase >= certWht)) &&
+                noFinalTaxRow
+              : noFinalTaxRow &&
+                fields.filter((field) => String(field.irisCode) === "64020004")
+                  .length === 0));
       if (
         !(annual > 0) ||
         !fingerprintMatches ||

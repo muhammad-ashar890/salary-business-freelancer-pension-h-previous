@@ -6,6 +6,10 @@ import { reviewedBusinessEvidenceProblems } from "@/lib/tax/business-document-in
 import { parsePersistedSelectionUserDetails, TY2026_PENSION_FORMER_EMPLOYER_SUBCATEGORY, resolvePensionFormerEmployerAnswer } from "@/lib/tax/rules/ty2026/subcategories";
 import { resolveApprovedPensionSource, type PensionSource } from "@/lib/tax/pension-source";
 import { pensionPacketValidationError } from "@/lib/tax/pension-packet-validation";
+import {
+  buildNonBusinessComputationsPlan,
+  resolveFinalPensionAdditionalNormalSurcharge,
+} from "@/lib/tax/non-business-computations-plan";
 
 import {
   isBusinessBankCategory,
@@ -45,6 +49,7 @@ import {
   buildPacketRouteMetadata,
   buildPortalFieldMap,
   describeUnmappedPortalSources,
+  filterCoveredSalary149TaxCredits,
   type PortalFieldMap,
 } from "@/lib/tax/portal-field-map";
 import {
@@ -852,12 +857,13 @@ export async function generateFilingPacketAction(
     const parsedReadinessChecks = JSON.parse(
       draftData.readinessChecks,
     ) as string[];
-    const salaryCertificateTaxWithheld = extractMappedSalaryWithholding(
-      salaryCertificate?.extractedData ?? null,
-    );
-    const salaryCertificateGrossSalary = extractMappedSalaryGross(
-      salaryCertificate?.extractedData ?? null,
-    );
+    const salaryIncluded = parsedIncomeSources.includes("salary");
+    const salaryCertificateTaxWithheld = salaryIncluded
+      ? extractMappedSalaryWithholding(salaryCertificate?.extractedData ?? null)
+      : null;
+    const salaryCertificateGrossSalary = salaryIncluded
+      ? extractMappedSalaryGross(salaryCertificate?.extractedData ?? null)
+      : null;
 
     const bankAccountsForPacket = await prisma.bankAccount.findMany({
       where: { filingDraftId: draft.id, userId: draft.userId },
@@ -910,6 +916,80 @@ export async function generateFilingPacketAction(
       if(evidenceProblems.length) return {success:false,error:evidenceProblems.map(problem=>problem.text).join(" ")};
     }
 
+    let pensionSource: PensionSource | null = null;
+    if (parsedIncomeSources.includes("pension")) {
+      const latestPensionStatement = await prisma.document.findFirst({
+        where: { filingDraftId: draft.id, userId: draft.userId, documentType: "pension_statement" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { id: true, extractionStatus: true, extractedData: true },
+      });
+      const formerEmployerSelection = pensionSelections.find(s => s.subcategory === TY2026_PENSION_FORMER_EMPLOYER_SUBCATEGORY);
+      const taxAsSalary = formerEmployerSelection
+        ? resolvePensionFormerEmployerAnswer({ details: parsePersistedSelectionUserDetails(formerEmployerSelection.detailsJson) ?? undefined }) === "yes"
+        : false;
+      const category = normalizeLedgerCategory;
+      try {
+        pensionSource = resolveApprovedPensionSource({
+          document: latestPensionStatement, taxYear: draftData.taxYear,
+          profile: { dateOfBirth: draft.taxpayerDateOfBirth, cnic: draft.taxpayerCnic },
+          taxAsSalary,
+          ledgerPension: sumMoney(ledgerEntries.filter(e => e.entryType === "INCOME" && category(e.category) === "PENSION").map(e => e.amount)),
+          ledgerTaxWithheld: sumMoney(ledgerEntries.filter(e => e.category && e.entryType === "EXPENSE" && category(e.category) === "TAX_PAYMENT").map(e => e.amount)),
+          hasOtherIncomeSources: parsedIncomeSources.some(source => source !== "pension"),
+        });
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "Review the latest Pension Statement." };
+      }
+      if (pensionSource.treatment === "unknown_age") return { success: false, error: "Confirm profile/CNIC date of birth and recalculate the above-10M pension before generating a packet." };
+      // Bind the current source, Yes/No answer and profile age to the exact
+      // calculation revision. Never generate a new map around old tax totals.
+      const lines = await prisma.filingTaxCalculationLine.findMany({
+        where: { filingDraftId: draft.id, userId: draft.userId, calculationRevision: draftData.taxCalculationRevision, source: { in: ["pension", "combined_slab"] } },
+        select: { detailsJson: true },
+      });
+      const currentFingerprint = pensionSource.fingerprint;
+      const matchesSource = lines.some(line => {
+        try { return JSON.parse(line.detailsJson).pensionSource?.fingerprint === currentFingerprint; } catch { return false; }
+      });
+      if (!matchesSource) return { success: false, error: "Pension source, profile age or answer changed (or this is an older calculation). Recalculate Tax and approve a fresh pension packet." };
+    }
+
+    const supportedCombinedBusinessSources =
+      parsedIncomeSources.includes("business") &&
+      parsedIncomeSources.length > 1 &&
+      parsedIncomeSources.every(
+        (source) =>
+          source === "business" || source === "salary" || source === "pension",
+      );
+    const salaryReadyForCombinedComputations =
+      !parsedIncomeSources.includes("salary") ||
+      (salaryCertificateGrossSalary !== null && salaryCertificateGrossSalary > 0);
+    const pensionReadyForCombinedComputations =
+      !parsedIncomeSources.includes("pension") || Boolean(pensionSource);
+    const companionNormalIncome =
+      supportedCombinedBusinessSources &&
+      salaryReadyForCombinedComputations &&
+      pensionReadyForCombinedComputations
+        ? {
+            normalTaxableIncome: sumMoney([
+              salaryCertificateGrossSalary ?? 0,
+              pensionSource?.treatment === "salary"
+                ? pensionSource.annualPension
+                : 0,
+            ]),
+            salaryHeadIncome: sumMoney([
+              salaryCertificateGrossSalary ?? 0,
+              pensionSource?.treatment === "salary"
+                ? pensionSource.annualPension
+                : 0,
+            ]),
+            finalPensionSurcharge:
+              pensionSource?.treatment === "final_above_10m"
+                ? (pensionSource.surcharge ?? 0)
+                : 0,
+          }
+        : null;
+
     let business: BusinessPacket;
     try {
       business = buildBusinessPacket({
@@ -920,6 +1000,7 @@ export async function generateFilingPacketAction(
         balanceSheet: businessBalanceSheet,
         books: reviewedBusinessBooks,
         bankStatementBalances,
+        companionNormalIncome,
       });
     } catch (error) {
       return {
@@ -948,42 +1029,6 @@ export async function generateFilingPacketAction(
     const unscopedBusinessBankEntries = businessBankEntries.some(
       (entry) => !entry.bankAccountId,
     );
-    let pensionSource: PensionSource | null = null;
-    if (parsedIncomeSources.includes("pension")) {
-      const latestPensionStatement = await prisma.document.findFirst({
-        where: { filingDraftId: draft.id, userId: draft.userId, documentType: "pension_statement" },
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        select: { id: true, extractionStatus: true, extractedData: true },
-      });
-      const formerEmployerSelection = pensionSelections.find(s => s.subcategory === TY2026_PENSION_FORMER_EMPLOYER_SUBCATEGORY);
-      const taxAsSalary = formerEmployerSelection
-        ? resolvePensionFormerEmployerAnswer({ details: parsePersistedSelectionUserDetails(formerEmployerSelection.detailsJson) ?? undefined }) === "yes"
-        : false;
-      const category = normalizeLedgerCategory;
-      try {
-        pensionSource = resolveApprovedPensionSource({
-          document: latestPensionStatement, taxYear: draftData.taxYear,
-          profile: { dateOfBirth: draft.taxpayerDateOfBirth, cnic: draft.taxpayerCnic },
-          taxAsSalary,
-          ledgerPension: sumMoney(ledgerEntries.filter(e => e.entryType === "INCOME" && category(e.category) === "PENSION").map(e => e.amount)),
-          ledgerTaxWithheld: sumMoney(ledgerEntries.filter(e => e.entryType === "EXPENSE" && category(e.category) === "TAX_PAYMENT").map(e => e.amount)),
-        });
-      } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "Review the latest Pension Statement." };
-      }
-      if (pensionSource.treatment === "unknown_age") return { success: false, error: "Confirm profile/CNIC date of birth and recalculate the above-10M pension before generating a packet." };
-      // Bind the current source, Yes/No answer and profile age to the exact
-      // calculation revision. Never generate a new map around old tax totals.
-      const lines = await prisma.filingTaxCalculationLine.findMany({
-        where: { filingDraftId: draft.id, userId: draft.userId, calculationRevision: draftData.taxCalculationRevision, source: { in: ["pension", "combined_slab"] } },
-        select: { detailsJson: true },
-      });
-      const currentFingerprint = pensionSource.fingerprint;
-      const matchesSource = lines.some(line => {
-        try { return JSON.parse(line.detailsJson).pensionSource?.fingerprint === currentFingerprint; } catch { return false; }
-      });
-      if (!matchesSource) return { success: false, error: "Pension source, profile age or answer changed (or this is an older calculation). Recalculate Tax and approve a fresh pension packet." };
-    }
 
     // DP-2: an IBAN declared as a business account is typed by the agent in
     // the Business Balance Sheet (3320). It is never also written as a
@@ -1075,6 +1120,51 @@ export async function generateFilingPacketAction(
     const taxCreditsForPortalMap = taxCredits.filter(
       (credit) => !suppressedServicesTaxCreditIds.has(credit.id),
     );
+    const hasMappedSalaryCertificate =
+      Boolean(salaryCertificate) && parsedIncomeSources.includes("salary");
+    const effectivePortalTaxCredits = filterCoveredSalary149TaxCredits(
+      taxCreditsForPortalMap,
+      { hasMappedSalaryCertificate },
+    );
+
+    const taxCalculationLinesForComputations =
+      !business &&
+      draftData.taxCalculationRevision !== null &&
+      draftData.taxCalculationRevision !== undefined &&
+      typeof prisma.filingTaxCalculationLine?.findMany === "function"
+        ? await prisma.filingTaxCalculationLine.findMany({
+            where: {
+              filingDraftId: draft.id,
+              userId: draft.userId,
+              calculationRevision: draftData.taxCalculationRevision,
+            },
+            select: {
+              source: true,
+              taxBase: true,
+              baseTax: true,
+              surcharge: true,
+              calculatedTax: true,
+              detailsJson: true,
+            },
+          })
+        : [];
+    const mappedServicesIncomeForComputations = sumMoney(
+      (servicesPortalMappings?.businessFields ?? []).map((f) => f.ourAmount),
+    );
+    const unmappedServicesIncomeForComputations = sumMoney(
+      (servicesPortalMappings?.incomeGaps ?? []).map((g) => g.totalAmount),
+    );
+    const additionalSection4ABSurcharge =
+      resolveFinalPensionAdditionalNormalSurcharge({
+        incomeSources: parsedIncomeSources,
+        pensionTreatment: pensionSource?.treatment ?? null,
+        calculationLines: taxCalculationLinesForComputations,
+        mappedServicesIncomePkr: mappedServicesIncomeForComputations,
+        hasServicesIncomeGaps:
+          (servicesPortalMappings?.incomeGaps.length ?? 0) > 0,
+        businessExpectedComputations:
+          business?.expectedIrisTotals?.computations ?? null,
+      });
 
     // Build portalFieldMap using IRIS codes for Electron agent
     const portalFieldMap = buildPortalFieldMap({
@@ -1096,7 +1186,8 @@ export async function generateFilingPacketAction(
           : null,
       })),
       coveredLedgerEntryIds: servicesCoveredLedgerEntryIds,
-      taxCredits: taxCreditsForPortalMap.map((c) => ({
+      additionalSection4ABSurcharge,
+      taxCredits: effectivePortalTaxCredits.map((c) => ({
         id: c.id,
         section: c.section,
         subcategory: c.subcategory,
@@ -1113,9 +1204,9 @@ export async function generateFilingPacketAction(
       salaryCertificateGrossSalary,
       // Employers named on the reviewed salary certificate; the agent adds
       // each one by name on the IRIS Salary page.
-      employers: extractMappedSalaryEmployers(
-        salaryCertificate?.extractedData ?? null,
-      ),
+      employers: salaryIncluded
+        ? extractMappedSalaryEmployers(salaryCertificate?.extractedData ?? null)
+        : [],
       // Net cash moved out of the bank; becomes a 7012 Cash in hand movement.
       netCashMovement:
         "preview" in reconciliation && reconciliation.preview
@@ -1279,6 +1370,50 @@ export async function generateFilingPacketAction(
           businessPending: businessSnapshot.pending,
         }
       : coverageGate.coverage;
+    const hasUnmappedPortalIncome =
+      (portalFieldMap.mappingGaps?.unmappedCategories?.length ?? 0) > 0;
+    if (hasUnmappedPortalIncome && business && companionNormalIncome) {
+      const resetBusiness = buildBusinessPacket({
+        taxYear: draftData.taxYear,
+        filerType: draftData.filerType,
+        incomeSources: parsedIncomeSources,
+        selections: businessSelections,
+        balanceSheet: businessBalanceSheet,
+        books: reviewedBusinessBooks,
+        bankStatementBalances,
+        companionNormalIncome: null,
+      });
+      if (resetBusiness) {
+        business.expectedIrisTotals = resetBusiness.expectedIrisTotals;
+      }
+    }
+    if (
+      hasUnmappedPortalIncome &&
+      additionalSection4ABSurcharge > 0 &&
+      pensionSource?.treatment === "final_above_10m"
+    ) {
+      const pensionOnlySurcharge = pensionSource.surcharge ?? 0;
+      const surchargeRow = portalFieldMap.adjustableTaxFields.find(
+        (f) => f.irisCode === "923184" && f.column === "Total Income",
+      );
+      if (surchargeRow) {
+        surchargeRow.ourAmount = pensionOnlySurcharge;
+        surchargeRow.ourDescription =
+          "Section 4AB surcharge on calculated pension tax.";
+        surchargeRow.sourceEntryCount = 1;
+      }
+      delete portalFieldMap.computationHints.normalSlabSurcharge;
+    }
+    const nonBusinessComputations = buildNonBusinessComputationsPlan({
+      incomeSources: parsedIncomeSources,
+      calculationLines: taxCalculationLinesForComputations,
+      pensionTreatment: pensionSource?.treatment ?? null,
+      mappedServicesIncomePkr: mappedServicesIncomeForComputations,
+      unmappedServicesIncomePkr: unmappedServicesIncomeForComputations,
+      hasServicesIncomeGaps:
+        (servicesPortalMappings?.incomeGaps.length ?? 0) > 0,
+      hasUnmappedPortalIncome,
+    });
 
     const latestOwnership = await currentBusinessOwnershipStamp(draft.id, draft.userId);
     if (latestOwnership.error || JSON.stringify(latestOwnership.stamp) !== JSON.stringify(initialOwnership.stamp))
@@ -1302,6 +1437,7 @@ export async function generateFilingPacketAction(
       routeMetadata,
       portalFieldMap,
       ...(pensionSource ? { pension: pensionSource } : {}),
+      ...(nonBusinessComputations ? { computations: nonBusinessComputations } : {}),
       ...(approvedPreviousReturn
         ? {
             wealthExpectations: {

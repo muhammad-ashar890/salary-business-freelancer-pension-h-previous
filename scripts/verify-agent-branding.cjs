@@ -137,7 +137,7 @@ test("native-window title prevents remote document overwrite", () => {
   assert.equal(title, "TR Filing Agent — IRIS");
 });
 test("all app window types, renderer, default menu and duplicate-instance dialog are branded", () => {
-  const main = fs.readFileSync(path.join(dir, "main.js"), "utf8");
+  const main = fs.readFileSync(path.join(dir, "main.js"), "utf8").replace(/\r\n/g, "\n");
   assert.ok(
     main.indexOf("configureAppBranding({ app, fs, path })") <
       main.indexOf("const stateStore ="),

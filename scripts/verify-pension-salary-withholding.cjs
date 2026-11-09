@@ -337,3 +337,115 @@ test("an exempt pension with withholding is still refused by the desktop agent",
 test("a plain exempt pension with no withholding is still accepted", () => {
   assert.equal(pensionEntryHold(snapshotFor("exempt", 0)), null);
 });
+
+test("combined Salary + Pension sums both Section 149 credits on 64020004 and passes the desktop guard", () => {
+  const certGross = 4_000_000;
+  const certWht = 500_000;
+  const map = buildPortalFieldMap({
+    taxYear: 2026,
+    filerType: "myself",
+    taxpayerListStatus: "ATL",
+    ledgerEntries: [
+      { id: "p1", entryType: "INCOME", category: "PENSION", description: "Pension", amount: PENSION },
+    ],
+    taxCredits: [],
+    salaryCertificateGrossSalary: certGross,
+    salaryCertificateTaxWithheld: certWht,
+    pensionSource: pensionSource("salary"),
+  });
+  const list = fields(map);
+  const base = taxableAmountOn(list, "64020004");
+  const credited = taxDeductedOn(list, "64020004");
+  assert.equal(base.length, 1);
+  assert.equal(base[0].value, String(certGross + PENSION));
+  assert.equal(credited.length, 1);
+  assert.equal(credited[0].value, String(certWht + TAX));
+
+  const flattened = flattenPortalFieldMap(map);
+  const snapshot = {
+    filing: { incomeSources: ["salary", "pension"] },
+    pension: {
+      version: "pension-source-v1",
+      fingerprint: "a".repeat(64),
+      treatment: "salary",
+      annualPension: PENSION,
+      taxDeducted: TAX,
+      baseTax: 3_381_000,
+      surcharge: 304_290,
+      taxDue: TAX,
+    },
+    portalFieldMapDetailed: {
+      ...map,
+      computationHints: {
+        ...map.computationHints,
+        pensionSourceFingerprint: "a".repeat(64),
+      },
+    },
+    portalFieldMap: flattened,
+  };
+  assert.equal(pensionEntryHold(snapshot), null);
+
+  // Tampering 64020004 down to certificate-only WHT (dropping pension WHT) is caught.
+  const tampered = structuredClone(snapshot);
+  tampered.portalFieldMap.find(
+    (f) => f.irisCode === "64020004" && f.column === "Tax Collected / Deducted",
+  ).value = String(certWht);
+  assert.ok(pensionEntryHold(tampered)?.paused);
+});
+
+test("combined Salary + Pension with salary-treatment zero pension WHT keeps certificate 64020004 credit", () => {
+  const certGross = 2_000_000;
+  const certWht = 50_000;
+  const zeroPensionSource = pensionSource("salary", {
+    taxDeducted: 0,
+    creditToAdd: 0,
+  });
+  const map = buildPortalFieldMap({
+    taxYear: 2026,
+    filerType: "myself",
+    taxpayerListStatus: "ATL",
+    ledgerEntries: [
+      { id: "p1", entryType: "INCOME", category: "PENSION", description: "Pension", amount: PENSION },
+    ],
+    taxCredits: [],
+    salaryCertificateGrossSalary: certGross,
+    salaryCertificateTaxWithheld: certWht,
+    pensionSource: zeroPensionSource,
+  });
+  const flattened = flattenPortalFieldMap(map);
+  const credited = flattened.filter(
+    (f) => f.irisCode === "64020004" && f.column === "Tax Collected / Deducted",
+  );
+  assert.equal(credited.length, 1);
+  assert.equal(credited[0].value, String(certWht));
+
+  const snapshot = {
+    filing: { incomeSources: ["salary", "pension"] },
+    pension: {
+      version: "pension-source-v1",
+      fingerprint: "a".repeat(64),
+      treatment: "salary",
+      annualPension: PENSION,
+      taxDeducted: 0,
+      baseTax: 0,
+      surcharge: 0,
+      taxDue: 0,
+    },
+    portalFieldMapDetailed: {
+      ...map,
+      computationHints: {
+        ...map.computationHints,
+        pensionSourceFingerprint: "a".repeat(64),
+      },
+    },
+    portalFieldMap: flattened,
+  };
+  assert.equal(pensionEntryHold(snapshot), null);
+});
+
+test("pension-only salary treatment tags both 64020004 cells as PENSION_SALARY_149 for Pension + Services", () => {
+  const flattened = flattenPortalFieldMap(build({ treatment: "salary" }));
+  const cells = flattened.filter((f) => f.irisCode === "64020004");
+  assert.equal(cells.length, 2);
+  assert.ok(cells.every((f) => f.ourCategory === "PENSION_SALARY_149"));
+});

@@ -46,16 +46,21 @@ export function resolveApprovedPensionSource(input: {
   taxAsSalary: boolean;
   ledgerPension: number;
   ledgerTaxWithheld: number;
+  hasOtherIncomeSources?: boolean;
 }): PensionSource {
   const doc = input.document;
   if (!doc || doc.extractionStatus !== "MAPPED")
     throw new Error(
       "Review and approve/map the latest Pension Statement before calculating. An uploaded or extracted statement is not an approved annual pension tax base.",
     );
+  const hasOtherIncomeSources = input.hasOtherIncomeSources === true;
   const statement = readReviewedPensionStatement(
     doc.extractedData,
     input.taxYear,
-    { ledgerTaxWithheld: input.ledgerTaxWithheld },
+    {
+      ledgerTaxWithheld: input.ledgerTaxWithheld,
+      hasOtherIncomeSources,
+    },
   );
   const errors = pensionProfileErrors(statement, input.profile);
   if (statement.taxAlreadyInLedger > input.ledgerTaxWithheld)
@@ -104,6 +109,7 @@ export function resolveApprovedPensionSource(input: {
         taxAsSalary: input.taxAsSalary,
         ledgerPension: input.ledgerPension,
         ledgerTaxWithheld: input.ledgerTaxWithheld,
+        ...(hasOtherIncomeSources ? { hasOtherIncomeSources: true } : {}),
       }),
     )
     .digest("hex");

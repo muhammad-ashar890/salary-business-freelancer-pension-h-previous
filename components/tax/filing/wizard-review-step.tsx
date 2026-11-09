@@ -98,6 +98,32 @@ export function WizardReviewStep({
   const needsUserInput =
     filingSummary?.taxCalculationStatus === "NEEDS_USER_INPUT";
   const hasSalaryTaxLine = breakdown.some((line) => line.source === "salary");
+  const businessWithholding = filingSummary?.businessWithholding ?? null;
+  const hasBusinessWithholdingActivity =
+    businessWithholding !== null &&
+    ((businessWithholding.totalDeducted ?? 0) > 0 ||
+      businessWithholding.queuedTotal > 0 ||
+      businessWithholding.problems.length > 0);
+  const businessWithholdingKpiSub = !hasBusinessWithholdingActivity
+    ? undefined
+    : businessWithholding.problems.length > 0
+      ? "Excludes Business WHT — resolve the Business Tax Deduction issue below."
+      : businessWithholding.queuedTotal > 0 &&
+          businessWithholding.manualRemainder > 0
+        ? `Excludes ${amount(businessWithholding.totalDeducted ?? businessWithholding.queuedTotal)} Business WHT (${amount(businessWithholding.queuedTotal)} queued for IRIS; ${amount(businessWithholding.manualRemainder)} un-itemized).`
+        : businessWithholding.queuedTotal > 0
+          ? `Excludes ${amount(businessWithholding.queuedTotal)} queued for IRIS Business > Tax Deduction (applied by IRIS per section).`
+          : `Excludes ${amount(businessWithholding.manualRemainder)} Business WHT in Books (itemize by section in Business data review to queue for IRIS).`;
+  const businessPayableKpiSub =
+    hasBusinessWithholdingActivity && businessWithholding.queuedTotal > 0
+      ? `Estimate only. The amount to pay is the one IRIS shows (before ${amount(businessWithholding.queuedTotal)} queued Business Tax Deduction credits).`
+      : hasBusinessWithholdingActivity &&
+          (businessWithholding.totalDeducted ?? 0) > 0
+        ? `Estimate only. The amount to pay is the one IRIS shows (before ${amount(businessWithholding.totalDeducted ?? 0)} Business WHT in Books).`
+        : "Estimate only. The amount to pay is the one IRIS shows.";
+  const businessRefundKpiSub = hasBusinessWithholdingActivity
+    ? "Excludes IRIS Business > Tax Deduction credits until IRIS computes per-section adjustments."
+    : undefined;
   const selectedServicesCategories =
     filingSummary?.selectedServicesSubcategories ?? [];
   const servicesReceipts = filingSummary?.servicesIncomeEntries ?? [];
@@ -276,17 +302,19 @@ export function WizardReviewStep({
         <WorkflowKpiCard
           label="Tax already withheld"
           value={money(filingSummary?.taxWithheld)}
+          sub={businessWithholdingKpiSub}
           accent="mizan"
         />
         <WorkflowKpiCard
           label="Tax payable"
           value={money(filingSummary?.taxPayable)}
-          sub="Estimate only. The amount to pay is the one IRIS shows."
+          sub={businessPayableKpiSub}
           accent="amanah"
         />
         <WorkflowKpiCard
           label="Refund due"
           value={money(filingSummary?.refundDue)}
+          sub={businessRefundKpiSub}
           accent="amanah"
         />
       </WorkflowKpiStrip>
@@ -463,6 +491,103 @@ export function WizardReviewStep({
               Collected when the transaction happened. Not deducted from Tax
               payable automatically — claim it as credit with CPR,
               goods-declaration or bill evidence.
+            </p>
+          </div>
+        )}
+
+        {hasBusinessWithholdingActivity && businessWithholding && (
+          <div
+            data-testid="business-withholding-review-panel"
+            className="rounded-lg border border-border/70 bg-muted/20"
+          >
+            <div className="border-b border-border/70 px-3 py-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Business tax deducted at source (IRIS Business &gt; Tax Deduction)
+              </p>
+            </div>
+            {businessWithholding.entries.length > 0 && (
+              <ul className="divide-y divide-border/50">
+                {businessWithholding.entries.map((entry) => (
+                  <li
+                    key={`business-wht-${entry.regime}-${entry.code}`}
+                    className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium">
+                          {entry.label}
+                        </span>
+                        <span className="rounded-full bg-amanah/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amanah">
+                          {entry.regime === "minimum"
+                            ? "Minimum tax"
+                            : "Adjustable tax"}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        IRIS {entry.code} · Taxable amount{" "}
+                        {amount(entry.taxableAmount)}
+                        {entry.attributableIncome !== null
+                          ? ` · Attributable income ${amount(entry.attributableIncome)}`
+                          : ""}
+                      </p>
+                    </div>
+                    <span className="text-sm font-semibold tabular-nums">
+                      {amount(entry.taxDeducted)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {businessWithholding.queuedTotal > 0 && (
+              <div className="border-t border-border/70 px-3 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold">
+                    Total queued for IRIS Business &gt; Tax Deduction
+                  </span>
+                  <span className="text-sm font-semibold tabular-nums">
+                    {amount(businessWithholding.queuedTotal)}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Adjustable tax: {amount(businessWithholding.queuedAdjustable)}
+                  {" · "}Minimum tax: {amount(businessWithholding.queuedMinimum)}
+                </p>
+              </div>
+            )}
+            {businessWithholding.manualRemainder > 0 &&
+              businessWithholding.problems.length === 0 && (
+                <div className="border-t border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+                  <div className="flex items-center justify-between gap-2 font-semibold">
+                    <span>Not itemized by IRIS section</span>
+                    <span className="tabular-nums">
+                      {amount(businessWithholding.manualRemainder)}
+                    </span>
+                  </div>
+                  <p className="mt-1 leading-relaxed">
+                    List adjustable or minimum-tax sections in Business data
+                    review so the desktop agent types them under Business &gt;
+                    Tax Deduction, or enter final/special sections directly in
+                    FBR.
+                  </p>
+                </div>
+              )}
+            {businessWithholding.problems.length > 0 && (
+              <div className="border-t border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+                <p className="font-semibold">
+                  Fix in Business data review before generating the packet:
+                </p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                  {businessWithholding.problems.map((problem, index) => (
+                    <li key={`business-wht-problem-${index}`}>{problem}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="border-t border-border/70 px-3 py-2 text-xs text-muted-foreground">
+              Not subtracted from Tax already withheld or Tax payable above: for
+              Business &gt; Tax Deduction rows (including Minimum Tax sections),
+              IRIS compares section tax against tax on attributable taxable
+              income on the portal before applying the net credit.
             </p>
           </div>
         )}

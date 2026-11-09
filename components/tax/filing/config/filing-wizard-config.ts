@@ -225,6 +225,26 @@ export type ExcludedPositiveCredit = {
   reason: string | null;
 };
 
+export type BusinessWithholdingSummaryEntry = {
+  regime: "adjustable" | "minimum" | "final";
+  code: string;
+  label: string;
+  taxableAmount: number;
+  taxDeducted: number;
+  attributableIncome: number | null;
+};
+
+export type BusinessWithholdingSummary = {
+  booksMapped: boolean;
+  totalDeducted: number | null;
+  queuedTotal: number;
+  queuedAdjustable: number;
+  queuedMinimum: number;
+  manualRemainder: number;
+  entries: BusinessWithholdingSummaryEntry[];
+  problems: string[];
+};
+
 export type FilingSummary = {
   income: number;
   expenses: number;
@@ -266,6 +286,13 @@ export type FilingSummary = {
    */
   collectionBreakdown?: TaxBreakdownLine[];
   collectionTaxDue?: number;
+  /**
+   * Queued IRIS Business > Tax Deduction rows and un-itemized remainder for
+   * Myself / TY2026 Business and Salary + Business returns (excluded from
+   * `taxWithheld` / `taxPayable` above because IRIS computes per-section
+   * Minimum Tax vs. attributable-income comparisons on the portal).
+   */
+  businessWithholding?: BusinessWithholdingSummary | null;
 };
 
 /**

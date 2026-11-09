@@ -190,7 +190,11 @@ export function getPensionStatementReviewErrors(fields: PensionField[] | undefin
 }
 
 /** Tax readiness is stricter than statement review: no missing-as-zero credits. */
-export function getPensionTaxReadinessErrors(fields: PensionField[] | undefined, ledgerTaxWithheld?: number): string[] {
+export function getPensionTaxReadinessErrors(
+  fields: PensionField[] | undefined,
+  ledgerTaxWithheld?: number,
+  options?: { hasOtherIncomeSources?: boolean },
+): string[] {
   const errors: string[] = [];
   const medical = parsePensionAmount(pensionFieldValue(fields, "medicalAnnual"));
   if (isBlank(pensionFieldValue(fields, "approvedAnnual")) && pensionTaxBasisNeedsReview(fields)) {
@@ -202,13 +206,18 @@ export function getPensionTaxReadinessErrors(fields: PensionField[] | undefined,
   if (deducted === null) {
     errors.push("Pension Tax Deducted (Annual PKR) is not stated. Confirm the actual deduction before final tax calculation; enter 0 only after verification. Unknown withholding is not zero.");
   } else if (deducted > 0 && isBlank(pensionFieldValue(fields, "taxAlreadyInLedger"))) {
-    // No question when nothing can overlap: an empty tax ledger, or a ledger
-    // total equal to the certificate's deduction, is the same money and the
-    // overlap is known without asking anyone. Only a real difference needs a
-    // human decision, and the question is then asked in plain words.
+    // No question when nothing can overlap: an empty tax ledger cannot overlap,
+    // and on a pension-only filing a ledger total equal to the certificate's
+    // deduction is the same money. When other income sources are also selected,
+    // equal-sized TAX_PAYMENT entries may belong to another source, so the
+    // overlap must be explicitly confirmed instead of assumed.
+    const hasOtherIncomeSources = options?.hasOtherIncomeSources === true;
     if (ledgerTaxWithheld === undefined) {
       errors.push("Confirm Pension Withholding Already in Tax Ledger before calculating when existing tax entries may overlap. Link/review the actual pension deduction; do not allocate unrelated TAX_PAYMENT entries by guessing.");
-    } else if (ledgerTaxWithheld !== 0 && ledgerTaxWithheld !== deducted) {
+    } else if (
+      ledgerTaxWithheld !== 0 &&
+      (hasOtherIncomeSources || ledgerTaxWithheld !== deducted)
+    ) {
       errors.push(
         `Pension tax deducted is ${formatPkr(deducted)} and the bank ledger holds tax payments totalling ${formatPkr(ledgerTaxWithheld)}. ` +
           "Enter how much of the deduction is already among those ledger payments (0 if they are separate payments), then calculate again. " +
@@ -284,17 +293,28 @@ export function readPensionStatementFacts(raw: unknown, taxYear: number): Pensio
   };
 }
 /** Only this stricter reader may supply a calculation/packet source. */
-export function readReviewedPensionStatement(raw: unknown, taxYear: number, context: { ledgerTaxWithheld?: number } = {}): ReviewedPensionStatement {
+export function readReviewedPensionStatement(
+  raw: unknown,
+  taxYear: number,
+  context: { ledgerTaxWithheld?: number; hasOtherIncomeSources?: boolean } = {},
+): ReviewedPensionStatement {
   const facts = readPensionStatementFacts(raw, taxYear);
-  const errors = getPensionTaxReadinessErrors(pensionFieldsFromPayload(raw), context.ledgerTaxWithheld);
+  const hasOtherIncomeSources = context.hasOtherIncomeSources === true;
+  const errors = getPensionTaxReadinessErrors(
+    pensionFieldsFromPayload(raw),
+    context.ledgerTaxWithheld,
+    { hasOtherIncomeSources },
+  );
   if (errors.length) throw new Error(errors.join(" · "));
 
-  // The certificate's deduction and the ledger's tax payments are the same
-  // money when the two totals are equal: the payer's deduction is the only tax
-  // the bank ever saw. Counting it twice would invent a refund, so the full
-  // overlap is recognised here instead of asking the taxpayer to retype it.
+  // On a pension-only filing, the certificate's deduction and the ledger's tax
+  // payments are the same money when the two totals are equal: the payer's
+  // deduction is the only tax the bank ever saw. On a multi-source filing,
+  // auto-overlap is disabled so equal-sized TAX_PAYMENT rows from another
+  // income source never silently zero out the pension credit.
   const ledger = context.ledgerTaxWithheld;
   const autoOverlap =
+    !hasOtherIncomeSources &&
     facts.taxAlreadyInLedger === null &&
     typeof ledger === "number" &&
     ledger > 0 &&

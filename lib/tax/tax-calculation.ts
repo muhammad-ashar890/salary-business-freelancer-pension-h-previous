@@ -435,6 +435,25 @@ export function section4ABRatePercent(input: {
 }
 
 /**
+ * Normal-regime Division I base tax (unrounded rupees) for an individual:
+ * Division I clause (2) salaried table when salary-head income exceeds 75% of
+ * taxable income (`salary * 4 > taxable * 3`), otherwise Division I clause (1).
+ */
+export function divisionITaxForIncome(input: {
+  taxableIncome: number;
+  salaryHeadIncome: number;
+}): number | null {
+  const taxable = Number(input.taxableIncome) || 0;
+  const salary = Number(input.salaryHeadIncome) || 0;
+  if (!(taxable > 0)) return 0;
+  if (salary * 4 > taxable * 3) {
+    const priced = computeSalaryRoute(taxable);
+    return isRouteFailure(priced) ? null : priced.baseTax;
+  }
+  return divisionIClause1Tax(taxable);
+}
+
+/**
  * Section 4C super tax, Division IIB of Part I of the First Schedule, column
  * "tax year 2026 and onwards" as amended by the Finance Act 2025 (ITO up to
  * 31-Jul-2025, pages 516-517; page images in research/law-page-images). The

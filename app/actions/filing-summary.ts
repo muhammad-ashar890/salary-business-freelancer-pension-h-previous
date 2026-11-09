@@ -6,7 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { getRequiredTaxDocumentTypesForCurrentFlow } from "@/lib/tax/document-requirements";
 import { moneyEquals, sumMoney, toMoneyNumberOrNull } from "@/lib/money";
 import { getWithholdingDuplicateWarning } from "@/lib/tax/withholding-sources";
-import { getTy2026SubcategoryOptions } from "@/lib/tax/rules/ty2026/subcategories";
+import {
+  TY2026_BUSINESS_PROFIT_SUBCATEGORY,
+  getTy2026SubcategoryOptions,
+} from "@/lib/tax/rules/ty2026/subcategories";
+import { summarizeBusinessWithholding } from "@/lib/tax/business-withholding-summary";
 import { isSingleFreelancerServicesFiling } from "@/lib/tax/business-bank-categories";
 import {
   SERVICES_LEDGER_ALLOCATION_ORIGIN,
@@ -57,7 +61,18 @@ async function getOwnedDraft(draftId: string) {
 export async function getFilingSummaryAction(draftId: string) {
   try {
     const draft = await getOwnedDraft(draftId);
+    let parsedIncomeSources: string[] = [];
+    try {
+      const parsed = JSON.parse(draft.incomeSources);
+      parsedIncomeSources = Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      parsedIncomeSources = [];
+    }
     const freelancerEnabled = isSingleFreelancerServicesFiling(draft);
+    const businessSummaryEnabled =
+      draft.taxYear === 2026 &&
+      draft.filerType === "myself" &&
+      parsedIncomeSources.includes("business");
     const [
       entries,
       documents,
@@ -68,6 +83,8 @@ export async function getFilingSummaryAction(draftId: string) {
       excludedCreditRows,
       exclusionEvents,
       servicesEvidenceDocumentRows,
+      businessProfitSelections,
+      mappedBusinessBooksRows,
     ] = await Promise.all([
       prisma.ledgerEntry.findMany({
         where: {
@@ -208,6 +225,29 @@ export async function getFilingSummaryAction(draftId: string) {
               extractionStatus: true,
               extractedData: true,
             },
+          })
+        : Promise.resolve([]),
+      businessSummaryEnabled
+        ? prisma.filingIncomeSelection.findMany({
+            where: {
+              filingDraftId: draft.id,
+              userId: draft.userId,
+              source: "business",
+              subcategory: TY2026_BUSINESS_PROFIT_SUBCATEGORY,
+              status: "SELECTED",
+            },
+            select: { detailsJson: true },
+          })
+        : Promise.resolve([]),
+      businessSummaryEnabled
+        ? prisma.document.findMany({
+            where: {
+              filingDraftId: draft.id,
+              userId: draft.userId,
+              documentType: "business_books",
+              extractionStatus: "MAPPED",
+            },
+            select: { extractedData: true },
           })
         : Promise.resolve([]),
     ]);
@@ -459,6 +499,18 @@ export async function getFilingSummaryAction(draftId: string) {
       draft.id,
       draft.userId,
     );
+    const businessWithholding = summarizeBusinessWithholding({
+      taxYear: draft.taxYear,
+      filerType: draft.filerType,
+      incomeSources: parsedIncomeSources,
+      selectionDetailsJson:
+        businessProfitSelections.length === 1
+          ? businessProfitSelections[0].detailsJson
+          : null,
+      mappedBooksExtractedDataList: mappedBusinessBooksRows.map(
+        (row) => row.extractedData,
+      ),
+    });
 
     return {
       success: true,
@@ -512,6 +564,7 @@ export async function getFilingSummaryAction(draftId: string) {
         mixedExcessWithholding,
         collectionBreakdown,
         collectionTaxDue,
+        businessWithholding,
       },
     };
   } catch (error) {

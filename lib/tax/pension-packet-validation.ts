@@ -1,10 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { sumMoney } from "@/lib/money";
-import { normalizeLedgerCategory } from "./withholding-sources";
+import {
+  extractMappedSalaryGross,
+  extractMappedSalaryWithholding,
+  normalizeLedgerCategory,
+} from "./withholding-sources";
 import {
   PENSION_SOURCE_VERSION,
   resolveApprovedPensionSource,
 } from "./pension-source";
+import { resolveFinalPensionAdditionalNormalSurcharge } from "./non-business-computations-plan";
 import {
   TY2026_PENSION_FORMER_EMPLOYER_SUBCATEGORY,
   parsePersistedSelectionUserDetails,
@@ -108,6 +113,9 @@ export async function pensionPacketValidationError(
           )
           .map((e) => e.amount),
       ),
+      hasOtherIncomeSources: liveSources.some(
+        (source) => source !== "pension",
+      ),
     });
     if (current.fingerprint !== snapshot.pension.fingerprint)
       return "Pension evidence, withholding, profile DOB/CNIC or former-employer answer changed. Recalculate and approve a new pension packet; the pinned packet cannot be reused.";
@@ -150,16 +158,45 @@ export async function pensionPacketValidationError(
       const excess = Math.max(0, current.annualPension - 10_000_000);
       const baseTax = Math.round(excess * 0.05);
       const surcharge = Math.round(baseTax * 0.1);
+      const calcLines =
+        liveSources.includes("salary") &&
+        !liveSources.includes("business") &&
+        draft.taxCalculationRevision !== null &&
+        typeof prisma.filingTaxCalculationLine?.findMany === "function"
+          ? await prisma.filingTaxCalculationLine.findMany({
+              where: {
+                filingDraftId,
+                userId,
+                calculationRevision: draft.taxCalculationRevision,
+              },
+              select: { source: true, surcharge: true, detailsJson: true },
+            })
+          : [];
+      const hasUnmappedPortalIncome =
+        (detailed?.mappingGaps?.unmappedCategories?.length ?? 0) > 0;
+      const expectedNormalSurcharge =
+        resolveFinalPensionAdditionalNormalSurcharge({
+          incomeSources: liveSources,
+          pensionTreatment: treatment,
+          calculationLines: calcLines,
+          hasUnmappedPortalIncome,
+          businessExpectedComputations:
+            snapshot?.business?.expectedIrisTotals?.computations ?? null,
+        });
+      const recordedNormalSurcharge =
+        detailed?.computationHints?.normalSlabSurcharge ?? 0;
+      const expectedTotalSurcharge = surcharge + expectedNormalSurcharge;
       if (
         current.baseTax !== baseTax ||
         current.surcharge !== surcharge ||
         current.taxDue !== baseTax + surcharge ||
+        recordedNormalSurcharge !== expectedNormalSurcharge ||
         !match("1008", "Total Amount", current.annualPension) ||
         !match("1008", "Subject to Final Tax", excess) ||
         !match("1008", "Subject to Exemption", 10_000_000) ||
         !match("64020007", "Taxable Amount", excess) ||
         !match("64020007", "Tax Deducted", current.taxDeducted) ||
-        !match("923184", "Total Income", surcharge)
+        !match("923184", "Total Income", expectedTotalSurcharge)
       )
         return "Pension final-tax autofill contract is incomplete. Regenerate a reviewed packet with the PKR 10 million exemption, excess-only Final/64020007 base and Section 4AB surcharge.";
       if (detailed?.mappingGaps?.pensionManualReview && !options.allowManual)
@@ -173,6 +210,59 @@ export async function pensionPacketValidationError(
       !match("1008", "Subject to Final Tax", 0)
     )
       return "Pension Total/Exemption/Final zero-clear columns are incomplete. Regenerate the packet.";
+    if (treatment === "salary") {
+      const includesSalary = liveSources.includes("salary");
+      const salaryCert = includesSalary
+        ? await prisma.document.findFirst({
+            where: {
+              filingDraftId,
+              userId,
+              documentType: "salary_certificate",
+              extractionStatus: "MAPPED",
+            },
+            select: { extractedData: true },
+          })
+        : null;
+      const certGross = extractMappedSalaryGross(salaryCert?.extractedData ?? null);
+      const certWht =
+        certGross !== null && certGross > 0
+          ? (extractMappedSalaryWithholding(salaryCert?.extractedData ?? null) ?? 0)
+          : 0;
+      const expectedTotal149 = sumMoney([certWht, current.taxDeducted]);
+      const salaryBaseRows = Array.isArray(fields)
+        ? fields.filter(
+            (f: any) =>
+              String(f.irisCode) === "64020004" &&
+              f.column === "Taxable Amount",
+          )
+        : [];
+      const salaryBase =
+        salaryBaseRows.length === 1
+          ? Number(salaryBaseRows[0].value ?? salaryBaseRows[0].ourAmount)
+          : null;
+      const hasFinalRow =
+        Array.isArray(fields) &&
+        fields.some((f: any) => String(f.irisCode) === "64020007");
+      const salaryCreditOk =
+        current.taxDeducted > 0
+          ? match("64020004", "Tax Collected / Deducted", expectedTotal149) &&
+            salaryBase !== null &&
+            Number.isFinite(salaryBase) &&
+            salaryBase >= expectedTotal149 &&
+            !hasFinalRow
+          : certWht > 0
+            ? match("64020004", "Tax Collected / Deducted", certWht) &&
+              (salaryBase === null ||
+                (Number.isFinite(salaryBase) && salaryBase >= certWht)) &&
+              !hasFinalRow
+            : !hasFinalRow &&
+              !(
+                Array.isArray(fields) &&
+                fields.some((f: any) => String(f.irisCode) === "64020004")
+              );
+      if (!salaryCreditOk)
+        return "Pension worked as salary: the packet must carry the exact Section 149 credit on 64020004 (including any reviewed Salary Certificate withholding) and no final-tax row. Regenerate the approved packet.";
+    }
   } catch (error) {
     return error instanceof Error
       ? error.message

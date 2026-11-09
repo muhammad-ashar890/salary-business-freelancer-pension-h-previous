@@ -894,6 +894,38 @@ test("salary certificate WHT and reviewed pension WHT each contribute once on re
   }
 });
 
+test("mixed Salary + Pension (former employer = true) sums both Section 149 credits on 64020004 and passes server + desktop validation", async () => {
+  const h = harness({
+    pension: 1_989_000,
+    salary: 2_000_000,
+    answer: true,
+    fields: pensionFields(1_989_000, {
+      [deductedLabel]: 10_000,
+      [coveredLabel]: 0,
+    }),
+  });
+  const doc = h.state.documents.find(
+    (d) => d.documentType === "salary_certificate",
+  );
+  const parsed = JSON.parse(doc.extractedData);
+  parsed.fields.find((f) => f.label === "Tax Deducted u/s 149").value = 5_000;
+  doc.extractedData = JSON.stringify(parsed);
+
+  const snapshot = await generated(h);
+  assert.equal(h.state.draft.taxWithheld, 15_000);
+  const flat = flatSnapshot(h, snapshot);
+  const baseRow = flat.portalFieldMap.find(
+    (f) => f.irisCode === "64020004" && f.column === "Taxable Amount",
+  );
+  const creditRow = flat.portalFieldMap.find(
+    (f) => f.irisCode === "64020004" && f.column === "Tax Collected / Deducted",
+  );
+  assert.equal(baseRow?.value, "3989000");
+  assert.equal(creditRow?.value, "15000");
+  assert.equal(await validation(h, snapshot), null);
+  assert.equal(pensionEntryHold(flat), null);
+});
+
 test("reviewed high-pension packet is available for PDF and automatic dispatch", async () => {
   const h = harness();
   const snapshot = await generated(h);

@@ -220,6 +220,8 @@ export type PortalFieldMap = {
     totalIncome: number;
     taxableIncome: number;
     totalTaxWithheld: number;
+    salaryCertificateTaxWithheld?: number;
+    normalSlabSurcharge?: number;
     pensionExemptLimit?: number;
     pensionExemptAmount?: number;
     pensionTaxableAmount?: number;
@@ -604,6 +606,25 @@ type TaxCreditInput = {
   sourceDocumentId?: string | null;
 };
 
+/**
+ * When a reviewed MAPPED Salary Certificate is present for a Salary filing, it
+ * is the single authoritative Section 149 salary withholding source (matching
+ * `calculateTaxAction`). Suppress generic Section 149 `FilingTaxCredit` rows so
+ * they cannot override the reviewed certificate amount or emit a non-certificate
+ * `64020004` description that breaks the `Salary + Services` desktop allowlist.
+ */
+export function filterCoveredSalary149TaxCredits<
+  T extends { id?: string; section: string },
+>(
+  taxCredits: readonly T[],
+  options: { hasMappedSalaryCertificate: boolean },
+): T[] {
+  if (!options.hasMappedSalaryCertificate) return [...taxCredits];
+  return taxCredits.filter(
+    (credit) => String(credit.section ?? "").trim().toUpperCase() !== "149",
+  );
+}
+
 function toNumber(val: any): number {
   if (typeof val === "number") return val;
   if (val === null || val === undefined) return 0;
@@ -611,6 +632,10 @@ function toNumber(val: any): number {
   if (typeof val === "object" && "toString" in val)
     return parseFloat(val.toString()) || 0;
   return 0;
+}
+
+function addMoney2(a: number, b: number): number {
+  return Math.round((a + b) * 100) / 100;
 }
 
 function normalizeCategory(cat: string | null | undefined): string {
@@ -784,6 +809,12 @@ export function buildPortalFieldMap(params: {
    * not be reported again as an unmapped income gap.
    */
   coveredLedgerEntryIds?: readonly string[];
+  /**
+   * When a `final_above_10m` pension is combined with a mapped normal-slab
+   * source above PKR 10M (such as Salary > PKR 10M), row 923184 carries the
+   * combined Section 4AB surcharge so neither component is dropped.
+   */
+  additionalSection4ABSurcharge?: number;
 }): PortalFieldMap {
   const {
     taxYear,
@@ -801,6 +832,7 @@ export function buildPortalFieldMap(params: {
     netCashMovement: cashMovement = null,
     pensionDetails,
     pensionSource,
+    additionalSection4ABSurcharge = 0,
   } = params;
 
   const incomeFields: PortalFieldMapEntry[] = [];
@@ -1179,29 +1211,45 @@ export function buildPortalFieldMap(params: {
   // whose editable `Tax Deducted` cell is proven by two captures
   // (lib/tax/portal-row-evidence.ts). The final-tax route (149(IA), pension
   // above PKR 10M) keeps its own row 64020007 and is never converted to 149.
+  const certSalaryTaxWithheld =
+    salaryCertificateTaxWithheld !== null &&
+    salaryCertificateTaxWithheld !== undefined &&
+    toNumber(salaryCertificateTaxWithheld) > 0
+      ? toNumber(salaryCertificateTaxWithheld)
+      : 0;
   const pensionSalaryTaxWithheld =
     pensionSource?.treatment === "salary" && toNumber(pensionSource.taxDeducted) > 0
       ? toNumber(pensionSource.taxDeducted)
       : 0;
-  const salaryRoute149Credit: TaxCreditInput | null =
-    salaryCertificateTaxWithheld !== null && toNumber(salaryCertificateTaxWithheld) > 0
-      ? {
-          section: "149",
-          subcategory: "Salary certificate",
-          amount: toNumber(salaryCertificateTaxWithheld),
-          source: "SALARY_CERTIFICATE",
-        }
-      : pensionSalaryTaxWithheld > 0
-        ? {
-            section: "149",
-            subcategory: "Pension taxed as salary",
-            amount: pensionSalaryTaxWithheld,
-            source: "PENSION_SALARY_149",
-          }
-        : null;
+  // On a combined Salary + Pension filing (`hasCertificateGrossSalary === true`),
+  // row 1009 (employer salary) and row 1008 (pension taxed on salary slabs) are
+  // separate income bases whose Section 149 deductions both contribute in
+  // `calculateTaxAction`; both must therefore aggregate onto row 64020004. On a
+  // pension-only filing (`hasCertificateGrossSalary === false`), a standalone
+  // certificate credit keeps its own value without adding a duplicate pension copy.
+  const salaryRoute149Credits: TaxCreditInput[] = [];
+  if (certSalaryTaxWithheld > 0) {
+    salaryRoute149Credits.push({
+      section: "149",
+      subcategory: "Salary certificate",
+      amount: certSalaryTaxWithheld,
+      source: "SALARY_CERTIFICATE",
+    });
+  }
+  if (
+    pensionSalaryTaxWithheld > 0 &&
+    (hasCertificateGrossSalary || certSalaryTaxWithheld === 0)
+  ) {
+    salaryRoute149Credits.push({
+      section: "149",
+      subcategory: "Pension taxed as salary",
+      amount: pensionSalaryTaxWithheld,
+      source: "PENSION_SALARY_149",
+    });
+  }
   const effectiveTaxCredits =
-    !hasExplicitSalary149Credit && salaryRoute149Credit
-      ? [...taxCredits, salaryRoute149Credit]
+    !hasExplicitSalary149Credit && salaryRoute149Credits.length > 0
+      ? [...taxCredits, ...salaryRoute149Credits]
       : taxCredits;
 
   // A pension charged as salary is written to row 1008, not 1009, so IRIS does
@@ -1221,7 +1269,10 @@ export function buildPortalFieldMap(params: {
       (definition: any) =>
         definition.code === IRIS_CODES.ADJ_SALARY_149.code,
     ) as any;
-    const base = (certificateGrossSalary ?? 0) + toNumber(pensionSource?.annualPension);
+    const base = addMoney2(
+      certificateGrossSalary ?? 0,
+      toNumber(pensionSource?.annualPension),
+    );
     if (base > 0 && !holdUnprovenCode(IRIS_CODES.ADJ_SALARY_149.code, IRIS_CODES.ADJ_SALARY_149.description, "PENSION", base)) {
       const key = `${IRIS_CODES.ADJ_SALARY_149.code}:Taxable Amount`;
       if (!taxAgg.has(key)) {
@@ -1328,13 +1379,28 @@ export function buildPortalFieldMap(params: {
     const taxKey = `${irisCode}:${taxColumn}`;
     const existingTax = taxAgg.get(taxKey);
     if (existingTax) {
-      existingTax.entry.ourAmount += amount;
+      existingTax.entry.ourAmount = addMoney2(existingTax.entry.ourAmount, amount);
+      if (
+        irisCode === SALARY_CERTIFICATE_TAX_ROW.code &&
+        credit.source === "PENSION_SALARY_149" &&
+        /salary withholding from mapped salary certificate/i.test(
+          existingTax.entry.ourDescription,
+        )
+      ) {
+        existingTax.entry.ourDescription = `Section 149 salary withholding from mapped salary certificate and reviewed pension statement → ${SALARY_CERTIFICATE_TAX_ROW.column}`;
+      }
       if (credit.id) existingTax.ids.push(credit.id);
-      existingTax.entry.sourceEntryCount = existingTax.ids.length;
+      existingTax.entry.sourceEntryCount = Math.max(
+        existingTax.entry.sourceEntryCount + 1,
+        existingTax.ids.length,
+      );
     } else {
       taxAgg.set(taxKey, {
         entry: {
-          ourCategory: `TAX_${sectionUpper}`,
+          ourCategory:
+            credit.source === "PENSION_SALARY_149"
+              ? "PENSION_SALARY_149"
+              : `TAX_${sectionUpper}`,
           ourDescription:
             irisCode === SALARY_CERTIFICATE_TAX_ROW.code &&
             credit.source === "SALARY_CERTIFICATE"
@@ -1486,12 +1552,22 @@ export function buildPortalFieldMap(params: {
         // old deduction is deterministic. This is actual withholding only.
         addPensionTaxField("Tax Deducted", pensionSource.taxDeducted);
         const surchargeDef = IRIS_CODES.COMP_SURCHARGE;
-        const surcharge = pensionSource.surcharge ?? 0;
+        const extraNormalSurcharge = Math.max(
+          0,
+          Math.round(toNumber(additionalSection4ABSurcharge)),
+        );
+        const surcharge =
+          Math.round(
+            ((pensionSource.surcharge ?? 0) + extraNormalSurcharge) * 100,
+          ) / 100;
         if (!holdUnprovenCode(surchargeDef.code, surchargeDef.description, "PENSION", surcharge)) {
           taxAgg.set(`${surchargeDef.code}:Total Income`, {
             entry: {
               ourCategory: "PENSION_SURCHARGE",
-              ourDescription: "Section 4AB surcharge on calculated pension tax.",
+              ourDescription:
+                extraNormalSurcharge > 0
+                  ? "Section 4AB surcharge on calculated pension final tax plus high-income normal-slab tax."
+                  : "Section 4AB surcharge on calculated pension tax.",
               ourAmount: surcharge,
               irisCode: surchargeDef.code,
               irisDescription: surchargeDef.description,
@@ -1499,7 +1575,7 @@ export function buildPortalFieldMap(params: {
               section: surchargeDef.section,
               column: "Total Income",
               isTaxField: true,
-              sourceEntryCount: 1,
+              sourceEntryCount: extraNormalSurcharge > 0 ? 2 : 1,
             },
             ids: [],
           });
@@ -1830,6 +1906,18 @@ export function buildPortalFieldMap(params: {
       totalIncome,
       taxableIncome,
       totalTaxWithheld: taxWithheld,
+      ...(hasCertificateGrossSalary
+        ? { salaryCertificateTaxWithheld: certSalaryTaxWithheld }
+        : {}),
+      ...(pensionSource?.treatment === "final_above_10m" &&
+      Math.max(0, Math.round(toNumber(additionalSection4ABSurcharge))) > 0
+        ? {
+            normalSlabSurcharge: Math.max(
+              0,
+              Math.round(toNumber(additionalSection4ABSurcharge)),
+            ),
+          }
+        : {}),
       pensionExemptLimit: pensionDetails?.exemptLimit,
       pensionExemptAmount: pensionDetails?.exemptAmount,
       pensionTaxableAmount: pensionDetails?.taxableAmount,

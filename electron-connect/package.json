@@ -51,7 +51,8 @@
       "iris-tax-deduction-driver.js",
       "iris-computations-driver.js",
       "iris-turnover-driver.js",
-      "pension-guard.js"
+      "pension-guard.js",
+      "wealth-reconciliation-check.js"
     ],
     "extraMetadata": {
       "main": "main.js"

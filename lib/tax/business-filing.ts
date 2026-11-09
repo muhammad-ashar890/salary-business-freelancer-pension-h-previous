@@ -266,6 +266,11 @@ export function buildBusinessPacket(input: {
    * (app/actions/packet.ts passes the reconciliation's account balances).
    */
   bankStatementBalances?: readonly { iban: string; closingBalance: number }[];
+  companionNormalIncome?: {
+    normalTaxableIncome: number;
+    salaryHeadIncome: number;
+    finalPensionSurcharge?: number;
+  } | null;
 }) {
   if (!input.incomeSources.includes("business")) return null;
   if (input.taxYear !== 2026 || input.filerType !== "myself")
@@ -849,6 +854,7 @@ export function buildBusinessPacket(input: {
       minimum: taxDeductions?.entries.filter((e) => e.regime === "minimum").length ?? 0,
     },
     minimumTax,
+    companionNormalIncome: input.companionNormalIncome,
   });
   // DP-4 (fix53): rows of the Inadmissible/Admissible Deductions tab other than
   // 3212 need the generalized picker driver of a newer agent.

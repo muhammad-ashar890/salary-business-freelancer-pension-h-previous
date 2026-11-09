@@ -23,7 +23,12 @@
 // estimate (which includes them) is reported separately.
 
 import type { PortalFieldMapEntry } from "./portal-field-map";
-import { divisionIClause1Tax, section4CSuperTax } from "./tax-calculation";
+import {
+  divisionIClause1Tax,
+  divisionITaxForIncome,
+  section4ABRatePercent,
+  section4CSuperTax,
+} from "./tax-calculation";
 import {
   DISPOSAL_GAIN_ROW,
   DISPOSAL_LOSS_ROW,
@@ -74,6 +79,8 @@ export type ComputationsEntry = {
   basis: string;
   /** Shown to the taxpayer when the agent leaves the row to them. */
   message: string;
+  /** True when 923184 Total Income is already typed via portalFieldMap (e.g. final_above_10m pension). */
+  alreadyHandledInFieldMap?: boolean;
 };
 /**
  * Phase 3c (fix52): the Section 113 turnover row. "+ Turnover" on row 999905
@@ -219,6 +226,16 @@ export function buildExpectedIrisTotals(input: {
   taxDeductionSections?: { adjustable: number; minimum: number };
   /** Phase 3c: Section 113 reaches the return (absent or null: it does not). */
   minimumTax?: MinimumTaxPacketInput | null;
+  /**
+   * Optional authoritative normal-slab companion figures (e.g. mapped Salary
+   * Certificate and/or approved Pension) for multi-source Business returns.
+   * When omitted on a multi-source return, 9000/9100/920000/9200 stay skipped.
+   */
+  companionNormalIncome?: {
+    normalTaxableIncome: number;
+    salaryHeadIncome: number;
+    finalPensionSurcharge?: number;
+  } | null;
 }): ExpectedIrisTotals {
   const rows: ExpectedIrisRow[] = [];
   const skipped: { code: string; reason: string }[] = [];
@@ -483,44 +500,76 @@ export function buildExpectedIrisTotals(input: {
       );
   }
 
-  // Computations. Only a business-only return: any other income head joins
-  // Total Income and is outside this packet.
+  // Computations. Business-only returns always compute 9000/9100/920000/9200;
+  // multi-source returns compute them only when authoritative companion
+  // normal-slab figures (Salary / Pension) are explicitly supplied.
   const sources = (input.incomeSources || []).map((source) => String(source).toLowerCase());
   const businessOnly = sources.length === 1 && sources[0] === "business";
+  const companion =
+    !businessOnly &&
+    input.companionNormalIncome &&
+    Number.isFinite(input.companionNormalIncome.normalTaxableIncome) &&
+    input.companionNormalIncome.normalTaxableIncome >= 0 &&
+    Number.isFinite(input.companionNormalIncome.salaryHeadIncome) &&
+    input.companionNormalIncome.salaryHeadIncome >= 0
+      ? {
+          normalTaxableIncome: Math.round(
+            input.companionNormalIncome.normalTaxableIncome,
+          ),
+          salaryHeadIncome: Math.round(
+            input.companionNormalIncome.salaryHeadIncome,
+          ),
+          finalPensionSurcharge: Math.max(
+            0,
+            Math.round(Number(input.companionNormalIncome.finalPensionSurcharge) || 0),
+          ),
+        }
+      : null;
   const loss = sum(lossCodes);
   const grossRevenue = amounts.get("3009") ?? 0;
   if (!incomeKnown) {
     skip(incomeChain, "business income could not be computed from the typed rows (see the reasons above)");
   } else if (unknownAdjustments.length) {
     skip(incomeChain, `adjustment code(s) ${unknownAdjustments.join(", ")} have no proven role`);
-  } else if (!businessOnly) {
+  } else if (!businessOnly && !companion) {
     skip(incomeChain, "other income heads are part of this return; Total Income is not business-only");
-  } else if (incomeAfterDepreciation <= 0) {
+  } else if (
+    businessOnly
+      ? incomeAfterDepreciation <= 0
+      : incomeAfterDepreciation < 0 ||
+        (incomeAfterDepreciation === 0 && (companion?.normalTaxableIncome ?? 0) <= 0)
+  ) {
     skip(incomeChain, "business income is not positive; IRIS loss handling has not been seen live");
   } else if (loss > incomeAfterDepreciation) {
     skip(incomeChain, "brought-forward loss is larger than business income; the IRIS set-off cap has not been seen live");
   } else {
-    const taxable = incomeAfterDepreciation - loss;
+    const businessTaxable = incomeAfterDepreciation - loss;
+    const extraNormal = companion ? companion.normalTaxableIncome : 0;
+    const salaryHeadIncome = companion ? companion.salaryHeadIncome : 0;
+    const finalPensionSurcharge = companion ? companion.finalPensionSurcharge : 0;
+    const taxable = businessTaxable + extraNormal;
     // Section 4C(2)(ii): taxable income other than brought-forward
     // depreciation and losses, i.e. business income before the loss set-off
-    // and before unabsorbed depreciation of earlier years (3258, DP-4 item 3).
-    // A business-only return has no clause (i) or imputable income.
-    const superTaxBase = incomeAfterDepreciation + unabsorbed;
+    // and before unabsorbed depreciation of earlier years (3258, DP-4 item 3),
+    // plus any companion normal-slab income on a multi-source return.
+    const superTaxBase = incomeAfterDepreciation + unabsorbed + extraNormal;
     const superTax = section4CSuperTax(superTaxBase);
     computations.expectedBusinessIncome = incomeAfterDepreciation;
     computations.superTax =
       superTax.ratePercent > 0
-        ? {
-            code: "9231822",
-            label: LABELS["9231822"],
-            action: "TYPE",
-            value: Math.round(superTax.tax),
-            ratePercent: superTax.ratePercent,
-            basis: unabsorbed > 0
-              ? `${superTax.ratePercent}% of the whole business income ${superTaxBase.toLocaleString("en-US")} (3000 + 3258: before brought-forward losses and unabsorbed depreciation, s.4C(2)(ii); Division IIB, tax year 2026)`
-              : `${superTax.ratePercent}% of the whole business income ${incomeAfterDepreciation.toLocaleString("en-US")} (3000, before brought-forward losses; Division IIB, tax year 2026)`,
-            message: "",
-          }
+        ? businessOnly
+          ? {
+              code: "9231822",
+              label: LABELS["9231822"],
+              action: "TYPE",
+              value: Math.round(superTax.tax),
+              ratePercent: superTax.ratePercent,
+              basis: unabsorbed > 0
+                ? `${superTax.ratePercent}% of the whole business income ${superTaxBase.toLocaleString("en-US")} (3000 + 3258: before brought-forward losses and unabsorbed depreciation, s.4C(2)(ii); Division IIB, tax year 2026)`
+                : `${superTax.ratePercent}% of the whole business income ${incomeAfterDepreciation.toLocaleString("en-US")} (3000, before brought-forward losses; Division IIB, tax year 2026)`,
+              message: "",
+            }
+          : userEntry("9231822")
         : {
             code: "9231822",
             label: LABELS["9231822"],
@@ -532,17 +581,38 @@ export function buildExpectedIrisTotals(input: {
           };
     const lossProven = proven(lossCodes);
     const chainProven =
+      businessOnly &&
       proven([...trading, ...otherRevenues, ...admin, ...inadmissible]) &&
       lossProven &&
       admissibleProven;
-    push("9000", "normal", taxable, lossCodes.length ? `3000 ${MINUS} ${lossCodes.join(` ${MINUS} `)}` : "= 3000", chainProven);
+    const businessTotalFormula = lossCodes.length
+      ? `3000 ${MINUS} ${lossCodes.join(` ${MINUS} `)}`
+      : "= 3000";
+    push(
+      "9000",
+      "normal",
+      taxable,
+      extraNormal > 0
+        ? `${businessTotalFormula.replace(/^= /, "")} + companion normal-tax income (${extraNormal.toLocaleString("en-US")})`
+        : businessTotalFormula,
+      chainProven,
+    );
     push("9100", "normal", taxable, "= 9000 (no allowance or deduction is typed by the agent)", chainProven);
+    const rawDivisionITax = businessOnly
+      ? divisionIClause1Tax(taxable)
+      : divisionITaxForIncome({ taxableIncome: taxable, salaryHeadIncome });
     if (!minimumTaxInput && grossRevenue >= SECTION_113_TURNOVER) {
       skip(["920000", "9200"], "turnover is PKR 100 million or more: Section 113 minimum tax may apply");
+    } else if (rawDivisionITax === null) {
+      skip(["920000", "9200"], "Division I slab rate is unavailable for this return");
     } else {
-      const tax = Math.round(divisionIClause1Tax(taxable));
-      // The slab itself is law; only the 30% band was seen on IRIS so far.
-      const bandSeenLive = taxable > 1_600_000 && taxable <= 3_200_000;
+      const tax = Math.round(rawDivisionITax);
+      const surchargeRate = businessOnly
+        ? 10
+        : section4ABRatePercent({ salaryHeadIncome, taxableIncome: taxable });
+      const readsSalariedTable = !businessOnly && surchargeRate === 9;
+      // The slab itself is law; only the 30% band on a business-only return was seen on IRIS so far.
+      const bandSeenLive = businessOnly && taxable > 1_600_000 && taxable <= 3_200_000;
       const adjustableSections = Math.max(0, Number(input.taxDeductionSections?.adjustable) || 0);
       const minimumSections = Math.max(0, Number(input.taxDeductionSections?.minimum) || 0);
       // Withholding rows have not been part of a live run yet: a difference
@@ -554,13 +624,17 @@ export function buildExpectedIrisTotals(input: {
         "920000",
         "normal",
         tax,
-        "Division I clause (1) slab on 9100",
+        readsSalariedTable
+          ? "Division I clause (2) salaried slab on 9100 (salary-head income > 75%)"
+          : "Division I clause (1) slab on 9100",
         chainProven && bandSeenLive && withholdingSeenLive && !minimumTaxInput,
       );
-      // Phase 3b: Section 4AB, 10% of the Division I tax above PKR 10
-      // million. A business-only return has no salary, so the 9% proviso
-      // cannot apply (decision D4).
-      const surcharge = taxable > SECTION_4AB_THRESHOLD ? Math.round(tax * 0.1) : 0;
+      // Phase 3b: Section 4AB surcharge above PKR 10 million: 9% where salary-
+      // head income exceeds 75% of taxable income, otherwise 10% (decision D4).
+      const surcharge =
+        taxable > SECTION_4AB_THRESHOLD
+          ? Math.round((tax * surchargeRate) / 100)
+          : 0;
       computations.expectedTaxableIncome = taxable;
       computations.expectedNormalTax = tax;
       computations.surcharge =
@@ -570,18 +644,20 @@ export function buildExpectedIrisTotals(input: {
               label: LABELS["923184"],
               action: "TYPE",
               value: surcharge,
-              ratePercent: 10,
-              basis: `10% of Normal Tax ${tax.toLocaleString("en-US")} (920000), because Taxable Income ${taxable.toLocaleString("en-US")} (9100) is above PKR 10 million`,
+              ratePercent: surchargeRate,
+              basis: `${surchargeRate}% of Normal Tax ${tax.toLocaleString("en-US")} (920000), because Taxable Income ${taxable.toLocaleString("en-US")} (9100) is above PKR 10 million`,
               message: "",
+              ...(finalPensionSurcharge > 0 ? { alreadyHandledInFieldMap: true } : {}),
             }
           : {
               code: "923184",
               label: LABELS["923184"],
               action: "NONE",
               value: 0,
-              ratePercent: 10,
+              ratePercent: surchargeRate,
               basis: "Taxable Income (9100) is PKR 10 million or less: no surcharge",
               message: "",
+              ...(finalPensionSurcharge > 0 ? { alreadyHandledInFieldMap: true } : {}),
             };
       // Phase 3c: Section 113. The minimum tax wins only when it is higher
       // than Normal Tax + surcharge, and is then paid instead of both
@@ -597,22 +673,38 @@ export function buildExpectedIrisTotals(input: {
                   label: LABELS["923184"],
                   action: "USER",
                   value: 0,
-                  ratePercent: 10,
+                  ratePercent: surchargeRate,
                   basis: `minimum tax ${minimumTaxValue.toLocaleString("en-US")} is higher than Normal Tax ${tax.toLocaleString("en-US")} + surcharge ${surcharge.toLocaleString("en-US")}, so it is paid instead of both (s.113(2)(b))`,
                   message: SURCHARGE_MINIMUM_TAX_MESSAGE,
+                  ...(finalPensionSurcharge > 0 ? { alreadyHandledInFieldMap: true } : {}),
                 }
               : {
                   code: "923184",
                   label: LABELS["923184"],
                   action: "NONE",
                   value: 0,
-                  ratePercent: 10,
+                  ratePercent: surchargeRate,
                   basis: "Taxable Income (9100) is PKR 10 million or less: no surcharge",
                   message: "",
+                  ...(finalPensionSurcharge > 0 ? { alreadyHandledInFieldMap: true } : {}),
                 };
       }
       const superTaxValue = computations.superTax.action === "TYPE" ? computations.superTax.value : 0;
-      if (surcharge > 0 || superTaxValue > 0) {
+      const mixedSuperTaxUser = !businessOnly && computations.superTax.action === "USER";
+      if (finalPensionSurcharge > 0) {
+        const expectedTotal923184 =
+          finalPensionSurcharge + (minimumWins ? 0 : surcharge);
+        push(
+          "923184",
+          "total",
+          expectedTotal923184,
+          surcharge > 0 && !minimumWins
+            ? `final-tax pension surcharge ${finalPensionSurcharge.toLocaleString("en-US")} + ${computations.surcharge.basis} (typed on Total Income)`
+            : `final-tax pension surcharge ${finalPensionSurcharge.toLocaleString("en-US")} (typed on Total Income)`,
+          false,
+        );
+        if (superTaxValue > 0) push("9231822", "total", superTaxValue, computations.superTax.basis, false);
+      } else if (surcharge > 0 || superTaxValue > 0) {
         push(
           "923184",
           // Live 19-Oct-2026: IRIS computed this in Subject to Normal Tax
@@ -628,6 +720,8 @@ export function buildExpectedIrisTotals(input: {
       }
       if (minimumSections > 0) {
         skip(["9200"], "minimum-tax section(s) typed on the Tax Deduction tab: IRIS compares the minimum tax with the normal tax and adds any difference itself; TaxRocket's regime engine (Phase 3e) is not built yet");
+      } else if (mixedSuperTaxUser) {
+        skip(["9200"], "combined Section 4C super tax above PKR 150 million is left to the taxpayer, so Tax Chargeable is not checked");
       } else if (minimumTaxInput && computations.turnover?.action !== "TYPE") {
         skip(["9200"], "Section 113 turnover row is left to the taxpayer, so Tax Chargeable is not checked");
       } else if (minimumTaxInput) {

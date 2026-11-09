@@ -432,6 +432,7 @@ export async function calculateTaxAction(
           profile: { dateOfBirth: draft.taxpayerDateOfBirth, cnic: draft.taxpayerCnic },
           taxAsSalary: pensionTaxAsSalary, ledgerPension: pensionIncome,
           ledgerTaxWithheld: sumMoney(entries.filter(e => e.entryType === "EXPENSE" && normalizeCategory(e.category) === "TAX_PAYMENT").map(e => e.amount)),
+          hasOtherIncomeSources: incomeSources.some(source => source !== "pension"),
         });
       } catch (error) {
         pensionSourceProblem = error instanceof Error ? error.message : "Review and approve the latest Pension Statement.";

@@ -37,9 +37,11 @@ Module._extensions[".ts"] = function loadTypeScript(module, filename) {
 const { buildServicesPortalMappings } = require(
   path.join(root, "lib/tax/services-portal-map.ts"),
 );
-const { flattenPortalFieldMap } = require(
-  path.join(root, "lib/tax/portal-field-map.ts"),
-);
+const {
+  buildPortalFieldMap,
+  filterCoveredSalary149TaxCredits,
+  flattenPortalFieldMap,
+} = require(path.join(root, "lib/tax/portal-field-map.ts"));
 const { buildServicesTaxDeductionPacket } = require(
   path.join(root, "lib/tax/business-filing.ts"),
 );
@@ -284,6 +286,78 @@ test("combined Salary + Services selects only the certificate-backed Salary 1009
     { ...salaryServiceFields[1], ourDescription: "Unreviewed Section 149 credit" },
   ]);
   assert.equal(unverifiedWithholding.invalid, true);
+
+  // Phase 1 (Bug #7): a generic Section 149 FilingTaxCredit row is suppressed
+  // when a MAPPED Salary Certificate covers Salary, so the reviewed certificate
+  // remains authoritative and passes the Salary + Services allowlist. Without a
+  // MAPPED certificate, an explicit Section 149 credit still fails closed.
+  const explicitCredits = [
+    {
+      id: "explicit-149",
+      section: "149",
+      subcategory: "Salary",
+      amount: 99999,
+      source: "MANUAL",
+    },
+  ];
+  const coveredMap = buildPortalFieldMap({
+    taxYear: 2026,
+    filerType: "myself",
+    taxpayerListStatus: "ATL",
+    ledgerEntries: [],
+    taxCredits: filterCoveredSalary149TaxCredits(explicitCredits, {
+      hasMappedSalaryCertificate: true,
+    }),
+    salaryCertificateGrossSalary: 3600000,
+    salaryCertificateTaxWithheld: 360000,
+  });
+  const coveredResolved = main.getSalaryFieldsForServicesRoute([
+    ...flattenedServicesFields,
+    ...flattenPortalFieldMap(coveredMap),
+  ]);
+  assert.equal(coveredResolved.invalid, false);
+  assert.deepEqual(
+    plain(coveredResolved.fields.map((field) => [field.irisCode, field.value])),
+    [["1009", "3600000"], ["64020004", "360000"]],
+  );
+
+  const zeroCertMap = buildPortalFieldMap({
+    taxYear: 2026,
+    filerType: "myself",
+    taxpayerListStatus: "ATL",
+    ledgerEntries: [],
+    taxCredits: filterCoveredSalary149TaxCredits(explicitCredits, {
+      hasMappedSalaryCertificate: true,
+    }),
+    salaryCertificateGrossSalary: 3600000,
+    salaryCertificateTaxWithheld: 0,
+  });
+  const zeroCertResolved = main.getSalaryFieldsForServicesRoute([
+    ...flattenedServicesFields,
+    ...flattenPortalFieldMap(zeroCertMap),
+  ]);
+  assert.equal(zeroCertResolved.invalid, false);
+  assert.deepEqual(
+    plain(zeroCertResolved.fields.map((field) => [field.irisCode, field.value])),
+    [["1009", "3600000"]],
+  );
+
+  const uncoveredMap = buildPortalFieldMap({
+    taxYear: 2026,
+    filerType: "myself",
+    taxpayerListStatus: "ATL",
+    ledgerEntries: [],
+    taxCredits: filterCoveredSalary149TaxCredits(explicitCredits, {
+      hasMappedSalaryCertificate: false,
+    }),
+    salaryCertificateGrossSalary: 3600000,
+    salaryCertificateTaxWithheld: null,
+  });
+  const uncoveredResolved = main.getSalaryFieldsForServicesRoute([
+    ...flattenedServicesFields,
+    ...flattenPortalFieldMap(uncoveredMap),
+  ]);
+  assert.equal(uncoveredResolved.invalid, true);
 });
 
 test("combined Pension + Services resolves only the approved pension IRIS cells", () => {

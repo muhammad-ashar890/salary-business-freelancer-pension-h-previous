@@ -163,6 +163,13 @@ test("phase 5a'/5b wiring: census reads the equation, agent reports both checks 
 
   const main = fs.readFileSync(path.join(root, "electron-connect/main.js"), "utf8");
   assert.match(main, /require\("\.\/wealth-reconciliation-check"\)/);
+  const agentPkg = JSON.parse(
+    fs.readFileSync(path.join(root, "electron-connect/package.json"), "utf8"),
+  );
+  assert.ok(
+    agentPkg.build.files.includes("wealth-reconciliation-check.js"),
+    "wealth-reconciliation-check.js must ship in the packaged agent",
+  );
   assert.match(main, /wealthReconciliation\.buildWealthReconciliationCheck\(/);
   assert.match(main, /wealthReconciliation\.buildWealthCarryForwardCheck\(/);
   assert.match(main, /carryForward: snapshot\?\.wealthCarryForward \|\| null/);
@@ -207,4 +214,68 @@ test("phase 5b job report: the gap line carries the amount, the side and no plug
   assert.match(text, /Nothing was plugged/);
   assert.match(text, /CARRY-FORWARD SHORT/);
   assert.match(text, /TY2025/);
+});
+
+test("Phase 4 (Bug #3): Services / Salary+Services / Pension+Services scoped readback runs read-only Section 116 checks (703002, 703000, 7019)", () => {
+  const main = fs.readFileSync(
+    path.join(root, "electron-connect/main.js"),
+    "utf8",
+  );
+  assert.match(main, /116 - Wealth Statement > Reconciliation of Net Assets/);
+  assert.match(main, /116 - Wealth Statement > Personal Assets \/ Liabilities/);
+  assert.match(
+    main,
+    /const wealthTour =\s*censusEnd \|\|\s*scopedServicesReadback\?\.wealthTotalsTour/,
+  );
+  assert.match(main, /if \(\s*wealthTour &&\s*previousWealthExpectation/);
+  assert.match(main, /if \(\s*wealthTour &&\s*typeof wealthReconciliation/);
+
+  const { collectTotals } = require(
+    path.join(root, "electron-connect/iris-tour-census.js"),
+  );
+  const scopedSection116Tour = {
+    complete: true,
+    views: [
+      {
+        key: "116 - Wealth Statement > Personal Assets / Liabilities",
+        headings: ["Description", "Code", "Amount"],
+        rows: [
+          { code: "7019", description: "Total Assets", cells: [{ value: "25,000,000" }] },
+          { code: "7029", description: "Total Liabilities", cells: [{ value: "0" }] },
+        ],
+      },
+      {
+        key: "116 - Wealth Statement > Reconciliation of Net Assets",
+        headings: ["Description", "Code", "Amount"],
+        rows: [
+          { code: "703001", description: "Net Assets Current Year", cells: [{ value: "25,000,000" }] },
+          { code: "703002", description: "Net Assets Previous Year", cells: [{ value: "23,280,220" }] },
+          { code: "703003", description: "Increase / (Decrease) in Assets", cells: [{ value: "1,719,780" }] },
+          { code: "7049", description: "Total Inflows", cells: [{ value: "3,850,550" }] },
+          { code: "7099", description: "Total Outflows", cells: [{ value: "2,130,770" }] },
+          { code: "703000", description: "Unreconciled Amount", cells: [{ value: "0" }] },
+        ],
+      },
+    ],
+  };
+  const irisTotals = collectTotals(scopedSection116Tour);
+  assert.equal(parseIrisAmount(irisTotals["703002"]), 23280220);
+
+  const reconciliation = buildWealthReconciliationCheck({
+    irisTotals,
+    parseAmount: parseIrisAmount,
+  });
+  assert.equal(reconciliation.status, "reconciled");
+  assert.equal(reconciliation.unreconciled, 0);
+
+  const carryForward = buildWealthCarryForwardCheck({
+    irisTotals,
+    parseAmount: parseIrisAmount,
+    carryForward: {
+      previousReturnTaxYear: 2025,
+      totalAssets: 23280220,
+      rows: [{ code: "7006", description: "Investments", amount: 23280220, detail: false }],
+    },
+  });
+  assert.equal(carryForward.status, "carried");
 });

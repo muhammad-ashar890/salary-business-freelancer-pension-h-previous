@@ -1315,6 +1315,7 @@ export function FilingWizard({
     Object.keys(documentRecords).length,
     reconciliationResolved,
     approvalConfirmed,
+    currentStepKey === "pipeline_review",
   ]);
 
   useEffect(() => {
@@ -1374,11 +1375,21 @@ export function FilingWizard({
     };
   }, [draftId, currentStepKey]);
 
+  const unsupportedServicesSelection =
+    selectedIncomeSources.includes("services") &&
+    !isSingleFreelancerServicesFiling({
+      taxYear,
+      filerType,
+      incomeSources: selectedIncomeSources,
+    });
+
   const canGoNext = useMemo(() => {
     if (currentStepKey === "business_review") return true; // Continue runs authoritative evidence validation.
     if (currentStepKey === "who") return Boolean(filerType);
     if (currentStepKey === "structure") return Boolean(businessStructure);
-    if (currentStepKey === "income") return selectedIncomeSources.length > 0;
+    if (currentStepKey === "income") {
+      return selectedIncomeSources.length > 0 && !unsupportedServicesSelection;
+    }
     if (isTy2026SubcategoryStepKey(currentStepKey)) {
       const source = getTy2026SourceForStep(currentStepKey);
       // Pension bands are auto-derived; the former-employer situation is the
@@ -1402,7 +1413,9 @@ export function FilingWizard({
         (selection) => selection.source === source,
       );
     }
-    if (currentStepKey === "tax_year") return Boolean(taxYear);
+    if (currentStepKey === "tax_year") {
+      return Boolean(taxYear) && !unsupportedServicesSelection;
+    }
     if (currentStepKey === "filer_status") return Boolean(filerStatus);
     if (currentStepKey === "residency") return Boolean(residencyStatus);
     if (currentStepKey === "bank_accounts") {
@@ -1447,6 +1460,7 @@ export function FilingWizard({
     incomeSubcategorySelections,
     pensionFormerEmployerAnswer,
     taxYear,
+    unsupportedServicesSelection,
     // 28-Oct-2026: without this the memo kept the pre-answer value, so the
     // Continue button stayed disabled no matter which filer card was tapped.
     filerStatus,
@@ -1572,6 +1586,7 @@ export function FilingWizard({
     if (filerType === "my_business" && !businessStructure) return false;
     if (needsIncomeSourceSelection && selectedIncomeSources.length === 0)
       return false;
+    if (unsupportedServicesSelection) return false;
     if (
       subcategorySteps.some((subcategoryStep) => {
         const source = getTy2026SourceForStep(subcategoryStep);
@@ -1602,6 +1617,7 @@ export function FilingWizard({
     subcategorySteps,
     incomeSubcategorySelections,
     taxYear,
+    unsupportedServicesSelection,
     filerStatus,
     residencyStatus,
     requiresBankAccounts,
@@ -2072,6 +2088,13 @@ export function FilingWizard({
     if (navigationStepKey === "documents" && hasUnsavedSalaryEmployers) {
       setFilingActionError(
         "The employer names on the salary certificate were changed but not saved. Press Save employer first, then continue.",
+      );
+      return;
+    }
+
+    if (navigationStepKey === "documents" && unsupportedServicesSelection) {
+      setFilingActionError(
+        "Freelancer / Services supports only Tax Year 2026 Myself filings with Services alone, Salary + Services, or Pension + Services. Return to Income sources and remove incompatible sources before continuing.",
       );
       return;
     }
@@ -2555,6 +2578,7 @@ export function FilingWizard({
         requiredDocumentLabels={requiredDocumentLabels}
         eligibilityRouteLabel={eligibilityRouteLabel}
         eligibilityRouteTone={eligibilityRouteTone}
+        unsupportedServicesSelection={unsupportedServicesSelection}
         canSubmit={canSubmit}
         onFilerTypeChange={(value) => {
           resetForSetupChange();
@@ -2600,13 +2624,6 @@ export function FilingWizard({
   }
 
   function renderDocuments() {
-    const unsupportedServicesSelection =
-      selectedIncomeSources.includes("services") &&
-      !isSingleFreelancerServicesFiling({
-        taxYear,
-        filerType,
-        incomeSources: selectedIncomeSources,
-      });
     return (
       <div className="space-y-6">
         {unsupportedServicesSelection && (
@@ -2617,8 +2634,9 @@ export function FilingWizard({
             <p className="font-semibold">This Services source combination is not supported yet</p>
             <p className="mt-1 text-xs leading-relaxed">
               Services may be filed alone or with Salary in this TY2026 Myself
-              route. Other source combinations remain blocked; do not treat
-              their Services evidence as complete.
+              route (or with Pension as Pension + Services). Other source
+              combinations remain blocked; do not treat their Services evidence
+              as complete.
             </p>
           </div>
         )}

@@ -210,7 +210,63 @@ function decideComputations(plan, rows) {
     if (Math.abs(iris.taxChargeable - (iris.normalTax + computed + superTax)) > 1) return null;
     return { value: computed, ratePercent };
   })();
-  const surcharge = irisComputedSurcharge
+  const surcharge = s.alreadyHandledInFieldMap === true
+    ? (() => {
+        if (s.action === "TYPE") {
+          if (!known(iris.taxableIncome) || !known(iris.normalTax)) {
+            return {
+              code: SURCHARGE_CODE,
+              label: s.label || SURCHARGE_CODE,
+              value: s.value,
+              decision: DECISION.TELL_USER,
+              reason: "iris_base_unreadable",
+              message: `Surcharge (row 923184): row 923184 already carries the combined final-tax pension + normal-tax surcharge, while IRIS's Taxable Income (9100) / Normal Tax (920000) could not be read to verify the normal-tax portion (${s.basis}). Please check row 923184 yourself.`,
+            };
+          }
+          const fromIris = Math.round((iris.normalTax * s.ratePercent) / 100);
+          if (
+            !(iris.taxableIncome > SURCHARGE_THRESHOLD) ||
+            iris.taxableIncome !== plan.expectedTaxableIncome ||
+            iris.normalTax !== plan.expectedNormalTax ||
+            Math.abs(fromIris - s.value) > 1
+          ) {
+            return {
+              code: SURCHARGE_CODE,
+              label: s.label || SURCHARGE_CODE,
+              value: s.value,
+              decision: DECISION.TELL_USER,
+              reason: "iris_base_differs",
+              message: `Surcharge (row 923184): row 923184 includes ${rupees(s.value)} for normal-tax surcharge, but IRIS shows Taxable Income ${rupees(iris.taxableIncome)} and Normal Tax ${rupees(iris.normalTax)} (TaxRocket expected ${rupees(plan.expectedTaxableIncome)} and ${rupees(plan.expectedNormalTax)}). Please check row 923184 yourself.`,
+            };
+          }
+        } else if (
+          s.action === "NONE" &&
+          plan.minimumTaxRegime !== "minimum" &&
+          known(iris.taxableIncome) &&
+          iris.taxableIncome > SURCHARGE_THRESHOLD
+        ) {
+          const hint = known(iris.normalTax)
+            ? `10% of IRIS's Normal Tax ${rupees(iris.normalTax)} is ${rupees(iris.normalTax * 0.1)}; 9% (only when salary is more than 75% of taxable income) is ${rupees(iris.normalTax * 0.09)}.`
+            : "";
+          return {
+            code: SURCHARGE_CODE,
+            label: s.label || SURCHARGE_CODE,
+            value: 0,
+            decision: DECISION.TELL_USER,
+            reason: "iris_taxable_above_10m",
+            message: `Surcharge (row 923184): row 923184 holds only the final-tax pension surcharge, while IRIS's Taxable Income (9100) is ${rupees(iris.taxableIncome)}, above PKR 10 million. Please check row 923184 and add the normal-tax surcharge yourself. ${hint}`.trim(),
+          };
+        }
+        return {
+          code: SURCHARGE_CODE,
+          label: s.label || SURCHARGE_CODE,
+          value: s.action === "TYPE" ? s.value : 0,
+          decision: DECISION.LEAVE,
+          reason: "typed_in_field_map",
+          ...(known(iris.surchargeTotal) ? { current: iris.surchargeTotal } : {}),
+        };
+      })()
+    : irisComputedSurcharge
     ? {
         code: SURCHARGE_CODE,
         label: s.label || SURCHARGE_CODE,

@@ -248,6 +248,43 @@ test("a ledger total equal to the certificate deduction is recognised, not asked
   assert.match(calc.pensionSource.overlapNote, /exactly the deduction on the pension certificate/);
 });
 
+test("multi-source filing never auto-zeros pension WHT against an equal-sized non-pension TAX_PAYMENT row", async () => {
+  // On Salary + Pension (or Pension + Services / Bank Profit), an equal-sized
+  // bank TAX_PAYMENT row may belong to another income source. It must prompt
+  // for explicit confirmation instead of silently dropping the pension credit.
+  const unconfirmedFields = facts({ [labels.deducted]: 100_000, [labels.net]: 11_900_000 });
+  const unconfirmed = qa({
+    fields: unconfirmedFields,
+    salary: 2_000_000,
+    ledgerTax: 100_000,
+  });
+  assert.equal((await unconfirmed.approve()).success, true);
+  const held = await unconfirmed.calculate();
+  assertTaxHeld(held.result);
+  assert.match(held.result.note, /Pension tax deducted is PKR 100,000/);
+  assert.match(held.result.note, /Enter how much of the deduction is already among those ledger payments/);
+
+  // Once the taxpayer confirms 0 overlap (separate non-pension payment), both
+  // the 100,000 ledger tax payment and 100,000 pension WHT are preserved.
+  const separateFields = facts({
+    [labels.deducted]: 100_000,
+    [labels.net]: 11_900_000,
+    [labels.overlap]: 0,
+  });
+  const separate = qa({
+    fields: separateFields,
+    salary: 2_000_000,
+    ledgerTax: 100_000,
+  });
+  assert.equal((await separate.approve()).success, true);
+  const resolved = await separate.calculate();
+  assert.equal(resolved.result.status, "ESTIMATE");
+  assert.equal(resolved.pensionSource.taxAlreadyInLedger, 0);
+  assert.equal(resolved.pensionSource.creditToAdd, 100_000);
+  assert.equal(resolved.pensionSource.overlapNote, null);
+  assert.equal(resolved.result.taxWithheld, 200_000);
+});
+
 test("reviewed overlap counts pension withholding once and does not require a tax-base note", async () => {
   const fields = facts({ [labels.deducted]: 100_000, [labels.net]: 11_900_000, [labels.overlap]: 100_000 });
   const h = qa({ fields, ledgerTax: 100_000 });

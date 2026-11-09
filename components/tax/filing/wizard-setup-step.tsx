@@ -70,6 +70,7 @@ type WizardSetupStepProps = Readonly<{
   requiredDocumentLabels: string[];
   eligibilityRouteLabel: string;
   eligibilityRouteTone: "muted" | "amanah" | "mizan" | "risk";
+  unsupportedServicesSelection?: boolean;
   canSubmit: boolean;
   onFilerTypeChange: (value: "myself" | "my_business") => void;
   onBusinessStructureChange: (value: string) => void;
@@ -162,6 +163,7 @@ export function WizardSetupStep({
   requiredDocumentLabels,
   eligibilityRouteLabel,
   eligibilityRouteTone,
+  unsupportedServicesSelection = false,
   canSubmit,
   onFilerTypeChange,
   onBusinessStructureChange,
@@ -266,6 +268,23 @@ export function WizardSetupStep({
           </a>
           .
         </p>
+        {unsupportedServicesSelection && (
+          <div
+            role="alert"
+            data-testid="unsupported-services-income-alert"
+            className="rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-sm text-amber-950 dark:text-amber-200"
+          >
+            <p className="font-semibold">
+              This Freelancer / Services combination is not supported yet
+            </p>
+            <p className="mt-1 text-xs leading-relaxed">
+              In Tax Year 2026 Myself filings, Freelancer / Services may be
+              filed alone, with Salary (Salary + Services), or with Pension
+              (Pension + Services). Untick incompatible income sources (such as
+              Business Income or a third source) before continuing.
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -384,6 +403,21 @@ export function WizardSetupStep({
             ))}
           </select>
         </div>
+        {unsupportedServicesSelection && (
+          <div
+            role="alert"
+            data-testid="unsupported-services-tax-year-alert"
+            className="rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-sm text-amber-950 dark:text-amber-200"
+          >
+            <p className="font-semibold">
+              Freelancer / Services requires Tax Year 2026 (Myself)
+            </p>
+            <p className="mt-1 text-xs leading-relaxed">
+              Select Tax Year 2026 or go back and remove Freelancer / Services
+              before continuing.
+            </p>
+          </div>
+        )}
       </div>
     );
   }

@@ -3932,6 +3932,36 @@ async function runLocalIrisNavigationCheck(jobContext, job) {
       }
     }
   }
+  if (
+    snapshot.business?.version !== "business-entry-v9" &&
+    snapshot.computations !== undefined &&
+    snapshot.computations !== null
+  ) {
+    const plan = snapshot.computations;
+    const invalidPlan =
+      plan.version !== "computations-v1" ||
+      plan.turnover !== undefined ||
+      plan.superTax?.action === "TYPE" ||
+      (typeof irisComputationsDriver !== "undefined" &&
+        typeof irisComputationsDriver?.validatePlan === "function" &&
+        irisComputationsDriver.validatePlan(plan).length > 0);
+    if (invalidPlan) {
+      const message =
+        "The approved packet contains an unverified Computations surcharge plan. Regenerate and approve the packet; IRIS was not opened.";
+      return {
+        paused: true,
+        pauseAction: "portal_state_confirmation",
+        pauseMessage: message,
+        executionLog: [],
+        result: {
+          requiredAction: "portal_state_confirmation",
+          message,
+          submitted: false,
+          businessCoverage: "computations_plan_mismatch",
+        },
+      };
+    }
+  }
   const windowInstance = await ensureWorkerWindow();
   const incomeSources = servicesRoute.incomeSources;
   const hasBusiness = incomeSources.includes("business");
@@ -3957,12 +3987,14 @@ async function runLocalIrisNavigationCheck(jobContext, job) {
     : Array.isArray(snapshot.portalFieldMap?.adjustableTaxFields)
       ? snapshot.portalFieldMap.adjustableTaxFields
       : [];
-  // The pension Section 4AB surcharge (923184) is the only non-business
-  // Computations write; include that section only when the approved packet
-  // actually queues it, so salary/business tours are unchanged.
-  const computationsRequested = packetFields.some(
-    (field) => String(field?.irisCode || "") === "923184",
-  );
+  // Section 4AB surcharge (923184) / Section 4C super tax (9231822) on
+  // non-business returns; include Computations only when the approved packet
+  // actually queues row 923184 or a verified computations-v1 plan, so ordinary
+  // <=10M tours stay unchanged.
+  const computationsRequested =
+    packetFields.some((field) => String(field?.irisCode || "") === "923184") ||
+    (snapshot.business?.version !== "business-entry-v9" &&
+      snapshot.computations?.version === "computations-v1");
   const handoffSectionIds = [...(salaryRequested ? irisNavigation.SALARY_WITHHOLDING_SECTION_IDS : []), ...businessSections, ...(computationsRequested ? ["computations"] : [])];
   if (!handoffSectionIds.length) {
     const message = servicesRoute.active
@@ -4510,6 +4542,40 @@ async function runRealIrisAutofill(jobContext, job, mode) {
         reviewRequired: true,
       },
     };
+  }
+
+  if (
+    snapshot.business?.version !== "business-entry-v9" &&
+    snapshot.computations !== undefined &&
+    snapshot.computations !== null
+  ) {
+    const plan = snapshot.computations;
+    const invalidPlan =
+      plan.version !== "computations-v1" ||
+      plan.turnover !== undefined ||
+      plan.superTax?.action === "TYPE" ||
+      (typeof irisComputationsDriver !== "undefined" &&
+        typeof irisComputationsDriver?.validatePlan === "function" &&
+        irisComputationsDriver.validatePlan(plan).length > 0);
+    if (invalidPlan) {
+      const pauseMessage =
+        "The approved packet contains an unverified Computations surcharge plan. Regenerate and approve the packet; nothing was changed in FBR.";
+      onStep("real_autofill_computations_plan_mismatch", pauseMessage);
+      return {
+        paused: true,
+        pauseAction: "portal_state_confirmation",
+        pauseMessage,
+        executionLog,
+        result: {
+          mode,
+          summary: { total: 0, filled: 0, skipped: 0, byStatus: {} },
+          results: [],
+          message: pauseMessage,
+          businessCoverage: "computations_plan_mismatch",
+          reviewRequired: true,
+        },
+      };
+    }
   }
 
   const windowInstance = await ensureWorkerWindow();
@@ -5743,7 +5809,10 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     !servicesRouteActive &&
     snapshot.business?.expectedIrisTotals?.computations?.version === "computations-v1"
       ? snapshot.business.expectedIrisTotals.computations
-      : null;
+      : snapshot.business?.version !== "business-entry-v9" &&
+          snapshot.computations?.version === "computations-v1"
+        ? snapshot.computations
+        : null;
   let computationsOutcome = null;
   if (computationsPlan) {
     if (mode !== "live") {
@@ -5891,6 +5960,57 @@ async function runRealIrisAutofill(jobContext, job, mode) {
       }
       checks.push(...incomeChecks);
     }
+    let wealthTotalsTour = null;
+    const hasPreviousWealthExpectation = Boolean(
+      snapshot?.wealthExpectations?.previousYearNetAssets &&
+        Number.isFinite(
+          Number(snapshot.wealthExpectations.previousYearNetAssets.expected),
+        ),
+    );
+    const hasWealthCarryForward = Boolean(
+      Array.isArray(snapshot?.wealthCarryForward?.rows) &&
+        snapshot.wealthCarryForward.rows.length > 0,
+    );
+    const wealthSummaryViews = [];
+    if (wealthEntries.length > 0 || hasPreviousWealthExpectation) {
+      wealthSummaryViews.push(
+        "116 - Wealth Statement > Reconciliation of Net Assets",
+      );
+    }
+    if (hasWealthCarryForward) {
+      wealthSummaryViews.push(
+        "116 - Wealth Statement > Personal Assets / Liabilities",
+      );
+    }
+    if (
+      wealthSummaryViews.length > 0 &&
+      typeof irisTourCensus?.runCensusTour === "function"
+    ) {
+      try {
+        await censusGuard();
+        const firstWealthSection = hasWealthCarryForward
+          ? "wealth_assets"
+          : "wealth_reconciliation";
+        const moved = await irisNavigation.navigateToSection(windowInstance, {
+          sectionId: firstWealthSection,
+          taxYear,
+          taxpayerIdentifier,
+        });
+        if (moved?.ok) {
+          wealthTotalsTour = await irisTourCensus.runCensusTour(windowInstance, {
+            label: `${label} (Section 116 summary)`,
+            onlyViews: wealthSummaryViews,
+            onStep,
+            beforeStep: censusGuard,
+          });
+        }
+      } catch (error) {
+        onStep(
+          "services_wealth_totals_readback_failed",
+          `Read-only Section 116 summary check did not finish (${error?.message || error}).`,
+        );
+      }
+    }
     const allChecksPresent = checks.length === entered.length && checks.every((check) => check.status === "match");
     const complete = Boolean(
       entered.length && allChecksPresent && (!incomeEntries.length || tour?.complete) && wealthComplete,
@@ -5900,6 +6020,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
       stoppedReason: complete ? null : tour?.stoppedReason || "one or more entered figures were not read back as an exact match",
       checks,
       tour,
+      wealthTotalsTour,
     };
   };
   if (censusOn && !stopped && mode !== "dry") {
@@ -6008,8 +6129,28 @@ async function runRealIrisAutofill(jobContext, job, mode) {
       }, {});
       onStep(
         "services_readback_after_tab_summary",
-        `Scoped Services readback after tab switch: ${counts.match || 0} match, ${counts.mismatch || 0} mismatch, ${counts.not_seen || 0} not seen; only approved Salary / Services / Wealth sections were visited.`,
+        `Scoped Services readback after tab switch: ${counts.match || 0} match, ${counts.mismatch || 0} mismatch, ${counts.not_seen || 0} not seen; only approved ${servicesRoute.pensionIncluded ? "Pension / " : servicesRoute.salaryIncluded ? "Salary / " : ""}Services / Wealth sections were visited.`,
       );
+      if (typeof irisTourCensus?.collectTotals === "function") {
+        irisTotals = {
+          ...(scopedServicesReadback.tour
+            ? irisTourCensus.collectTotals(scopedServicesReadback.tour)
+            : {}),
+          ...(scopedServicesReadback.wealthTotalsTour
+            ? irisTourCensus.collectTotals(
+                scopedServicesReadback.wealthTotalsTour,
+              )
+            : {}),
+        };
+        if (Object.keys(irisTotals).length) {
+          onStep(
+            "iris_totals",
+            `IRIS totals after typing (auto-calculated by IRIS): ${Object.entries(irisTotals)
+              .map(([code, value]) => `${code}=${value || "(blank)"}`)
+              .join(", ")}.`,
+          );
+        }
+      }
     } catch (error) {
       scopedServicesReadback = { complete: false, stoppedReason: `readback_failed: ${error?.message || error}`, checks: [] };
       allAfterTabReadbacksMatch = false;
@@ -6080,11 +6221,16 @@ async function runRealIrisAutofill(jobContext, job, mode) {
   // snapshot.wealthExpectations. Read-only by design: 703002 is IRIS's own
   // carry-forward from the filed record, so a difference is reported for the
   // taxpayer to check in FBR, never typed over.
+  const wealthTour =
+    censusEnd ||
+    scopedServicesReadback?.wealthTotalsTour ||
+    scopedServicesReadback?.tour ||
+    null;
   let previousWealthCheck = null;
   const previousWealthExpectation =
     snapshot?.wealthExpectations?.previousYearNetAssets;
   if (
-    censusEnd &&
+    wealthTour &&
     previousWealthExpectation &&
     Number.isFinite(Number(previousWealthExpectation.expected)) &&
     typeof irisTourCensus !== "undefined" &&
@@ -6129,7 +6275,8 @@ async function runRealIrisAutofill(jobContext, job, mode) {
   let wealthReconciliationCheck = null;
   let wealthCarryForwardCheck = null;
   if (
-    censusEnd &&
+    wealthTour &&
+    typeof wealthReconciliation !== "undefined" &&
     typeof irisTourCensus !== "undefined" &&
     typeof irisTourCensus.parseIrisAmount === "function"
   ) {

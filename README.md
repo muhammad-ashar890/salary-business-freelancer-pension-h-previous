@@ -1,5 +1,8 @@
 # TaxRocket
 
+> ### Engineering Rule #1 — Never Guess, Always Verify Root Cause First
+> **Never fix or change anything by guessing.** Always trace, reproduce, and verify the actual bug, root cause, live code path, and existing test assertions directly in the codebase before writing or applying any fix.
+
 **TaxRocket** is a guided Pakistan income-tax filing workspace. It takes a taxpayer from documents and bank statements to an approved filing packet, then hands the numbers to a supervised Windows desktop agent that types the packet-approved figures into the real **FBR IRIS** return, in front of the taxpayer, and reads every figure back. The taxpayer always reviews and submits the return themselves — TaxRocket never submits.
 
 > **Status:** Pilot. The tax engine currently implements **Tax Year 2026 only** (Finance Act 2025). The product is being built and live-tested route by route against the real IRIS portal.
