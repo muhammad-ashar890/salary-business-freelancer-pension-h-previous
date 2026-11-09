@@ -525,14 +525,31 @@ export function WizardDocumentsStep({
                   </Button>
 
                   {uploadedFileName &&
-                    slot.documentType === "previous_return" && (
+                    (!slotRequired ||
+                      (slot.documentType === "previous_return" &&
+                        previousReturnRequiredByFiler)) && (
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         className="min-w-0 flex-1 gap-1.5 sm:w-auto"
-                        onClick={() => handleRemoveDocument(slotKey)}
-                        disabled={isUploading || isExtracting}
+                        title={
+                          slot.documentType === "previous_return"
+                            ? "Remove this document. Filing can continue without it."
+                            : "Remove this document and the figures it fed. The tax calculation must be run again."
+                        }
+                        onClick={() => {
+                          // An approved document has numbers in the packet, so
+                          // the destructive click is confirmed first.
+                          if (isMapped) {
+                            const confirmed = window.confirm(
+                              `Remove "${slotLabel}"? It is approved and mapped. The amounts it fed are dropped too, and Recalculate has to be run again.`,
+                            );
+                            if (!confirmed) return;
+                          }
+                          handleRemoveDocument(slotKey);
+                        }}
+                        disabled={isUploading || isExtracting || isMapping}
                       >
                         Remove
                       </Button>

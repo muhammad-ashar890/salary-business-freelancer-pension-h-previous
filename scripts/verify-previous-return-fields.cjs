@@ -738,7 +738,11 @@ test("previous_return gate: uploaded-but-unapproved blocks Continue; Remove is t
     "utf8",
   );
   assert.match(docs, /export async function removeFilingDocumentAction/);
-  assert.match(docs, /Only the Previous Year Tax Return can be removed here/);
+  assert.match(
+    docs,
+    /required by the filing flow, so it cannot be removed here/,
+  );
+  assert.match(docs, /getRequiredTaxDocumentTypesForCurrentFlow/);
   const step = fs.readFileSync(
     path.join(root, "components/tax/filing/wizard-documents-step.tsx"),
     "utf8",
@@ -751,6 +755,41 @@ test("previous_return gate: uploaded-but-unapproved blocks Continue; Remove is t
   );
   assert.match(hook, /removeFilingDocumentAction/);
   assert.match(hook, /Previous Year Tax Return removed/);
+});
+
+test("optional documents are removable: button and action share one rule", () => {
+  const docs = fs.readFileSync(
+    path.join(root, "app/actions/documents.ts"),
+    "utf8",
+  );
+  const step = fs.readFileSync(
+    path.join(root, "components/tax/filing/wizard-documents-step.tsx"),
+    "utf8",
+  );
+  const hook = fs.readFileSync(
+    path.join(root, "components/tax/filing/hooks/use-filing-documents.ts"),
+    "utf8",
+  );
+  // The button is offered by optionality, not by a hardcoded type list, and
+  // the previous_return escape hatch keeps its Filer-answer condition.
+  assert.match(step, /!slotRequired \|\|/);
+  assert.match(step, /slot\.documentType === "previous_return" &&/);
+  assert.match(step, /window\.confirm\(/);
+  assert.match(step, /isUploading \|\| isExtracting \|\| isMapping/);
+  // The server re-derives the same required set instead of trusting the UI.
+  assert.match(docs, /getRequiredTaxDocumentTypesForCurrentFlow/);
+  assert.match(docs, /requiredTypes\.has\(document\.documentType\)/);
+  // Stored money must not outlive the document that fed it (SetNull rels).
+  assert.match(docs, /filingTaxCredit\.deleteMany/);
+  assert.match(docs, /filingIncomeRecord\.deleteMany/);
+  // A removal is the inverse of an approval: the packet loses its approval.
+  assert.match(docs, /packetApprovalConfirmed: false/);
+  assert.match(docs, /status: "SUPERSEDED", approvalStatus: "SUPERSEDED"/);
+  assert.match(docs, /document\.documentType !== "previous_return" &&/);
+  // and the wizard drops the cached review, then resets downstream steps.
+  assert.match(hook, /resetDownstreamSteps\(step\)/);
+  assert.match(hook, /delete next\[record\.id\]/);
+  assert.match(hook, /Recalculate before approving the packet/);
 });
 
 test("previous_return Phase 4b wiring: Mizan preview carries the continuity guidance", () => {

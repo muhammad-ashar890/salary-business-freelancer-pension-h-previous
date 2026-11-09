@@ -989,8 +989,44 @@ export function useFilingDocuments({
         delete next[documentType];
         return next;
       });
+      setExtractedByDocumentId((previous) => {
+        if (!(record.id in previous)) return previous;
+        const next = { ...previous };
+        delete next[record.id];
+        return next;
+      });
+      setSelectedDocumentFiles((previous) => {
+        if (!(documentType in previous)) return previous;
+        const next = { ...previous };
+        delete next[documentType];
+        return next;
+      });
+      // The steps downstream of Documents read the packet this document fed,
+      // so the calculation and the approval are dropped exactly as they are
+      // when a document is uploaded or approved.
+      resetDownstreamSteps(step);
+      const removedRows =
+        (
+          result as {
+            removedRows?: {
+              ledgerEntries?: number;
+              taxCredits?: number;
+              incomeRecords?: number;
+            };
+          }
+        ).removedRows ?? {};
+      const droppedRows =
+        (removedRows.ledgerEntries ?? 0) +
+        (removedRows.taxCredits ?? 0) +
+        (removedRows.incomeRecords ?? 0);
       setProfileSyncNote(
-        "Previous Year Tax Return removed. Filing can continue without it.",
+        documentType === "previous_return"
+          ? "Previous Year Tax Return removed. Filing can continue without it."
+          : droppedRows > 0
+            ? `Document removed. ${droppedRows} stored row${
+                droppedRows === 1 ? "" : "s"
+              } it had fed were dropped too, so Recalculate before approving the packet.`
+            : "Document removed. Recalculate to refresh the figures that used it.",
       );
     } catch {
       setDocumentUploadError(

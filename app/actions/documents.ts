@@ -15,6 +15,8 @@ import {
   buildFilingDocumentSlotWhere,
   resolveFilingDocumentSlot,
 } from "@/lib/tax/document-upload-slot";
+import { getRequiredTaxDocumentTypesForCurrentFlow } from "@/lib/tax/document-requirements";
+import type { TaxIncomeSource } from "@/lib/tax/filing-drafts";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -571,11 +573,43 @@ export async function removeFilingDocumentAction(documentId: string) {
       where: { id, userId: user.id },
     });
     if (!document) return { success: false, error: "Document not found" };
+    // Removability follows the rule the Documents checklist already paints:
+    // an optional slot can be taken back, a required one can only be replaced.
+    // previous_return keeps its escape hatch even when the taxpayer's Filer
+    // answer made it required, so a wrong-year upload can always be undone
+    // here instead of being stuck with the filing.
     if (document.documentType !== "previous_return") {
-      return {
-        success: false,
-        error: "Only the Previous Year Tax Return can be removed here.",
-      };
+      const guardDraft = document.filingDraftId
+        ? await prisma.filingDraft.findFirst({
+            where: { id: document.filingDraftId, userId: user.id },
+            select: { incomeSources: true },
+          })
+        : null;
+      if (!document.filingDraftId || !guardDraft) {
+        return {
+          success: false,
+          error: "Document is not attached to a filing draft.",
+        };
+      }
+      let flowIncomeSources: string[] = [];
+      try {
+        const parsed = JSON.parse(guardDraft.incomeSources);
+        flowIncomeSources = Array.isArray(parsed) ? parsed.map(String) : [];
+      } catch {
+        flowIncomeSources = [];
+      }
+      const requiredTypes = new Set(
+        getRequiredTaxDocumentTypesForCurrentFlow({
+          incomeSources: flowIncomeSources as TaxIncomeSource[],
+        }),
+      );
+      if (requiredTypes.has(document.documentType)) {
+        return {
+          success: false,
+          error:
+            "This document is required by the filing flow, so it cannot be removed here. Replace it instead.",
+        };
+      }
     }
     if (document.extractionStatus === "PROCESSING") {
       return {
@@ -584,21 +618,85 @@ export async function removeFilingDocumentAction(documentId: string) {
       };
     }
 
+    let removedRows = { ledgerEntries: 0, taxCredits: 0, incomeRecords: 0 };
     await prisma.$transaction(async (tx) => {
-      await tx.ledgerEntry.deleteMany({
-        where: {
-          filingDraftId: document.filingDraftId,
-          userId: user.id,
-          sourceDocumentId: document.id,
-        },
-      });
+      removedRows = {
+        ledgerEntries: (
+          await tx.ledgerEntry.deleteMany({
+            where: {
+              filingDraftId: document.filingDraftId,
+              userId: user.id,
+              sourceDocumentId: document.id,
+            },
+          })
+        ).count,
+        // Money this document fed must not outlive it. Both relations below
+        // are onDelete: SetNull, so without these the stored credit / income
+        // rows would keep feeding the packet with their evidence deleted.
+        taxCredits: (
+          await tx.filingTaxCredit.deleteMany({
+            where: { userId: user.id, sourceDocumentId: document.id },
+          })
+        ).count,
+        incomeRecords: (
+          await tx.filingIncomeRecord.deleteMany({
+            where: { userId: user.id, sourceDocumentId: document.id },
+          })
+        ).count,
+      };
       await tx.document.delete({ where: { id: document.id } });
+      if (
+        document.documentType !== "previous_return" &&
+        document.filingDraftId
+      ) {
+        // Removal is the inverse of an approval: the calculation that read
+        // this document has to run again, and any packet carrying its numbers
+        // is superseded rather than left approved on a missing proof. The
+        // previous return keeps its old behaviour (nothing feeds the packet
+        // from it yet), so removing it never invalidates a filing.
+        await tx.filingDraft.update({
+          where: { id: document.filingDraftId },
+          data: {
+            taxableIncome: null,
+            taxPayable: null,
+            refundDue: null,
+            taxCalculationStatus: "NOT_CALCULATED",
+            taxRuleSetVersion: null,
+            taxCalculationRevision: null,
+            packetApprovalConfirmed: false,
+            packetApprovalAt: null,
+            packetApprovalByUserId: null,
+            status: "IN_PROGRESS",
+          },
+        });
+        await tx.filingPacket.updateMany({
+          where: {
+            filingDraftId: document.filingDraftId,
+            userId: user.id,
+            status: { not: "SUPERSEDED" },
+          },
+          data: { status: "SUPERSEDED", approvalStatus: "SUPERSEDED" },
+        });
+        if (
+          [
+            "business_balance_sheet",
+            "business_books",
+            "business_support",
+          ].includes(document.documentType)
+        ) {
+          await invalidateBusinessBalancePackets(
+            tx,
+            document.filingDraftId,
+            user.id,
+          );
+        }
+      }
     });
 
     await unlink(path.join(process.cwd(), "uploads", document.fileUrl)).catch(
       () => undefined,
     );
-    return { success: true };
+    return { success: true, removedRows };
   } catch (error) {
     console.error("Error removing filing document:", error);
     return { success: false, error: "Failed to remove the document" };
