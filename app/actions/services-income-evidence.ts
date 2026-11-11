@@ -143,7 +143,7 @@ export async function saveServicesIncomeEvidenceAction(input: {
       });
       if (!draft) return invalid("Filing draft not found");
       if (!isSingleFreelancerServicesFiling(draft))
-        return invalid("Verified Services invoice evidence supports only TY2026 Myself filings with Services alone, exactly Salary + Services, or exactly Pension + Services.");
+        return invalid("Verified Services invoice evidence supports only TY2026 Myself filings with Services alone, exactly Salary + Services, exactly Pension + Services, or exactly Business + Services.");
 
       const selectedSubcategories = Array.from(
         new Set(draft.incomeSelections.map((selection) => selection.subcategory)),

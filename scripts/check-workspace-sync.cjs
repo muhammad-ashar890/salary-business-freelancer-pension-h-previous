@@ -1196,19 +1196,22 @@ const MARKERS = [
 function scan(root, markers) {
   return markers.map(([rel, strings, why]) => {
     const file = path.join(root, rel);
-    let text = null;
+    let raw = null;
     try {
-      text = fs.readFileSync(file, "utf8");
+      raw = fs.readFileSync(file, "utf8");
     } catch {
       return { status: "MISSING", rel, why, missing: strings.slice() };
     }
+    // Markers are written in LF, so fold CRLF before comparing; without this a
+    // Windows checkout calls any multi-line needle stale.
+    const text = raw.replace(/\r\n/g, "\n");
     const missing = strings.filter((needle) => !text.includes(needle));
     return {
       status: missing.length ? "STALE" : "OK",
       rel,
       why,
       missing,
-      bytes: Buffer.byteLength(text),
+      bytes: Buffer.byteLength(raw),
     };
   });
 }

@@ -1004,11 +1004,27 @@ function HandoffCompleteCard({
     isServicesRoute && Number(scope?.salaryFields?.total || 0) > 0;
   const isCombinedPensionServicesRoute =
     isServicesRoute && Number(scope?.pensionFields?.total || 0) > 0;
+  // 11-Nov-2026: a Business + Services filing ran the Business numeric sections too
+  // (Trading, Admin, Balance sheet) while this card's 1/1 count covers only the
+  // services scope, so the heading said "Freelancer / Services" and the business half
+  // was invisible here. The remainder below is derived from evidence the card already
+  // shows — the post-Save re-read — minus the fields it already accounts for; it reads
+  // 0 on a pure services run, and 0 when the afterSave readback did not complete.
+  const businessNumericFieldsEntered = Math.max(
+    0,
+    Number(scope?.save?.afterSave?.match ?? 0) -
+      (Number(scope?.business?.preparedFields ?? 0) +
+        Number(scope?.salaryFields?.total ?? 0) +
+        Number(scope?.pensionFields?.total ?? 0) +
+        Number(scope?.wealthRows ?? 0)),
+  );
   const servicesRouteName = isCombinedPensionServicesRoute
     ? "Pension + Freelancer / Services"
     : isCombinedSalaryServicesRoute
       ? "Salary + Freelancer / Services"
-      : "Freelancer / Services";
+      : businessNumericFieldsEntered > 0
+        ? "Business + Freelancer / Services"
+        : "Freelancer / Services";
   if (scope?.business) {
     const visibleBusinessPending = (scope.business.pendingItems ?? []).filter(
       (item) => {

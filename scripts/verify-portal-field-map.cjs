@@ -589,10 +589,7 @@ test("an unmapped income category blocks packet generation (never a silent omiss
 
   // The action reads the gaps, refuses before any snapshot, and hands the same list
   // to the UI so the override is offered from real numbers.
-  const action = fs.readFileSync(
-    path.join(projectRoot, "app/actions/packet.ts"),
-    "utf8",
-  );
+  const action = fs.readFileSync(path.join(projectRoot, "app/actions/packet.ts"), "utf8").replace(/\r\n/g, "\n");
   const bodyStart = action.indexOf("export async function generateFilingPacketAction");
   const body = action.slice(bodyStart, action.indexOf("export async function", bodyStart + 10));
   assert.match(body, /options\?: \{ acceptUnmappedPortalSources\?: boolean \}/, "the override is an explicit argument");
@@ -617,7 +614,9 @@ test("an unmapped income category blocks packet generation (never a silent omiss
     /businessSnapshot\s*\? \{[\s\S]{0,180}mode: "partial_manual_entry_required" as const/.test(body),
     true,
   );
-  const refusalAt = body.indexOf("return {\n        success: false,\n        error: coverageGate.refusal");
+  const refusalAt = body.search(
+    /\breturn \{\s*success: false,\s*error: coverageGate\.refusal/,
+  );
   assert.notEqual(refusalAt, -1, "the refusal must exist before anything is stored");
   check(
     "the refusal precedes the snapshot it would otherwise store",

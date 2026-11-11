@@ -27,6 +27,7 @@ import {
 } from "@/lib/tax/business-filing";
 import { normalizeIban } from "@/lib/tax/business-balance-details";
 import { totalDepreciationAdditions } from "@/lib/tax/business-depreciation-schedule";
+import { mergeBusinessAndServicesFields } from "@/lib/tax/business-services-shared-fields";
 import { createHash } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
@@ -696,7 +697,7 @@ export async function generateFilingPacketAction(
       return {
         success: false,
         error:
-          "Services income evidence supports only TY2026 Myself filings with Services alone, exactly Salary + Services, or exactly Pension + Services. Other source combinations are unsupported, so no Services packet was generated.",
+          "Services income evidence supports only TY2026 Myself filings with Services alone, exactly Salary + Services, exactly Pension + Services, or exactly Business + Services. Other source combinations are unsupported, so no Services packet was generated.",
       };
     }
 
@@ -1096,6 +1097,11 @@ export async function generateFilingPacketAction(
           })),
           incomeBySubcategory: verifiedServicesIncome.incomeBySubcategory,
           existingBusinessFields: business?.fields ?? [],
+          // Freelancer + Business: IRIS has ONE row for both kinds of receipt, so
+          // the Services figure is folded into the Business row below instead of
+          // being kept manual. Only the shared income rows are declared; every
+          // evidence gate in buildServicesPortalMappings still applies.
+          sharedBusinessTargetCodes: business ? ["3101", "3128"] : [],
           taxCredits: taxCredits.map((credit) => ({
             id: credit.id,
             section: credit.section,
@@ -1294,6 +1300,12 @@ export async function generateFilingPacketAction(
       ];
     }
     const servicesBusinessFields = servicesPortalMappings?.businessFields ?? [];
+    // `code:column` -> the Business half of a folded row, so the Services
+    // payload can declare the fold to the agent's cross-check.
+    const combinedFoldByCodeColumn = new Map<
+      string,
+      { businessAmount: number; businessOurCategory: string }
+    >();
     if (business) {
       if (businessBankEntries.length && ownershipStillOpen)
         business.pending.push({
@@ -1302,8 +1314,32 @@ export async function generateFilingPacketAction(
           reason:
             "Accounts with business cash records need business/personal/mixed ownership review. Their balances are not automatically written as personal Wealth bank rows; complete the appropriate business/account detail and reconciliation manually.",
         });
-      portalFieldMap.businessFields = business.fields;
-      portalFieldMap.totalFields += business.fields.length;
+      const combined = mergeBusinessAndServicesFields({
+        businessFields: business.fields,
+        servicesFields: servicesBusinessFields,
+        incomeSources: parsedIncomeSources,
+      });
+      business.fieldFold = {
+        version: "business-services-fold-v1" as const,
+        merged: combined.merged,
+        unmapped: combined.unmapped,
+      };
+      for (const fold of combined.merged) {
+        combinedFoldByCodeColumn.set(`${fold.irisCode}:${fold.column}`, {
+          businessAmount: fold.businessAmount,
+          businessOurCategory: fold.businessOurCategory,
+        });
+      }
+      for (const item of combined.unmapped) {
+        portalFieldMap.mappingGaps.unmappedCategories.push({
+          category: `BUSINESS_SERVICES_SHARED_ROW_${item.irisCode}`,
+          entryIds: [],
+          totalAmount: item.amount,
+          reason: item.reason,
+        });
+      }
+      portalFieldMap.businessFields = combined.fields;
+      portalFieldMap.totalFields += combined.fields.length;
       for (const item of business.pending) {
         if (item.amount !== null && item.amount > 0) {
           portalFieldMap.mappingGaps.unmappedCategories.push({
@@ -1320,9 +1356,10 @@ export async function generateFilingPacketAction(
       portalFieldMap.businessFields = [...servicesBusinessFields];
       portalFieldMap.totalFields += portalFieldMap.businessFields.length;
     }
-    const servicesBusinessPayload = business
-      ? null
-      : buildServicesTaxDeductionPacket({
+    // A combined return carries BOTH payloads: `business` stays the Business
+    // packet (so Depreciation, Business Details, Balance Sheet and the row
+    // drivers keep working) and the Services envelope travels beside it.
+    const servicesBusinessPayload = buildServicesTaxDeductionPacket({
           taxYear: draftData.taxYear,
           filerType: draftData.filerType,
           incomeSources: parsedIncomeSources,
@@ -1331,7 +1368,19 @@ export async function generateFilingPacketAction(
           withholdingGaps: servicesPortalMappings?.withholdingGaps,
         });
     const businessSnapshot = business ?? servicesBusinessPayload;
-    const servicesReviewChecklist: { key: string; reason: string }[] = [];
+
+    const servicesSnapshot =
+      business && servicesBusinessPayload
+        ? {
+            ...servicesBusinessPayload,
+            fields: servicesBusinessPayload.fields.map((field) => {
+              const fold = combinedFoldByCodeColumn.get(
+                `${field.irisCode}:${field.column}`,
+              );
+              return fold ? { ...field, fbSharedCell: fold } : field;
+            }),
+          }
+        : servicesBusinessPayload;    const servicesReviewChecklist: { key: string; reason: string }[] = [];
     for (const item of servicesBusinessPayload?.pending ?? []) {
       // An amountless pending item is a review instruction, not a figure to
       // key into IRIS. It must not become a PKR 0 manual-entry gap.
@@ -1514,6 +1563,18 @@ export async function generateFilingPacketAction(
       // v9 means the desktop must perform a read-only 3320/7030 cross-check.
       // Older agents refuse unknown versions rather than skipping that guard.
       business: business ? { ...business, version: "business-entry-v9" as const } : businessSnapshot,
+      // Freelancer + Business only: the Services envelope beside the Business
+      // packet. It never replaces `business`, so every Business-only driver
+      // (Business Details, Depreciation, Balance Sheet, Tax Deduction) keeps
+      // reading its own payload, and the Services rows keep their own gates.
+      ...(business && servicesSnapshot
+        ? {
+            services: {
+              ...servicesSnapshot,
+              version: "services-tax-deduction-v1" as const,
+            },
+          }
+        : {}),
       coverage,
     };
 

@@ -1581,7 +1581,7 @@ export async function approveAndMapExtractedDocumentAction(documentId: string) {
         return {
           success: false,
           error:
-            "Invoice mapping supports only TY2026 Myself filings with Services alone, exactly Salary + Services, or exactly Pension + Services.",
+            "Invoice mapping supports only TY2026 Myself filings with Services alone, exactly Salary + Services, exactly Pension + Services, or exactly Business + Services.",
         };
       }
       if (!["COMPLETED", "MAPPED"].includes(document.extractionStatus)) {

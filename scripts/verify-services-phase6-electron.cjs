@@ -247,10 +247,20 @@ test("Phase 6 route is active only for TY2026 Myself Services-only, Salary+Servi
   assert.equal(pensionCombined.salaryIncluded, false);
   assert.equal(pensionCombined.pensionIncluded, true);
 
+  // P2 unlock: Business + Services now reaches the gates. The payload and
+  // section checks downstream still gate every Business row, so this only means
+  // the route is recognised, not that Business schedules are entered.
+  const businessCombined = main.getServicesPacketRoute(
+    snapshotWith({ incomeSources: ["services", "business"] }),
+  );
+  assert.equal(businessCombined.active, true);
+  assert.equal(businessCombined.salaryIncluded, false);
+  assert.equal(businessCombined.pensionIncluded, false);
+  assert.equal(businessCombined.businessIncluded, true);
+
   const rejected = [
     snapshotWith({ incomeSources: ["services", "pension", "salary"] }),
     snapshotWith({ incomeSources: ["services", "salary", "property_rent"] }),
-    snapshotWith({ incomeSources: ["business", "services"] }),
     snapshotWith({ incomeSources: ["services", "services"] }),
     snapshotWith({ taxYear: 2025 }),
     snapshotWith({ filerType: "my_business" }),

@@ -13,6 +13,7 @@
     "verify:ty2026-subcategories": "node scripts/verify-ty2026-subcategories.cjs",
     "verify:ty2026-tax-calculation": "node scripts/verify-ty2026-tax-calculation.cjs",
     "verify:pension-routing": "node --test scripts/verify-pension-routing.cjs",
+    "verify:services-business-gate-parity": "node --test scripts/verify-services-business-gate-parity.cjs scripts/verify-fb-business-merge.cjs",
     "verify:pension-statement": "node --test scripts/verify-pension-statement.cjs",
     "verify:pension-prefill": "node --test scripts/verify-pension-prefill.cjs",
     "verify:pension-review": "node --test scripts/verify-pension-review-policy.cjs scripts/verify-pension-statement.cjs scripts/verify-pension-prefill.cjs scripts/verify-document-review-required.cjs",

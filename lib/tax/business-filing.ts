@@ -244,6 +244,31 @@ export function readBusinessBalanceSheet(raw: unknown, taxYear: number) {
     gaps,
   };
 }
+/** One IRIS cell shared by a Business figure and a Services figure. */
+export type BusinessServicesSharedCell = {
+  irisCode: string;
+  column: string;
+  businessAmount: number;
+  servicesAmount: number;
+  totalAmount: number;
+  businessOurCategory: string;
+  servicesOurCategory: string;
+};
+
+/** A Services income row the fold could not place, kept for manual entry. */
+export type BusinessServicesUnmappedCell = {
+  irisCode: string;
+  column: string;
+  amount: number;
+  reason: string;
+};
+
+export type BusinessServicesFieldFold = {
+  version: "business-services-fold-v1";
+  merged: BusinessServicesSharedCell[];
+  unmapped: BusinessServicesUnmappedCell[];
+};
+
 export type BusinessPacket = ReturnType<typeof buildBusinessPacket>;
 export function buildBusinessPacket(input: {
   taxYear: number;
@@ -908,6 +933,10 @@ export function buildBusinessPacket(input: {
     depreciation,
     balanceDetails,
     businessDetails,
+    // Freelancer + Business only: set by the packet builder after the fold of
+    // the two Business-grid figures into the one IRIS row per cell. Absent
+    // means nothing from either source was merged.
+    fieldFold: undefined as BusinessServicesFieldFold | undefined,
     taxDeductions,
     addBacks,
     coverage: "partial_manual_required" as const,
@@ -1029,7 +1058,7 @@ export function buildServicesTaxDeductionPacket(input: {
     })
   )
     throw new Error(
-      "Verified Services entry supports TY2026 Myself filings with Services alone, exactly Salary + Services, or exactly Pension + Services; other source combinations are unsupported.",
+      "Verified Services entry supports TY2026 Myself filings with Services alone, exactly Salary + Services, exactly Pension + Services, or exactly Business + Services; other source combinations are unsupported.",
     );
   const fields = [...input.businessFields, ...input.withholdingFields];
   // No approved row means nothing may be entered: stay null rather than

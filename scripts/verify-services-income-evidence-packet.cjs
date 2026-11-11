@@ -185,8 +185,18 @@ test("the Services Business payload stays empty rather than guessing at a row", 
 });
 
 test("packet writes only approved Services fields into IRIS maps and keeps adapter gaps visible", () => {
-  assert.match(packet, /portalFieldMap\.businessFields = business\.fields/);
+  // A combined return folds the two Business-grid figures into the one IRIS row
+  // per cell (lib/tax/business-services-shared-fields.ts), so the Business
+  // fields no longer travel to the map untouched: either form is approved.
+  assert.match(
+    packet,
+    /portalFieldMap\.businessFields = (?:business\.fields|combined\.fields)/,
+  );
   assert.match(packet, /portalFieldMap\.businessFields = \[\.\.\.servicesBusinessFields\]/);
+  // Freelancer + Business: the Services rows are declared foldable, and a cell
+  // the fold could not resolve must surface as a gap, never be typed twice.
+  assert.match(packet, /sharedBusinessTargetCodes: business \? \["3101", "3128"\] : \[\]/);
+  assert.match(packet, /BUSINESS_SERVICES_SHARED_ROW_/);
   assert.match(packet, /portalFieldMap\.adjustableTaxFields\.push\([\s\S]*?\.\.\.servicesPortalMappings\.withholdingFields/);
   assert.match(packet, /manualIncomeGaps:\s*servicesPortalMappings\.incomeGaps/);
   assert.match(packet, /manualWithholdingGaps:\s*servicesPortalMappings\.withholdingGaps/);

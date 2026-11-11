@@ -105,6 +105,17 @@ export type PortalFieldMapEntry = {
    */
   giftDonorId?: string;
   giftDescription?: string;
+  /**
+   * Freelancer + Business only: this row's IRIS cell is shared by both sources
+   * and the figure is the sum of the two. The pair is recorded so the agent's
+   * Services cross-check can prove the Business part of a folded row instead of
+   * demanding the whole figure came from an invoice.
+   */
+  fbSharedCell?: {
+    businessAmount: number;
+    servicesAmount: number;
+    businessOurCategory: string;
+  };
 };
 
 /**
@@ -273,6 +284,8 @@ export type PortalAutofillField = {
   /** See PortalFieldMapEntry.giftDonorId / giftDescription (7037 only). */
   giftDonorId?: string;
   giftDescription?: string;
+  /** See PortalFieldMapEntry.fbSharedCell (Freelancer + Business only). */
+  fbSharedCell?: NonNullable<PortalFieldMapEntry["fbSharedCell"]>;
   ledgerEntryId?: string;
   taxCreditId?: string;
   incomeRecordId?: string;
@@ -504,6 +517,7 @@ function toPortalAutofillField(
     ...(entry.giftDescription
       ? { giftDescription: entry.giftDescription }
       : {}),
+    ...(entry.fbSharedCell ? { fbSharedCell: entry.fbSharedCell } : {}),
     ledgerEntryId: entry.ledgerEntryId,
     taxCreditId: entry.taxCreditId,
     incomeRecordId: entry.incomeRecordId,

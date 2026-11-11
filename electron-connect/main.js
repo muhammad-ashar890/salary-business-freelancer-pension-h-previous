@@ -3658,6 +3658,18 @@ function normalizeExplicitResidencyStatus(value) {
  * before IRIS is opened.
  */
 function getServicesPacketRoute(snapshot) {
+  // The approved Services envelope. On Services alone / Salary + Services /
+  // Pension + Services it IS `snapshot.business`; on a combined Freelancer +
+  // Business return the Business packet keeps that slot (so its own row drivers
+  // stay untouched) and the Services rows travel in `snapshot.services`.
+  // Deliberately a local, not a module global: the Phase 6 harness loads single
+  // main.js functions into a VM sandbox, where a cross-function call is undefined.
+  const getServicesPayload = (value) =>
+    value?.services?.version === "services-tax-deduction-v1"
+      ? value.services
+      : value?.business?.version === "services-tax-deduction-v1"
+        ? value.business
+        : null;
   const filing = snapshot?.filing || {};
   let incomeSources = [];
   if (Array.isArray(filing.incomeSources)) {
@@ -3670,7 +3682,7 @@ function getServicesPacketRoute(snapshot) {
       incomeSources = [];
     }
   }
-  const payload = snapshot?.business;
+  const payload = getServicesPayload(snapshot);
   const selected = incomeSources.includes("services");
   const uniqueSources = [...new Set(incomeSources)].sort();
   const servicesOnly =
@@ -3683,11 +3695,20 @@ function getServicesPacketRoute(snapshot) {
     uniqueSources.length === 2 &&
     uniqueSources[0] === "pension" &&
     uniqueSources[1] === "services";
+  const businessAndServices =
+    uniqueSources.length === 2 &&
+    uniqueSources[0] === "business" &&
+    uniqueSources[1] === "services";
+  /* Supported Services source sets, kept in lockstep with
+     lib/tax/business-bank-categories.ts isFreelancerIncomeSelected and
+     lib/tax/business-filing.ts buildServicesTaxDeductionPacket: Services alone,
+     Salary + Services, Pension + Services, Business + Services. Anything else
+     stays fail-closed; scripts/verify-services-business-gate-parity.cjs pins it. */
   const exact =
     Number(filing.taxYear) === 2026 &&
     filing.filerType === "myself" &&
     incomeSources.length === uniqueSources.length &&
-    (servicesOnly || salaryAndServices || pensionAndServices);
+    (servicesOnly || salaryAndServices || pensionAndServices || businessAndServices);
   const payloadValid =
     payload?.version === "services-tax-deduction-v1" &&
     payload?.route === "services_tax_deduction" &&
@@ -3700,6 +3721,7 @@ function getServicesPacketRoute(snapshot) {
     selected,
     salaryIncluded: salaryAndServices,
     pensionIncluded: pensionAndServices,
+    businessIncluded: businessAndServices,
     exact,
     payloadValid,
     active: exact && payloadValid,
@@ -3715,8 +3737,17 @@ function getServicesPacketRoute(snapshot) {
  * exactly; a missing or ambiguous match fails the whole Services route.
  */
 function getServicesAutofillFields(snapshot, allCoded) {
-  const payloadFields = Array.isArray(snapshot?.business?.fields)
-    ? snapshot.business.fields.filter((field) => field && field.irisCode)
+  // The Services envelope is `snapshot.services` on a combined return.
+  // `snapshot.business?.version === "services-tax-deduction-v1"` still describes
+  // every other Services route, where the payload owns the Business slot.
+  const servicesPayload =
+    snapshot?.services?.version === "services-tax-deduction-v1"
+      ? snapshot.services
+      : snapshot?.business?.version === "services-tax-deduction-v1"
+        ? snapshot.business
+        : null;
+  const payloadFields = Array.isArray(servicesPayload?.fields)
+    ? servicesPayload.fields.filter((field) => field && field.irisCode)
     : [];
   const candidates = (Array.isArray(allCoded) ? allCoded : []).filter(
     (field) =>
@@ -3760,7 +3791,15 @@ function getServicesAutofillFields(snapshot, allCoded) {
       String(candidate.portalGroup || "") === String(payload.portalGroup || "") &&
       candidate.rowDescriptionIncludes === payload.rowDescriptionIncludes &&
       candidate.isTaxField === payload.isTaxField &&
-      sameAmount(candidateAmount, payloadAmount) &&
+      // A folded Freelancer + Business row carries BOTH figures in one IRIS
+      // cell; the payload declares the Services half, so the cell must equal
+      // the Services figure plus exactly the Business figure it was folded on.
+      sameAmount(
+        payload.fbSharedCell
+          ? amount(candidateAmount) - amount(payload.fbSharedCell.businessAmount)
+          : candidateAmount,
+        payloadAmount,
+      ) &&
       payloadTaxablePresent === candidateTaxablePresent &&
       (!payloadTaxablePresent ||
         sameAmount(candidate.taxableAmount, payload.taxableAmount)) &&
@@ -3774,7 +3813,20 @@ function getServicesAutofillFields(snapshot, allCoded) {
       sameSet(candidate.servicesPaymentMatchIds, payload.servicesPaymentMatchIds) &&
       sameSet(candidate.servicesEvidenceDocumentIds, payload.servicesEvidenceDocumentIds) &&
       sameSet(candidate.servicesSubcategories, payload.servicesSubcategories) &&
-      sameSet(candidate.sourceEvidenceReferences, payload.sourceEvidenceReferences)
+      // A folded row also carries the Business row's own references, so the
+      // payload's list must be contained in it rather than equal to it.
+      (Array.isArray(payload.sourceEvidenceReferences)
+        ? payload.sourceEvidenceReferences
+            .map(String)
+            .every((reference) =>
+              (candidate.sourceEvidenceReferences ?? [])
+                .map(String)
+                .includes(reference),
+            )
+        : sameSet(
+            candidate.sourceEvidenceReferences,
+            payload.sourceEvidenceReferences,
+          ))
     );
   };
 
@@ -3893,11 +3945,19 @@ async function runLocalIrisNavigationCheck(jobContext, job) {
   const pensionHold = pensionEntryHold(snapshot);
   if (pensionHold) return pensionHold;
   const servicesRoute = getServicesPacketRoute(snapshot);
+  // Combined Freelancer + Business: a Business payload AND a Services envelope
+  // beside it. Defined once here; the Business-section allowlist below reuses it.
+  const isCombinedBusinessServicesRun = Boolean(
+    snapshot?.services?.version === "services-tax-deduction-v1" &&
+      snapshot?.business?.version === "business-entry-v9" &&
+      Array.isArray(snapshot.business.fields) &&
+      snapshot.business.fields.length > 0,
+  );
   if (
-    (servicesRoute.selected || snapshot.business?.version === "services-tax-deduction-v1") &&
+    (servicesRoute.selected || isCombinedBusinessServicesRun) &&
     !servicesRoute.active
   ) {
-    const message = "This Freelancer / Services packet does not carry a verified TY2026 Myself Services payload for Services alone, exactly Salary + Services, or exactly Pension + Services. Regenerate and approve the packet; the agent will not guess a route or fall back to Business. Nothing was changed in FBR.";
+    const message = "This Freelancer / Services packet does not carry a verified TY2026 Myself Services payload for Services alone, exactly Salary + Services, exactly Pension + Services, or exactly Business + Services. A Business + Services return needs at least one evidence-approved Services row (Other Revenues income or Tax Deduction withholding) beside the Business payload. Regenerate and approve the packet; the agent will not guess a route or fall back to Business. Nothing was changed in FBR.";
     return { paused: true, pauseAction: "portal_state_confirmation", pauseMessage: message,
       executionLog: [], result: { requiredAction: "portal_state_confirmation", message, submitted: false, businessCoverage: "services_payload_missing" } };
   }
@@ -3976,6 +4036,7 @@ async function runLocalIrisNavigationCheck(jobContext, job) {
   if (businessSections.some(section => !section)) throw new Error("Unverified business section in approved packet; regenerate it before entry.");
   if (
     servicesRoute.active &&
+    !isCombinedBusinessServicesRun &&
     businessSections.some((section) => !["business_other_revenues", "business_tax_deduction"].includes(section))
   )
     throw new Error("Unverified Freelancer / Services section in approved packet; regenerate it before entry.");
@@ -4451,6 +4512,12 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     : [];
   const servicesRoute = getServicesPacketRoute(snapshot);
   const servicesRouteActive = servicesRoute.active;
+  const isCombinedBusinessServicesRun = Boolean(
+    snapshot?.services?.version === "services-tax-deduction-v1" &&
+      snapshot?.business?.version === "business-entry-v9" &&
+      Array.isArray(snapshot.business.fields) &&
+      snapshot.business.fields.length > 0,
+  );
   const allCoded = portalFieldMap.filter((f) => f && f.irisCode);
   const servicesFieldResolution = servicesRouteActive
     ? getServicesAutofillFields(snapshot, allCoded)
@@ -4472,7 +4539,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
   const pensionFieldMapInvalid =
     servicesRouteActive && servicesRoute.pensionIncluded && pensionFieldResolution.invalid;
   const servicesPacketInvalid =
-    ((servicesRoute.selected || snapshot.business?.version === "services-tax-deduction-v1") &&
+    ((servicesRoute.selected || isCombinedBusinessServicesRun) &&
       !servicesRouteActive) ||
     servicesFieldMapInvalid ||
     salaryFieldMapInvalid ||
@@ -4491,6 +4558,18 @@ async function runRealIrisAutofill(jobContext, job, mode) {
           ...servicesFieldResolution.fields,
           ...salaryFieldResolution.fields,
           ...pensionFieldResolution.fields,
+          // A combined return also types the folded Business rows: the Services
+          // allowlist alone would drop the Business grid. Rows carrying
+          // `fbSharedCell` already arrived through the Services cross-check, so
+          // they are filtered here to be typed exactly once.
+          ...(isCombinedBusinessServicesRun
+            ? allCoded.filter(
+                (f) =>
+                  f.sourceGroup === "businessFields" &&
+                  !f.fbSharedCell &&
+                  !f.servicesMappingKind,
+              )
+            : []),
         ]
       : allCoded.filter((f) => f.sourceGroup !== "wealthFields");
   const servicesFieldKeys = new Set(
@@ -4520,7 +4599,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
         ? "The combined Pension + Services packet contains an unsupported or duplicate pension field. Review the approved Pension Statement and field map; nothing was changed in FBR."
         : servicesFieldMapInvalid
           ? "This Freelancer / Services packet's verified Services rows do not exactly match the flattened FBR field map. Regenerate and approve the packet, then retry. The agent will not guess a target or fall back to another source; nothing was changed in FBR."
-          : "This Freelancer / Services packet does not carry a verified TY2026 Myself Services payload for Services alone, exactly Salary + Services, or exactly Pension + Services. Regenerate and approve the packet; the agent will not guess a route or fall back to Business. Nothing was changed in FBR.";
+          : "This Freelancer / Services packet does not carry a verified TY2026 Myself Services payload for Services alone, exactly Salary + Services, exactly Pension + Services, or exactly Business + Services. A Business + Services return needs at least one evidence-approved Services row (Other Revenues income or Tax Deduction withholding) beside the Business payload. Regenerate and approve the packet; the agent will not guess a route or fall back to Business. Nothing was changed in FBR.";
     onStep("real_autofill_services_payload_missing", pauseMessage);
     return {
       paused: true,
@@ -4956,9 +5035,28 @@ async function runRealIrisAutofill(jobContext, job, mode) {
       servicesRouteActive && group.sectionId === "business_tax_deduction";
     const servicesHasCompanionSource =
       servicesRoute.salaryIncluded || servicesRoute.pensionIncluded;
-    const servicesAllowedSections = servicesHasCompanionSource
-      ? ["business_other_revenues", "business_tax_deduction", "salary", "tax_deductions", ...(servicesRoute.pensionIncluded ? ["computations"] : [])]
-      : ["business_other_revenues", "business_tax_deduction"];
+    const servicesAllowedSections = [
+      "business_other_revenues",
+      "business_tax_deduction",
+      // 10-Nov-2026: business is a companion source of this route too
+      // (servicesRoute.businessIncluded), and its tabs are verified by
+      // business-schedule-fields / business-filing against the reviewed
+      // documents. Left out, every business figure was dropped as
+      // services_section_not_allowed before a control was touched.
+      ...(servicesRoute.businessIncluded
+        ? [
+            "business_trading",
+            "business_admin",
+            "business_balance_sheet",
+            "business_deductions",
+            "business_adjustments",
+          ]
+        : []),
+      ...(servicesHasCompanionSource
+        ?
+          ["salary", "tax_deductions", ...(servicesRoute.pensionIncluded ? ["computations"] : [])]
+        : []),
+    ];
     const servicesRouteLabel = servicesRoute.pensionIncluded
       ? "Pension + Services"
       : servicesRoute.salaryIncluded
@@ -4967,7 +5065,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     if (servicesRouteActive && !servicesAllowedSections.includes(group.sectionId)) {
       onStep(
         "real_autofill_section_skipped",
-        `${group.sectionId}: outside the ${servicesRouteLabel} allowlist; ${group.fields.length} field(s) were left untouched.${passNote}`,
+        `${group.sectionId}: ${group.fields.length} field(s) were left untouched because this section is outside the ${servicesRouteLabel} allowlist — nothing in IRIS was locked or unresponsive, and Retry automatic filing will not type these (the retry set skips this status). Enter them in the IRIS tab itself, or allow the section in servicesAllowedSections.${passNote}`,
       );
       return group.fields.map((field) => ({
         ...field,
@@ -6748,6 +6846,9 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     r.sourceGroup === "businessFields" || isServicesCodedField(r);
   const isLockedBusinessLikeResult = (r) =>
     isBusinessLikeResult(r) &&
+    // A section this route is not allowed to touch was skipped by policy, not
+    // by IRIS: calling it locked told the operator to wait and retry (10-Nov-2026).
+    String(r.sectionStatus || "") !== "services_section_not_allowed" &&
     (r.status === irisRowFiller.FILL_STATUS.UNVERIFIED_TARGET || r.status === irisRowFiller.FILL_STATUS.NO_EDITABLE_CELL ||
       (r.status === irisRowFiller.FILL_STATUS.COLUMN_DISABLED &&
         (String(r.sectionStatus || "").startsWith("business_") ||

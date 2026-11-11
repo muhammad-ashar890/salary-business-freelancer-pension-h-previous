@@ -134,6 +134,31 @@ export const BUSINESS_CUSTOMER_NARRATION_KEYWORDS = [
   "private limited",
 ] as const;
 
+/**
+ * Revenue heads a business account's own narration states outright. They are
+ * deliberately not inferred from customer wording: 11-Nov-2026, four
+ * "other business receipt" lines on the F+B test run were called sales because
+ * the counterparty name contained "Traders".
+ */
+export const BUSINESS_OTHER_RECEIPT_KEYWORDS = [
+  "other business receipt",
+  "business other receipt",
+  "business scrap sale",
+] as const;
+
+/**
+ * A credit that says it is a service fee is a services receipt. It is listed
+ * separately from NON_SALES_CREDIT_KEYWORDS because the answer depends on the
+ * account: the same phrase on the declared business account is still read by the
+ * explicit businessRules, and only a personal or undeclared account treats it as
+ * freelance income. The matcher tolerates a trailing plural, so "services fee"
+ * covers "services fees" too.
+ */
+export const SERVICE_FEE_CREDIT_KEYWORDS = [
+  "services fee",
+  "service fee",
+] as const;
+
 /** Heads a credit may name without being a business sale, plus own-account wording. */
 export const NON_SALES_CREDIT_KEYWORDS = [
   "salary",
@@ -183,6 +208,34 @@ export const BUSINESS_PAYROLL_KEYWORDS = [
 ] as const;
 
 /**
+ * Recurring costs a business account pays in its own name. The narration of a
+ * real bank line says "ELECTRICITY BILL PAYMENT", not "business utilities", and
+ * without this list the debit falls to the household rules in CLASSIFICATION_RULES
+ * (UTILITIES_OR_RENT, TRANSPORT) — personal Wealth rows 7051/7055/7058/7061 that the
+ * reconciliation then treats as spending the taxpayer has to explain, while 3199
+ * loses the deduction. Reported 11-Nov-2026 on six rows of the operator's own F+B
+ * test run. Consulted only for a debit on an account explicitly confirmed as a
+ * business account, so a personal or mixed account keeps its household row.
+ */
+export const BUSINESS_RUNNING_COST_KEYWORDS = [
+  "electricity",
+  "gas bill",
+  "water bill",
+  "utility",
+  "utilities",
+  "internet",
+  "broadband",
+  "telephone",
+  "phone bill",
+  "mobile bill",
+  "fuel",
+  "petrol",
+  "diesel",
+  "vehicle maintenance",
+  "rent",
+] as const;
+
+/**
  * Business head read straight from the narration. A suggestion only: the
  * reviewer still approves it, and a refund, gift, own-capital movement or a
  * matched internal transfer has already been decided before this runs.
@@ -190,6 +243,7 @@ export const BUSINESS_PAYROLL_KEYWORDS = [
 export function businessNarrationSuggestion(
   description: string,
   direction: BankDirection,
+  options?: { accountConfirmedBusiness?: boolean },
 ): {
   status: string;
   entryType: string;
@@ -214,6 +268,35 @@ export function businessNarrationSuggestion(
   // A credit that names salary, pension, gift, profit, a refund or the
   // taxpayer's own account is not a sale, whatever else it says.
   if (has(NON_SALES_CREDIT_KEYWORDS)) return null;
+
+  // A credit that names its own revenue head is not a sale, however many customer
+  // words are written around it. "OTHER BUSINESS RECEIPT OBR-01 TECHNICAL
+  // PROFESSIONAL FEE INVOICE ACME TRADERS" is the other-revenue head; the
+  // named-counterparty inference below read it as business sales and moved
+  // 8,000,000 from IRIS 3101 (other income) into 3009 (gross revenue), which
+  // both broke the Books tie-out and removed the figure the fold is tested on.
+  // Returning null hands the row to the explicit-head rules, which do know it.
+  if (has(BUSINESS_OTHER_RECEIPT_KEYWORDS)) return null;
+
+  // "CREDIT Meridian Textiles (Pvt) Ltd INV-2026-101 SERVICES FEE" names a client and
+  // a service fee. The client half is what used to decide it: "(Pvt) Ltd" is a
+  // named-counterparty keyword, so the row was returned as BUSINESS_SALES at 0.75 and
+  // the function exited before the SERVICES rule, and before the matched invoice in the
+  // evidence documents, were ever consulted. On the account that the Business Profile
+  // declared, that reading stands (businessRules below re-derive it explicitly). On any
+  // other account a services fee is a services receipt - say so and let the services
+  // rules answer for it. 11-Nov-2026: this moved 370,000 of the taxpayer's own freelance
+  // income into Gross Revenue and left 1 of 4 invoices to fold into 3101.
+  //
+  // An explicit sales phrase in the same narration still decides the row (the 0.9
+  // branch below this guard is untouched) - only the named-counterparty inference
+  // needs the account to be the business one.
+  if (
+    !options?.accountConfirmedBusiness &&
+    has(SERVICE_FEE_CREDIT_KEYWORDS) &&
+    !has(BUSINESS_SALES_NARRATION_KEYWORDS)
+  )
+    return null;
 
   const salesWording = has(BUSINESS_SALES_NARRATION_KEYWORDS);
   const customerNamed = has(BUSINESS_CUSTOMER_NARRATION_KEYWORDS);
@@ -515,6 +598,9 @@ export function classifyTransaction(
     const businessNarration = businessNarrationSuggestion(
       transaction.description,
       direction,
+      // The import path already resolves this per row from the account the statement
+      // was imported into (app/actions/bank-classification.ts:625).
+      { accountConfirmedBusiness: options?.businessAccountConfirmed === true },
     );
     if (businessNarration) return businessNarration;
   }
@@ -546,6 +632,27 @@ export function classifyTransaction(
       entryType: "EXPENSE",
       category: "OTHER_EXPENSE",
       confidence: 0.78,
+    };
+  }
+
+  // A services fee that landed on an account the Business Profile did not declare is
+  // freelance income on this filing. 0.85, so an explicit sales phrase in the same
+  // narration still wins: businessNarrationSuggestion above only lets this far through,
+  // and a declared business account never reaches it (the business rules below keep
+  // their reading there). This is a suggestion - the reviewer still ticks it.
+  if (
+    options?.freelancerEnabled &&
+    !options?.businessAccountConfirmed &&
+    direction === "credit" &&
+    SERVICE_FEE_CREDIT_KEYWORDS.some((keyword) =>
+      matchesKeyword(normalized, keyword),
+    )
+  ) {
+    return {
+      status: "SUGGESTED",
+      entryType: "INCOME",
+      category: "SERVICES",
+      confidence: 0.85,
     };
   }
 
@@ -647,6 +754,30 @@ export function classifyTransaction(
       };
     }
   }
+  // A confirmed business account's recurring bills are business running costs,
+  // not household spending. Placed after the explicit-head rules above (a line that
+  // already names cost of sales or an operating expense stays on that stronger
+  // suggestion) and before the household buckets in CLASSIFICATION_RULES, which are
+  // what produced 7051/7055/7058 wealth rows out of electricity, phone and fuel on
+  // a business account. Gated on the same explicit account confirmation the import
+  // path uses (app/actions/bank-classification.ts:625) — selecting business income
+  // is deliberately not enough, so a personal or mixed account is untouched.
+  if (
+    options?.businessEnabled &&
+    options?.businessAccountConfirmed &&
+    direction === "debit" &&
+    BUSINESS_RUNNING_COST_KEYWORDS.some((keyword) =>
+      matchesKeyword(normalized, keyword),
+    )
+  ) {
+    return {
+      status: "SUGGESTED",
+      entryType: "EXPENSE",
+      category: "BUSINESS_OPERATING_EXPENSE",
+      confidence: 0.8,
+    };
+  }
+
   const descriptionSuggestion = movementSuggestion;
 
   if (descriptionSuggestion.status !== "UNREVIEWED") {

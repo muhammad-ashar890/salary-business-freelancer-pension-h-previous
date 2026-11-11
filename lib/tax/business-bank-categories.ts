@@ -43,11 +43,15 @@ function readIncomeSources(value: string | string[] | null | undefined): string[
 }
 
 /**
- * Freelancer / Services automation supports exactly three source sets:
- * Services alone, Salary + Services, and Pension + Services. All other
- * combinations (including a third income source) remain fail-closed. Compare
- * sets rather than array order because the prerequisite screen does not promise
- * a stable order for selected sources.
+ * Freelancer / Services automation supports exactly four source sets:
+ * Services alone, Salary + Services, Pension + Services, and Business +
+ * Services. All other combinations (including a third income source) remain
+ * fail-closed. Compare sets rather than array order because the prerequisite
+ * screen does not promise a stable order for selected sources.
+ *
+ * The Business + Services set unlocks the gates only: Services rows and the
+ * Business payload still travel through separate code paths, so the packet
+ * builder and the desktop agent keep their own per-source checks.
  */
 export function isFreelancerIncomeSelected(input: {
   incomeSources?: string | string[] | null;
@@ -59,6 +63,9 @@ export function isFreelancerIncomeSelected(input: {
     (normalized.length === 1 && normalized[0] === "services") ||
     (normalized.length === 2 &&
       normalized[0] === "salary" &&
+      normalized[1] === "services") ||
+    (normalized.length === 2 &&
+      normalized[0] === "business" &&
       normalized[1] === "services") ||
     (normalized.length === 2 &&
       normalized[0] === "pension" &&
@@ -101,7 +108,7 @@ export function freelancerBankDecisionError(
 ): string | null {
   if (normalizeBankCategory(category) !== "SERVICES") return null;
   if (!freelancerEnabled)
-    return "Freelancer services income is enabled only for TY2026 Myself filings with either Services alone, exactly Salary + Services, or exactly Pension + Services; other combinations remain unsupported.";
+    return "Freelancer services income is enabled only for TY2026 Myself filings with either Services alone, exactly Salary + Services, exactly Pension + Services, or exactly Business + Services; other combinations remain unsupported.";
   if (entryType !== "INCOME")
     return "Choose Income for freelancer services receipts.";
   return null;

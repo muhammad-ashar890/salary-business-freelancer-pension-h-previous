@@ -85,6 +85,16 @@ export function buildServicesPortalMappings(input: {
   invoices: ServicesPortalInvoice[];
   incomeBySubcategory: Record<string, number>;
   existingBusinessFields?: readonly PortalFieldMapEntry[];
+  /**
+   * Freelancer + Business only: the IRIS codes whose `Total Amount` cell a
+   * Business row already owns and which the packet therefore folds the Services
+   * figure into (`lib/tax/business-services-shared-fields.ts`). A code listed
+   * here keeps its invoice evidence requirements intact; it only removes the
+   * "leave it manual because Business owns the row" verdict, because the fold
+   * happens after both sides are approved. An empty or absent list keeps the
+   * fail-closed behaviour of every other route.
+   */
+  sharedBusinessTargetCodes?: readonly string[];
   taxCredits?: readonly ServicesPortalTaxCredit[];
 }): {
   businessFields: PortalFieldMapEntry[];
@@ -99,8 +109,19 @@ export function buildServicesPortalMappings(input: {
   const incomeReasons = new Map<string, Set<string>>();
   const unmappedInvoiceIds = new Map<string, string[]>();
   const mappedIncomeCents = new Map<string, number>();
-  const businessTargetAlreadyOccupied = (input.existingBusinessFields ?? []).some(
-    (field) => (field.irisCode === "3101" || field.irisCode === "3128") && field.column === "Total Amount",
+  const businessTargetOccupiedCodes = new Set(
+    (input.existingBusinessFields ?? [])
+      .filter(
+        (field) =>
+          (field.irisCode === "3101" || field.irisCode === "3128") &&
+          field.column === "Total Amount",
+      )
+      .map((field) => String(field.irisCode)),
+  );
+  const foldableCodes = new Set(
+    (input.sharedBusinessTargetCodes ?? [])
+      .map((code) => String(code))
+      .filter((code) => businessTargetOccupiedCodes.has(code)),
   );
 
   const mappedIncomeRows: Array<{
@@ -129,10 +150,17 @@ export function buildServicesPortalMappings(input: {
       classificationEvidenceReference: invoice.incomeCharacterEvidenceReference,
     });
 
+    const resolvedCode =
+      resolution.status === "MAPPED_CANDIDATE"
+        ? String(resolution.mapping.irisCode)
+        : "";
+    const targetCodeOccupiedByBusiness = businessTargetOccupiedCodes.has(resolvedCode);
+    const targetCodeFoldable = foldableCodes.has(resolvedCode);
+
     if (
       resolution.status === "MAPPED_CANDIDATE" &&
       resolution.mapping.autoFillAllowed &&
-      !businessTargetAlreadyOccupied
+      (!targetCodeOccupiedByBusiness || targetCodeFoldable)
     ) {
       mappedIncomeRows.push({
         invoice,
@@ -149,7 +177,7 @@ export function buildServicesPortalMappings(input: {
       continue;
     }
 
-    const reason = businessTargetAlreadyOccupied && resolution.status === "MAPPED_CANDIDATE"
+    const reason = targetCodeOccupiedByBusiness && resolution.status === "MAPPED_CANDIDATE"
       ? "Business row 3101 already has a separate packet value. Services income is left manual to prevent two sources from overwriting or being added to the same IRIS cell."
       : resolution.status === "MAPPED_CANDIDATE"
         ? "The Services mapping did not pass its packet autofill gate; keep this income manual."
