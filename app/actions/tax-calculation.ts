@@ -341,7 +341,7 @@ export async function calculateTaxAction(
         ? "A Services invoice document has changed since it was mapped. Review and approve its current invoice fields before calculating."
         : null;
     const servicesRouteProblem = incomeSources.includes("services") && !freelancerEnabled
-      ? "Freelancer / Services evidence supports only TY2026 Myself filings with Services alone, exactly Salary + Services, exactly Pension + Services, or exactly Business + Services. Other source combinations remain unsupported, so no Services tax estimate was made."
+      ? "Freelancer / Services evidence supports only TY2026 Myself filings with Services alone, exactly Salary + Services, exactly Pension + Services, exactly Business + Services, or exactly Salary + Business + Services. Other source combinations remain unsupported, so no Services tax estimate was made."
       : null;
     const servicesEvidenceProblem =
       servicesRouteProblem ??

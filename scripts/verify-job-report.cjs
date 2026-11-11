@@ -290,7 +290,9 @@ test("attention report: structured list for the page (what happened, what to do)
 
 test("attention panel: the job list passes only plain text, and the page shows the list instead of one text block", () => {
   const read = (rel) => fs.readFileSync(path.join(__dirname, "..", rel), "utf8");
-  assert.match(read("app/actions/fbr-jobs.ts"), /readJobAttention\(JSON\.parse\(resultJson \|\| "\{\}"\)\?\.attention\)/);
+  const jobsAction = read("app/actions/fbr-jobs.ts");
+  assert.match(jobsAction, /JSON\.parse\(resultJson \|\| "\{\}"\)/);
+  assert.match(jobsAction, /readJobAttention\(parsedResult\?\.attention\)/);
   const client = read("components/tax/fbr-connect-client.tsx");
   assert.match(client, /<FbrAttentionPanel attention=\{activeJob\.attention\} \/>/);
   assert.match(client, /activeJob\.pauseAction === "portal_autofill_review" &&\s+activeJob\.attention/);

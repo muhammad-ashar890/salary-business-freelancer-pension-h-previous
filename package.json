@@ -86,7 +86,8 @@
     "verify:services-income-evidence-packet": "node --test scripts/verify-services-income-evidence-packet.cjs",
     "verify:services-withholding-prefill": "node --test scripts/verify-services-withholding-prefill.cjs",
     "verify:services-phase5": "node --test scripts/verify-services-multi-category-action.cjs scripts/verify-services-portal-map.cjs scripts/verify-services-income-evidence-packet.cjs scripts/verify-services-withholding-prefill.cjs",
-    "verify:services-phase6": "node --test scripts/verify-services-phase6-electron.cjs"
+    "verify:services-phase6": "node --test scripts/verify-services-phase6-electron.cjs",
+    "verify:salary-business-services": "node --test scripts/verify-salary-business-services-route.cjs scripts/verify-salary-business-services-packet.cjs"
   },
   "dependencies": {
     "@e965/xlsx": "^0.20.3",

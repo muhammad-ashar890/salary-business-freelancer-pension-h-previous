@@ -296,7 +296,7 @@ function sandbox(names, extras = {}) {
       names.includes("runRealIrisAutofill")) &&
     !names.includes("getServicesPacketRoute")
   ) {
-    names = [...names, "getServicesPacketRoute", "getServicesAutofillFields", "getSalaryFieldsForServicesRoute"];
+    names = [...names, "getServicesPacketRoute", "getServicesAutofillFields", "getSalaryFieldsForServicesRoute", "resolveAutofillComputationsPlan"];
   }
   // Both real-portal flows now read the effective autofill mode through one
   // resolver, so any test that exercises `getRealAutofillMode` must be given the

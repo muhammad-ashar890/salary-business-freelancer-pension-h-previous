@@ -15,7 +15,9 @@ import {
   isBusinessBankCategory,
   isMyselfBusinessBankFlow,
   isSingleFreelancerServicesFiling,
+  isSalaryBusinessServicesFiling,
 } from "@/lib/tax/business-bank-categories";
+import { buildSalaryBusinessServicesPlan } from "@/lib/tax/salary-business-services-plan";
 import {
   buildBusinessPacket,
   readBusinessBalanceSheet,
@@ -697,7 +699,7 @@ export async function generateFilingPacketAction(
       return {
         success: false,
         error:
-          "Services income evidence supports only TY2026 Myself filings with Services alone, exactly Salary + Services, exactly Pension + Services, or exactly Business + Services. Other source combinations are unsupported, so no Services packet was generated.",
+          "Services income evidence supports only TY2026 Myself filings with Services alone, exactly Salary + Services, exactly Pension + Services, exactly Business + Services, or exactly Salary + Business + Services. Other source combinations are unsupported, so no Services packet was generated.",
       };
     }
 
@@ -958,10 +960,15 @@ export async function generateFilingPacketAction(
     const supportedCombinedBusinessSources =
       parsedIncomeSources.includes("business") &&
       parsedIncomeSources.length > 1 &&
-      parsedIncomeSources.every(
+      (parsedIncomeSources.every(
         (source) =>
           source === "business" || source === "salary" || source === "pension",
-      );
+      ) ||
+        isSalaryBusinessServicesFiling({
+          taxYear: draftData.taxYear,
+          filerType: draftData.filerType,
+          incomeSources: parsedIncomeSources,
+        }));
     const salaryReadyForCombinedComputations =
       !parsedIncomeSources.includes("salary") ||
       (salaryCertificateGrossSalary !== null && salaryCertificateGrossSalary > 0);
@@ -1503,6 +1510,28 @@ export async function generateFilingPacketAction(
         (servicesPortalMappings?.incomeGaps.length ?? 0) > 0,
       hasUnmappedPortalIncome,
     });
+    const isSalaryBusinessServices = isSalaryBusinessServicesFiling({
+      taxYear: draftData.taxYear,
+      filerType: draftData.filerType,
+      incomeSources: parsedIncomeSources,
+    });
+    const salaryBusinessServices = isSalaryBusinessServices && business
+      ? buildSalaryBusinessServicesPlan({
+          taxYear: draftData.taxYear,
+          filerType: draftData.filerType,
+          incomeSources: parsedIncomeSources,
+          businessExpectedIrisTotals: business.expectedIrisTotals,
+          servicesFields: servicesBusinessFields,
+          hasUnmappedPortalIncome,
+        })
+      : null;
+    if (isSalaryBusinessServices && !salaryBusinessServices) {
+      return {
+        success: false,
+        error:
+          "The Salary + Business + Services packet could not establish its approved Services income columns and fold-aware IRIS computations. Review the current Salary, Business and Services evidence and recalculate; no filing packet was approved.",
+      };
+    }
 
     const latestOwnership = await currentBusinessOwnershipStamp(draft.id, draft.userId);
     if (latestOwnership.error || JSON.stringify(latestOwnership.stamp) !== JSON.stringify(initialOwnership.stamp))
@@ -1575,6 +1604,7 @@ export async function generateFilingPacketAction(
             },
           }
         : {}),
+      ...(salaryBusinessServices ? { salaryBusinessServices } : {}),
       coverage,
     };
 

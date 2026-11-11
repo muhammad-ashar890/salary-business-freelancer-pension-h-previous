@@ -2,8 +2,8 @@
 /**
  * Phase 7: Remaining Multifiling Safeguards & High-Income Business Combinations
  *   - 7A: Fail-closed Setup & Documents gating for unsupported TY2026 Myself
- *         Freelancer / Services source combinations (`Business + Services`,
- *         3+ source combinations, non-TY2026, non-Myself), with clear UI alert.
+ *         Freelancer / Services source combinations (unsupported 3+ source
+ *         combinations, non-TY2026, non-Myself), with clear UI alert.
  *   - 7B: `Salary + Business` and normal/exempt `Pension + Business` (> PKR 10M
  *         / > PKR 150M) combined Computations (`923184` 9% vs 10% 75%-salary
  *         test and `9231822` Section 4C super tax) while preserving backward
@@ -260,13 +260,23 @@ test("7A: unsupported Services multi-source combinations fail closed at Setup an
     }),
     true,
   );
-  for (const bad of [
-    { taxYear: 2026, filerType: "myself", incomeSources: ["business", "services"] },
-    {
+  assert.equal(
+    isSingleFreelancerServicesFiling({
+      taxYear: 2026,
+      filerType: "myself",
+      incomeSources: ["business", "services"],
+    }),
+    true,
+  );
+  assert.equal(
+    isSingleFreelancerServicesFiling({
       taxYear: 2026,
       filerType: "myself",
       incomeSources: ["salary", "business", "services"],
-    },
+    }),
+    true,
+  );
+  for (const bad of [
     {
       taxYear: 2026,
       filerType: "myself",

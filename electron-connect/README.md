@@ -8,7 +8,9 @@ It never presses **Calculate, Submit, Prepare PSID,** or any payment control, an
 >
 > For the product as a whole (web flow, modules, tax rules, setup), see the [repository README](../README.md). This file is only about the desktop agent.
 
-Supported Tax Year 2026 IRIS routes include **Salary, Business, Freelancer / Services, and Pension**. Services is deliberately limited to exact Myself source sets: **Services alone**, **Salary + Services**, or **Pension + Services**. Other Services combinations fail closed. The agent enters only approved, mapped fields and pauses on anything outside those route contracts; support in code/tests is not a claim of live FBR verification.
+Supported Tax Year 2026 IRIS routes include **Salary, Business, Freelancer / Services, and Pension**. Services is deliberately limited to exact Myself source sets: **Services alone**, **Salary + Services**, **Pension + Services**, **Business + Services**, or **Salary + Business + Services**. Other Services combinations fail closed. The agent enters only approved, mapped fields and pauses on anything outside those route contracts; support in code/tests is not a claim of live FBR verification.
+
+The **Salary + Business + Services** route requires the versioned `snapshot.salaryBusinessServices` envelope in addition to the separate Business and Services packets. It uses that envelope's fold-aware Computations plan, includes Computations in scoped readback, retains full Business-grid reporting and reports Services-backed/shared-cell counts separately. A missing or stale triple envelope deactivates the route before entry. The new triple has passed offline packet/Electron contracts but still requires supervised dry/live IRIS verification.
 
 ---
 
@@ -50,7 +52,7 @@ Then, in the web app: **FBR Connect → Create Desktop Session → Open Desktop 
 4. It locates the TY2026 return — an existing draft first, otherwise the guarded new-return setup (Declaration → original return, tax period, then the Summary of Economic Transactions page, which it answers **only** from the approved packet; see below).
 5. It verifies the taxpayer identity and the return form/period. A mismatch stops the run before anything is typed.
 6. Section by section, it types each planned figure into the verified cell, reads it back immediately, and re-reads the whole set after switching tabs. Existing different figures in IRIS are **never overwritten** — they are reported for the taxpayer instead.
-7. On supported routes, including Services-only, Salary + Services and Pension + Services, it may press the **draft Save once** at the very end, only after every typed figure has passed the scoped post-tab readback; it then re-reads after Save. It never presses Calculate, Submit, Prepare PSID or payment.
+7. On every supported route, including all five supported Services source sets, it may press the **draft Save once** at the very end, only after every typed figure has passed the scoped post-tab readback; it then re-reads after Save. Missing/duplicate/conflicting readback blocks Save. It never presses Calculate, Submit, Prepare PSID or payment.
 8. It reports the outcome (`/api/local-agent/jobs/{id}/status`) with a handoff summary for the TaxRocket completion card, and writes the local job report (see [Job logs](#job-logs)). The taxpayer reviews the draft in FBR and submits it themselves.
 
 ### New-return setup dialog (TY2026+)

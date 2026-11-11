@@ -202,6 +202,7 @@ function harness({
           ]
         : []),
     ],
+    servicesInvoices: [],
     entries: [
       {
         id: "qa-income",
@@ -395,6 +396,10 @@ function harness({
         state.lines.filter((l) => match(l, where)),
     },
     filingTaxCredit: { findMany: async () => [] },
+    servicesInvoiceEvidence: {
+      findMany: async ({ where = {} } = {}) =>
+        state.servicesInvoices.filter((invoice) => match(invoice, where)),
+    },
     filingPacket: {
       findFirst: async ({ where = {} } = {}) =>
         [...state.packets].reverse().find((p) => match(p, where)) ?? null,

@@ -713,6 +713,33 @@ test("combined Salary + Services handoff names both routes and keeps their field
   assert.match(scope.label, /Salary 1\/1 \+ Freelancer \/ Services 8\/8 approved field\(s\) verified/);
 });
 
+test("Salary + Business + Services handoff keeps full Business and Services-backed counts visible", () => {
+  const scope = main.buildHandoffScopeSummary(
+    { total: 20, filled: 20, skipped: 0 },
+    false,
+    [],
+    {
+      salarySummary: { total: 2, filled: 2, skipped: 0 },
+      salaryIncluded: true,
+      business: {
+        total: 15, filled: 15, skipped: 0, mode: "live",
+        coverage: "partial_manual_required", pending: [],
+      },
+      services: {
+        total: 3, filled: 3, skipped: 0,
+        sharedCells: [{ irisCode: "3101", businessAmount: 500000, servicesAmount: 8000000 }],
+      },
+    },
+  );
+  assert.equal(scope.business.route, "business");
+  assert.equal(scope.business.preparedFields, 15);
+  assert.equal(scope.services.preparedFields, 3);
+  assert.equal(scope.services.filledFields, 3);
+  assert.equal(scope.services.sharedCells.length, 1);
+  assert.match(scope.label, /Business 15\/15 verified fields entered/);
+  assert.match(scope.label, /Salary 2\/2 \+ Freelancer \/ Services 3\/3 approved field\(s\) verified/);
+});
+
 test("combined Pension + Services handoff labels both sources and exposes pension readback totals", () => {
   const scope = main.buildHandoffScopeSummary(
     { total: 12, filled: 12, skipped: 0 },

@@ -54,7 +54,7 @@ export async function saveServicesIncomeAllocationsAction(
       if (!draft) return invalid("Filing draft not found");
       if (!isSingleFreelancerServicesFiling(draft)) {
         return invalid(
-          "Receipt allocation supports only TY2026 Myself filings with Services alone, exactly Salary + Services, exactly Pension + Services, or exactly Business + Services.",
+          "Receipt allocation supports only TY2026 Myself filings with Services alone, exactly Salary + Services, exactly Pension + Services, exactly Business + Services, or exactly Salary + Business + Services.",
         );
       }
 

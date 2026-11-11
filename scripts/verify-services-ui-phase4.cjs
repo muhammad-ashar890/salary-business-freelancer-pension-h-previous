@@ -97,7 +97,7 @@ test("Filing Wizard uses the exact gate, requires invoice mapping and refreshes 
   assert.match(wizard, /getFilingSummaryWithDiagnostics\(\s*draftId,\s*"wizard\.services_evidence_saved"/);
   assert.match(wizard, /onServicesEvidenceSaved=\{handleServicesEvidenceSaved\}/);
   assert.match(wizard, /awaiting mapping/);
-  assert.match(wizard, /Services may be filed alone or with Salary\s+in this TY2026 Myself\s+route/);
+  assert.match(wizard, /Services may be filed alone, with Salary, Pension, Business, or with\s+Salary \+ Business in this TY2026 Myself route/);
   assert.match(wizard, /!isSingleFreelancerServicesFiling\(\{\s*taxYear,\s*filerType,\s*incomeSources:\s*selectedIncomeSources/);
   assert.match(wizard, /WizardBusinessActivityStep/);
 });

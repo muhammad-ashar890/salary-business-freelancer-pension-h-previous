@@ -279,9 +279,11 @@ export function WizardSetupStep({
             </p>
             <p className="mt-1 text-xs leading-relaxed">
               In Tax Year 2026 Myself filings, Freelancer / Services may be
-              filed alone, with Salary (Salary + Services), or with Pension
-              (Pension + Services). Untick incompatible income sources (such as
-              Business Income or a third source) before continuing.
+              filed alone, with Salary (Salary + Services), Pension (Pension +
+              Services), Business (Business + Services), or Salary + Business
+              (Salary + Business + Services). Untick incompatible income
+              sources (such as Business Income together with Pension, or a
+              fourth source) before continuing.
             </p>
           </div>
         )}

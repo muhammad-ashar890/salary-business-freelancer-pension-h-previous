@@ -160,7 +160,7 @@ test("unmapped categories become a named gap, never 'Other Receipts' 5028", () =
   assert.match(bank.reason, /final-tax/i, "and a reason that says why");
 });
 
-test("pension is written once, on one IRIS line", () => {
+test("legacy partial pension without a reviewed annual source is held, not silently slab-taxed", () => {
   const map = buildPortalFieldMap({
     taxYear: 2026,
     filerType: "myself",
@@ -177,10 +177,11 @@ test("pension is written once, on one IRIS line", () => {
     },
   });
   const fields = flattenPortalFieldMap(map);
-  check("one field", fields.length, 1);
-  check("on row 1008", fields[0].irisCode, "1008");
-  check("whole pension figure", fields[0].value, "900000");
-  check("…and 5007 is not touched", fields.some((f) => f.irisCode === "5007"), false);
+  check("no unreviewed pension field is written", fields.length, 0);
+  const hold = map.mappingGaps.unmappedCategories.find((gap) => gap.category === "PENSION_UNAPPROVED_SPLIT");
+  check("the exact reviewed-source requirement is surfaced", Boolean(hold), true);
+  check("the held amount is not lost", hold.totalAmount, 900000);
+  assert.match(hold.reason, /No Total-only pension write is queued/);
   check(
     "the engine split is still visible for the review screen",
     map.computationHints.pensionExemptAmount,
@@ -206,7 +207,7 @@ test("pension split that disagrees with the ledger is surfaced, not resolved sil
   });
   const mismatch = map.mappingGaps.pensionSplitMismatch;
   check("one mismatch entry", mismatch.length, 1);
-  check("ledger wins on the portal value", flattenPortalFieldMap(map)[0].value, "900000");
+  check("the unapproved split still cannot be written", flattenPortalFieldMap(map).length, 0);
   check("mismatch recorded", mismatch[0].engineSplitTotal, 700000);
 });
 

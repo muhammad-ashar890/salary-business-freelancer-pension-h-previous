@@ -12,7 +12,7 @@
 >
 > **Real FBR only:** the desktop agent connects to `https://iris.fbr.gov.pk/`. Mock IRIS pages are not used.
 >
-> **Scope today:** **single income-source filings** (Salary, Business, Freelancer / Services, or Pension). Combined-source filings are a later phase.
+> **Scope today:** TY2026 Myself routes using Salary, Business, Freelancer / Services and Pension, including the exact supported combinations listed below. Other sources and unsupported combinations fail closed.
 
 ---
 
@@ -45,6 +45,14 @@ Four filing modules are complete end-to-end — web flow, tax calculation, appro
 | **Business** | Trading account, adjustments and add-backs u/s 21, administrative expenses, other revenues, balance sheet, tax depreciation | Business tax deductions (e.g. u/s 153) | Business identity/principal-activity row entered and verified against the saved IRIS row, before and after Save |
 | **Freelancer / Services** | Fee for Technical / Professional Services (`3101`) | u/s 153(1)(b) withholding, incl. IT / IT-enabled services @4% (`64060158`) | Evidence-backed fields only; one draft Save is pressed only after scoped post-tab readback verifies every entered field. Submit, Calculate, Prepare PSID and payment remain blocked. |
 | **Pension** | Pension / Annuity u/s 12(2)(f) (`1008`), with the Total / Final Tax / Exemption split | Final Tax `64020007` for the above-10M excess; surcharge `923184` (see [limitations](#known-limitations)) | Full Section 149(IA) treatment, below |
+
+### Supported combined-source routes
+
+All six pairs of these four sources, **Salary + Business + Pension**, and **Salary + Business + Services** are implemented for TY2026 Myself. Salary + Pension + Services, Business + Pension + Services, all four sources together, duplicate sources, other tax years and other filer types remain blocked.
+
+The **Salary + Business + Services** packet preserves separate Business, Services and fold-aware `salaryBusinessServices` envelopes. Salary and Business use the normal slab treatment; Services retain their reviewed normal/final-tax treatment. Shared Business/Services cells contain one folded value rather than duplicating receipts or withholding. Computations are selected from the triple envelope: authoritative Normal Tax/surcharge is retained only for fully mapped final-tax-only Services with finite positive companion values. Normal-tax Services or unmapped income removes the unproven automatic tax expectations and leaves those Computations for taxpayer review. Business totals remain full-grid totals; Services-backed and shared-cell counts are reported separately.
+
+Implementation and offline contract tests for this triple do **not** establish live IRIS behavior. A supervised dry run and then a separately authorized live run are still required before treating this new route as live-verified.
 
 All four modules also prepare the **Wealth Statement (116)**: personal-expense rows derived from the reviewed bank data (e.g. tax payments → `7052`, zakat → `7076`, other personal → `7087`), bank closing balances (`7030`, by IBAN), and cash in hand (`7012`, the year's net cash movement added to the figure already in IRIS, never overwritten blind).
 
@@ -100,11 +108,11 @@ Age is assessed from the taxpayer profile date of birth under the first-day-of-t
  Taxpayer reviews in FBR and SUBMITS IT THEMSELVES
 ```
 
-\* **Save policy:** on the Salary, Business and Pension routes the agent presses Save **once**, at the very end, only after every typed figure read back the same. On the Freelancer / Services route Save is **never** pressed — the taxpayer saves in FBR. The agent **never** presses Calculate, Submit, Prepare PSID, or any payment control.
+\* **Save policy:** on every supported route the agent presses draft Save **once**, at the very end, only after every typed figure has passed its scoped post-tab readback, and then re-reads after Save. An incomplete or ambiguous readback blocks Save; `TAXROCKET_AUTO_SAVE=off` leaves draft Save to the taxpayer. The agent **never** presses Calculate, Submit, Prepare PSID, or any payment control.
 
 **Main filing flow**
 
-1. Sign in with Google; complete taxpayer profile and Tax Year 2026 filing setup (single income source).
+1. Sign in with Google; complete taxpayer profile and Tax Year 2026 filing setup (a single source or an exact supported combination).
 2. Upload and review the required documents (salary certificate, pension statement, business books, services evidence, CNIC, …). AI extraction assists; a human reviews and maps the data.
 3. Import bank statements; review and approve the suggested classifications.
 4. Maintain/verify the ledger entries the classification produced.
@@ -287,6 +295,7 @@ npm run verify:iris-navigation   # agent contracts: navigation, row filler,
                                  # wealth/employer drivers, job report, FBR contracts
 npm run verify:pension-review    # pension statement + review policy chain
 npm run verify:pension-statement # pension statement suite (103 assertions)
+npm run verify:salary-business-services # exact triple gates, real-action packet and Electron plan selection
 npm run verify:ui                # Playwright browser suites
 ```
 
@@ -311,7 +320,7 @@ Environment notes: `NEXTAUTH_URL` must be the actual URL (not a Markdown link); 
 
 ## Known limitations
 
-- **Tax Year 2026 only**, and **single income-source filings only**. Combined-source behaviour (e.g. Pension + Salary) is not finalised and is out of scope until a later phase; routes outside the modules above remain manual.
+- **Tax Year 2026 Myself only**, and only the supported source combinations documented above. Salary + Pension + Services, Business + Pension + Services, the quadruple and routes outside these modules remain manual. The new Salary + Business + Services route still needs supervised dry/live IRIS verification; offline green tests are not live proof.
 - **Pension final-tax surcharge (`923184`):** for the above-10M/below-70 treatment the packet plans the surcharge, but the agent currently cannot verify that row's target in IRIS, so it does not type it. The run pauses and tells the taxpayer the exact amount and row to enter in FBR themselves. (On the salary-slab "Yes" route IRIS computes the surcharge itself.)
 - **Employer/payer details on pension:** pension packets carry no payer name (the packet's employer list comes from a reviewed salary certificate). A pensioner who wants the pension-paying employer's details in the return adds them in the FBR window; the agent does not object.
 - **Wealth opening figures** (previous year's net assets, opening cash, etc.) are whatever the previous return left in IRIS; a dedicated carry-forward manager has not been built yet. Current-year rows and movements are added on top, never overwriting IRIS's own opening figures.
@@ -323,7 +332,7 @@ Environment notes: `NEXTAUTH_URL` must be the actual URL (not a Markdown link); 
 
 ## Roadmap
 
-1. Combined (multi-source) filings, once each single-source route is fully proven live.
+1. Additional combined-source filings only after exact tax treatment, IRIS mappings and live route behavior are separately verified; unsupported combinations remain blocked.
 2. Verified IRIS placement for the pension `923184` surcharge and non-final pension withholding; optional pension-payer capture on the statement review.
 3. Wealth carry-forward management (opening balances from the previous return inside TaxRocket).
 4. Signed installer + agent update channel; production hardening (HTTPS, OAuth production callbacks, backups, rate limiting, calculation audit history, revised-return support).
