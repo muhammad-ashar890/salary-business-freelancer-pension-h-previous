@@ -1294,17 +1294,19 @@ function HandoffCompleteCard({
   }
 
   // Agent-owned work and remaining taxpayer review are different statuses.
+  // Informational FBR review rows must not turn completed field entry amber;
+  // only an actual attention item or unchecked manual evidence blocks green.
   // Save readback proves entered values persisted through Save, not Draft-list
   // persistence, Wealth reconciliation, manual Business review or readiness.
   const agentEntryComplete =
-    rows.every((row) => row.state === "done") && manualAllChecked;
+    rows.every((row) => row.state !== "attention") && manualAllChecked;
 
   return (
     <Card className="overflow-hidden">
       <CardHeader className="border-b bg-muted/30 pb-4">
         <CardTitle className="flex items-center gap-2 text-base">
           <CheckCircle
-            className={`h-5 w-5 ${agentEntryComplete ? "text-emerald-600" : "text-amber-600"}`}
+            className={`h-5 w-5 shrink-0 ${agentEntryComplete ? "text-emerald-600" : "text-amber-600"}`}
             aria-hidden="true"
           />
           {agentEntryComplete
