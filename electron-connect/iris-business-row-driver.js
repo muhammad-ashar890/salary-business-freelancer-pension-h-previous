@@ -1010,10 +1010,16 @@ async function ensureTaxDeductionRows(windowInstance, fields, context = {}) {
       return { ...result, ok: false, code: target.code, cleanup: cleaned };
     };
 
-    if (state.reason === "expanding_existing_row_panel")
+    if (["expanding_existing_row_panel", "existing_row_checked"].includes(state.reason))
       state = await wait(
         "inspect",
-        new Set(["expanding_existing_row_panel", "frame_unavailable"]),
+        new Set([
+          "expanding_existing_row_panel",
+          // IRIS paints the newly added/existing row before enabling its captured
+          // amount cells. The row's presence is not proof that it is writable.
+          "existing_row_checked",
+          "frame_unavailable",
+        ]),
       );
     if (state.ok) continue;
     if (state.reason !== "row_missing") return { ...state, code: target.code };
@@ -1042,7 +1048,14 @@ async function ensureTaxDeductionRows(windowInstance, fields, context = {}) {
     if (selected.reason === "target_card_already_present") {
       const cleaned = await cleanup();
       const again = cleaned.closed
-        ? await wait("inspect", new Set(["expanding_existing_row_panel", "frame_unavailable"]))
+        ? await wait(
+            "inspect",
+            new Set([
+              "expanding_existing_row_panel",
+              "existing_row_checked",
+              "frame_unavailable",
+            ]),
+          )
         : null;
       if (again?.ok) continue;
       return {
@@ -1066,6 +1079,9 @@ async function ensureTaxDeductionRows(windowInstance, fields, context = {}) {
         "dialog_present",
         "row_missing",
         "expanding_existing_row_panel",
+        // A successfully added row can remain read-only briefly while IRIS
+        // recalculates. Wait for the exact captured cells, never bypass them.
+        "existing_row_checked",
         "frame_unavailable",
       ]),
     );

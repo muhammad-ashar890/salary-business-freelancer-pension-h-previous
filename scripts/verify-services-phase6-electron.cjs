@@ -633,6 +633,67 @@ test("Tax Deduction row creation accepts only the exact Services target and neve
   );
 });
 
+test("Services Tax Deduction waits for a newly added row's captured cells to become writable", async () => {
+  const withholding = flattenedServicesFields.find(
+    (field) => field.servicesMappingKind === "SERVICES_WITHHOLDING",
+  );
+  const originalNavigate = navigation.navigateToSection;
+  const originalAllowedUrl = navigation.isAllowedPortalUrl;
+  let added = false;
+  let lockedReadbacks = 0;
+  const actions = [];
+  const frame = {
+    url: "https://iris.fbr.gov.pk/nitr/workflow",
+    async executeJavaScript(source) {
+      const action = ["inspect", "open", "select", "add", "cancel"].find(
+        (name) => source.includes(`)(${JSON.stringify(name)},`),
+      );
+      assert.ok(action, "the driver invoked a known picker action");
+      actions.push(action);
+      if (action === "open") return { scope: true, ok: true, reason: "picker_open_requested" };
+      if (action === "select") return { scope: true, ok: true, reason: "target_card_selected" };
+      if (action === "add") {
+        added = true;
+        return { scope: true, ok: true, reason: "target_card_add_requested" };
+      }
+      if (action === "inspect" && !added)
+        return { scope: true, ok: false, reason: "row_missing" };
+      if (action === "inspect" && lockedReadbacks++ < 2)
+        return { scope: true, ok: false, reason: "existing_row_checked" };
+      return { scope: true, ok: true, reason: "existing_row_checked" };
+    },
+  };
+  const windowInstance = {
+    webContents: {
+      mainFrame: { framesInSubtree: [frame] },
+      getURL: () => frame.url,
+    },
+  };
+
+  try {
+    navigation.navigateToSection = async () => ({ ok: true, status: "switched" });
+    navigation.isAllowedPortalUrl = () => true;
+    const result = await businessRows.ensureTaxDeductionRows(
+      windowInstance,
+      [withholding],
+      {
+        mode: "live",
+        taxYear: 2026,
+        taxpayerIdentifier: "0000000000000",
+        pickerWaitAttempts: 4,
+        pickerWaitMs: 1,
+      },
+    );
+    assert.deepEqual(result, { ok: true, reason: "tax_deduction_rows_verified" });
+    assert.equal(lockedReadbacks, 3, "two disabled reads precede the writable readback");
+    assert.equal(actions.filter((action) => action === "add").length, 1);
+    assert.ok(!actions.includes("cancel"), "a transient disabled row is not treated as an addition failure");
+  } finally {
+    navigation.navigateToSection = originalNavigate;
+    navigation.isAllowedPortalUrl = originalAllowedUrl;
+  }
+});
+
 test("Services handoff is Services-only, hides the generic final-review item and records no-Save policy", () => {
   const scope = main.buildHandoffScopeSummary(
     { total: 2, filled: 2, skipped: 0 },
