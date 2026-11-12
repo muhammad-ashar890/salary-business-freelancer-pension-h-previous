@@ -999,3 +999,47 @@ test("reconciliation: with no bank account in the packet the adjustment stays a 
   assert.equal(map.mappingGaps.unmappedCategories.length, 1);
   assert.equal(map.mappingGaps.reconciliationAdjustment, undefined);
 });
+
+test("Business and Services withholding each produce their evidenced 7098 outflow rows", () => {
+  const map = buildPortalFieldMap({
+    taxYear: 2026,
+    filerType: "myself",
+    taxpayerListStatus: "ACTIVE",
+    ledgerEntries: [],
+    businessTaxDeductedAtSource: [
+      { section: "153(1)(a)", amount: 20_000, sourceEntryCount: 1 },
+    ],
+    servicesTaxDeductedAtSource: [
+      { section: "154A", amount: 2_500, sourceEntryCount: 1 },
+    ],
+  });
+  const rows = map.wealthFields.filter((row) => row.irisCode === "7098");
+  assert.equal(rows.length, 2);
+  assert.deepEqual(
+    rows.map((row) => [row.rowDescriptionIncludes, row.ourAmount]),
+    [
+      ["Income tax deducted u/s 154A", 2_500],
+      ["Income tax deducted u/s 153(1)(a)", 20_000],
+    ],
+  );
+  assert.equal(
+    rows.reduce((sum, row) => sum + row.ourAmount, 0),
+    22_500,
+  );
+
+  const sharedSection = buildPortalFieldMap({
+    taxYear: 2026,
+    filerType: "myself",
+    taxpayerListStatus: "ACTIVE",
+    ledgerEntries: [],
+    businessTaxDeductedAtSource: [
+      { section: "153(1)(b)", amount: 20_000, sourceEntryCount: 1 },
+    ],
+    servicesTaxDeductedAtSource: [
+      { section: "153(1)(b)", amount: 2_500, sourceEntryCount: 1 },
+    ],
+  }).wealthFields.filter((row) => row.irisCode === "7098");
+  assert.equal(sharedSection.length, 1, "same section never creates duplicate IRIS targets");
+  assert.equal(sharedSection[0].ourAmount, 22_500);
+  assert.equal(sharedSection[0].sourceEntryCount, 2);
+});

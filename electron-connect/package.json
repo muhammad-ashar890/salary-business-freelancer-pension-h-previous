@@ -32,6 +32,7 @@
       "cash-baseline-store.js",
       "iris-employer-driver.js",
       "job-report.js",
+      "fbr-handoff-route.js",
       "preload.js",
       "portal-agent.js",
       "renderer.html",

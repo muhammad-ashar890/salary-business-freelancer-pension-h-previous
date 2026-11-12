@@ -13,6 +13,7 @@
  */
 
 const { isRetryableExpenseResult } = require("./iris-wealth-driver.js");
+const { buildFbrHandoffRoute } = require("./fbr-handoff-route.js");
 
 const BUILD_TAG = "pension-services-multifiling-20261106a";
 const NOISY_STEPS = new Set(["readiness_evidence"]);
@@ -634,16 +635,26 @@ function buildJobReport(input = {}) {
   if (wealthReconciliationLines.length)
     lines.push("", "WEALTH STATEMENT RECONCILIATION (Section 116, read-only)", ...wealthReconciliationLines);
   const saveLines = describeSave(autofill);
-  const servicesSaveLabel = autofill?.pensionIncluded === true
-    ? "Pension + Freelancer / Services"
-    : autofill?.salaryIncluded === true
-      ? "Salary + Freelancer / Services"
-      : "Freelancer / Services";
+  const legacyRouteSources = [
+    autofill?.salaryIncluded === true ? "salary" : null,
+    autofill?.businessIncluded === true ||
+    autofill?.businessCoverage === "salary_business_services"
+      ? "business"
+      : null,
+    autofill?.pensionIncluded === true ? "pension" : null,
+    autofill?.route === "services_tax_deduction" ||
+    autofill?.save?.routePolicy === "services_save_once"
+      ? "services"
+      : null,
+  ].filter(Boolean);
+  const routeLabel =
+    autofill?.routeScope?.label ||
+    buildFbrHandoffRoute(legacyRouteSources).label;
   if (saveLines.length)
     lines.push(
       "",
       autofill?.save?.routePolicy === "services_save_once"
-        ? `SAVE (${servicesSaveLabel} draft-save policy)`
+        ? `SAVE (${routeLabel} draft-save policy)`
         : "SAVE (pressed once at the end, only after every typed figure read back the same)",
       ...saveLines,
     );
@@ -670,7 +681,7 @@ function buildJobReport(input = {}) {
     autofill?.save?.clicked
       ? `  Save: pressed once by the agent at ${autofill.save.at || "the end of the run"} (see SAVE above).`
       : autofill?.save?.routePolicy === "services_save_once"
-        ? `  Save: not pressed by the agent (${servicesSaveLabel} route policy).`
+        ? `  Save: not pressed by the agent (${routeLabel} route policy).`
         : `  Save: not pressed by the agent${autofill?.save?.reason ? ` (${autofill.save.reason})` : ""}.`,
   );
 

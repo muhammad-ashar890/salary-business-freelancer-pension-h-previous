@@ -49,7 +49,7 @@ function businessBooksExtracted() {
       Depreciation: 0,
       "Expenses that are not allowed": 0,
       "Business loss brought forward": 0,
-      "Tax already deducted on business receipts": 0,
+      "Tax already deducted on business receipts": 20_000,
     }).map(([label, value]) => ({ label, value, confidence: 1 })),
   });
 }
@@ -130,7 +130,15 @@ test("real actions build a non-duplicated triple packet and a fold-aware computa
     businessDepreciation: 0,
     businessInadmissibleExpenses: 0,
     businessLossBroughtForward: 0,
-    businessWithholdingDeducted: 0,
+    businessWithholdingDeducted: 20_000,
+    businessTaxDeductions: [
+      {
+        regime: "minimum",
+        code: "64060052",
+        taxableAmount: 2_000_000,
+        taxDeducted: 20_000,
+      },
+    ],
     businessSalesExcludeIndirectTax: true,
     businessTurnover100mEarlierYear: false,
     businessBankOwnershipDecisions: [
@@ -257,6 +265,15 @@ test("real actions build a non-duplicated triple packet and a fold-aware computa
     findRow(snapshot.portalFieldMap.incomeFields, "1009", "Total Amount").ourAmount,
     13_000_000,
   );
+  const businessWealthOutflow = snapshot.portalFieldMap.wealthFields.find(
+    (row) =>
+      row.irisCode === "7098" &&
+      row.rowDescriptionIncludes === "Income tax deducted u/s 153(1)(a)",
+  );
+  assert.ok(businessWealthOutflow, "validated Business withholding has a 7098 outflow");
+  assert.equal(businessWealthOutflow.ourAmount, 20_000);
+  assert.equal(businessWealthOutflow.sourceEntryCount, 1);
+  assert.equal(snapshot.business.taxDeductions.totals.minimum, 20_000);
   const folded = findRow(
     snapshot.portalFieldMap.businessFields,
     "3101",

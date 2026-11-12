@@ -802,6 +802,16 @@ export function buildPortalFieldMap(params: {
     amount: number;
     sourceEntryCount?: number;
   }[];
+  /**
+   * Validated Business Tax Deduction plan entries, grouped by statutory
+   * section. Like Services withholding, this money is retained by the payer
+   * and therefore needs its own evidenced 7098 outflow; never a plug.
+   */
+  businessTaxDeductedAtSource?: readonly {
+    section: string;
+    amount: number;
+    sourceEntryCount?: number;
+  }[];
   /** Employer names from the reviewed salary certificate. */
   employers?: string[];
   /**
@@ -1937,30 +1947,67 @@ export function buildPortalFieldMap(params: {
    * no debit to double-count — the same reasoning that keeps the Section 149
    * row above on the certificate figure.
    */
-  for (const group of params.servicesTaxDeductedAtSource ?? []) {
+  const appendWithholdingOutflows = (
+    groups: readonly { section: string; amount: number; sourceEntryCount?: number }[],
+  ) => {
+    for (const group of groups) {
+      const section = String(group?.section ?? "").trim();
+      // Rupees, like `ourAmount` everywhere else in this map.
+      const amountRupees = Math.round(Number(group?.amount ?? 0));
+      if (!section || !Number.isFinite(amountRupees) || amountRupees <= 0) continue;
+      const description = servicesWithholdingOutflowDescription(section);
+      wealthFields.push({
+        ourCategory: "TAX_DEDUCTED_AT_SOURCE_OUTFLOW",
+        ourDescription: description,
+        ourAmount: amountRupees,
+        irisCode: WEALTH_TAX_OUTFLOW_CODE,
+        irisDescription: `Adjustments in Outflows - ${description}`,
+        portalArea: "116 - Wealth Statement",
+        section: "Reconciliation of Net Assets",
+        column: "Amount",
+        isTaxField: false,
+        filerStatus: taxpayerListStatus || undefined,
+        rowDescriptionIncludes: description,
+        sourceEntryCount: Math.max(
+          0,
+          Math.round(Number(group?.sourceEntryCount ?? 0) || 0),
+        ),
+      });
+    }
+  };
+  // One IRIS outflow row per statutory section across the whole filing. If
+  // Business and Services both use the same section, merge their approved
+  // amounts instead of creating two indistinguishable 7098 targets.
+  const withholdingOutflowsBySection = new Map<
+    string,
+    { section: string; amount: number; sourceEntryCount: number }
+  >();
+  for (const group of [
+    ...(params.servicesTaxDeductedAtSource ?? []),
+    ...(params.businessTaxDeductedAtSource ?? []),
+  ]) {
     const section = String(group?.section ?? "").trim();
-    // Rupees, like `ourAmount` everywhere else in this map.
-    const amountRupees = Math.round(Number(group?.amount ?? 0));
-    if (!section || !Number.isFinite(amountRupees) || amountRupees <= 0) continue;
-    const description = servicesWithholdingOutflowDescription(section);
-    wealthFields.push({
-      ourCategory: "TAX_DEDUCTED_AT_SOURCE_OUTFLOW",
-      ourDescription: description,
-      ourAmount: amountRupees,
-      irisCode: WEALTH_TAX_OUTFLOW_CODE,
-      irisDescription: `Adjustments in Outflows - ${description}`,
-      portalArea: "116 - Wealth Statement",
-      section: "Reconciliation of Net Assets",
-      column: "Amount",
-      isTaxField: false,
-      filerStatus: taxpayerListStatus || undefined,
-      rowDescriptionIncludes: description,
-      sourceEntryCount: Math.max(
+    const amount = Math.round(Number(group?.amount ?? 0));
+    if (!section || !Number.isFinite(amount) || amount <= 0) continue;
+    const existing = withholdingOutflowsBySection.get(section);
+    if (existing) {
+      existing.amount += amount;
+      existing.sourceEntryCount += Math.max(
         0,
         Math.round(Number(group?.sourceEntryCount ?? 0) || 0),
-      ),
-    });
+      );
+    } else {
+      withholdingOutflowsBySection.set(section, {
+        section,
+        amount,
+        sourceEntryCount: Math.max(
+          0,
+          Math.round(Number(group?.sourceEntryCount ?? 0) || 0),
+        ),
+      });
+    }
   }
+  appendWithholdingOutflows([...withholdingOutflowsBySection.values()]);
 
   return {
     // 1.1.0 — one field per IRIS cell (aggregated), entered-column targeting,

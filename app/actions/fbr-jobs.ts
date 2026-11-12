@@ -480,8 +480,10 @@ export async function getLocalAgentJobsAction(draftId: string) {
       })();
       const autofillResult = parsedResult?.autofill || {};
       let handoffScope: {
+        route?: { id: string; label: string; incomeSources: string[] };
         businessDetails?: { required: boolean; verified: boolean; readback: { reason: string } | null; afterSaveVerification: { reason: string } | null };
         business?: { preparedFields: number; filledFields: number; route: string; status: string; pendingItems: string[] };
+        services?: { preparedFields: number; filledFields: number; skippedFields: number };
         salary: string | null;
         salaryFields?: { total: number; filled: number; skipped: number };
         pension?: string | null;
@@ -495,6 +497,12 @@ export async function getLocalAgentJobsAction(draftId: string) {
         // Phase 2 (fix47): IRIS's computed totals vs the packet, and the one Save.
         irisCheck?: HandoffIrisCheck;
         previousWealthCheck?: HandoffPreviousWealthCheck;
+        wealthReconciliationCheck?: {
+          status: "reconciled" | "gap" | "not_seen";
+          unreconciled: number | null;
+          gapSide: "missing_inflow" | "missing_outflow" | null;
+          message: string;
+        };
         save?: HandoffSaveState;
       } | null = null;
       let attention: JobAttention | null = null;
@@ -540,6 +548,18 @@ export async function getLocalAgentJobsAction(draftId: string) {
                   }
                 : null;
           handoffScope = {
+            ...(scope.route && typeof scope.route === "object" && typeof scope.route.label === "string"
+              ? {
+                  route: {
+                    id: String(scope.route.id || "unscoped").slice(0, 80),
+                    label: scope.route.label.slice(0, 120),
+                    incomeSources: (Array.isArray(scope.route.incomeSources) ? scope.route.incomeSources : [])
+                      .filter((source: unknown) => ["salary", "business", "pension", "services"].includes(String(source)))
+                      .map(String)
+                      .slice(0, 8),
+                  },
+                }
+              : {}),
             ...(scope.businessDetails?.required === true ? {
               businessDetails: {
                 required: true,
@@ -562,6 +582,15 @@ export async function getLocalAgentJobsAction(draftId: string) {
                 ),
               },
             } : {}),
+            ...(scope.services && typeof scope.services === "object"
+              ? {
+                  services: {
+                    preparedFields: count(scope.services.preparedFields),
+                    filledFields: Math.min(count(scope.services.preparedFields), count(scope.services.filledFields)),
+                    skippedFields: count(scope.services.skippedFields),
+                  },
+                }
+              : {}),
             salary: typeof scope.salary === "string" ? scope.salary : null,
             ...(salaryFields && count(salaryFields.total) > 0
               ? {
@@ -609,6 +638,22 @@ export async function getLocalAgentJobsAction(draftId: string) {
               .map((item: string) => item.slice(0, 200)),
             ...readHandoffIrisCheck(scope.irisCheck),
             ...readHandoffPreviousWealthCheck(scope.previousWealthCheck),
+            ...(scope.wealthReconciliationCheck && typeof scope.wealthReconciliationCheck === "object"
+              ? {
+                  wealthReconciliationCheck: {
+                    status: ["reconciled", "gap", "not_seen"].includes(String(scope.wealthReconciliationCheck.status))
+                      ? scope.wealthReconciliationCheck.status
+                      : "not_seen",
+                    unreconciled: scope.wealthReconciliationCheck.unreconciled === null || scope.wealthReconciliationCheck.unreconciled === undefined
+                      ? null
+                      : Number(scope.wealthReconciliationCheck.unreconciled) || 0,
+                    gapSide: ["missing_inflow", "missing_outflow"].includes(String(scope.wealthReconciliationCheck.gapSide))
+                      ? scope.wealthReconciliationCheck.gapSide
+                      : null,
+                    message: String(scope.wealthReconciliationCheck.message || "").slice(0, 1200),
+                  },
+                }
+              : {}),
             ...readHandoffSave(scope.save),
           };
         }

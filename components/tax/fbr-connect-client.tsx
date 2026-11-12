@@ -35,7 +35,7 @@ type Props = Readonly<{
   taxPayable?: number | null;
   refundDue?: number | null;
   packetVersion?: number;
-  /** Exact TY2026 Myself Services route: Services-only, Salary + Services, or Pension + Services. */
+  /** Supported TY2026 Myself Services route, including Business combinations. */
   servicesRoute?: boolean;
   /** Filing whose only source is Pension: no employer details ever apply. */
   pensionRoute?: boolean;
@@ -68,6 +68,7 @@ type JobView = {
   startedAt: string | Date | null;
   completedAt: string | Date | null;
   handoffScope?: {
+    route?: { id: string; label: string; incomeSources: string[] };
     businessDetails?: { required: boolean; verified: boolean; readback?: { reason?: string } | null; afterSaveVerification?: { reason?: string } | null };
     business?: {
       preparedFields: number;
@@ -76,6 +77,7 @@ type JobView = {
       pendingItems: string[];
       route?: string;
     };
+    services?: { preparedFields: number; filledFields: number; skippedFields: number };
     salary: string | null;
     salaryFields?: { total: number; filled: number; skipped: number };
     pension?: string | null;
@@ -112,6 +114,12 @@ type JobView = {
       expected: number;
       iris: number | null;
       previousReturnTaxYear: number | null;
+    };
+    wealthReconciliationCheck?: {
+      status: "reconciled" | "gap" | "not_seen";
+      unreconciled: number | null;
+      gapSide: "missing_inflow" | "missing_outflow" | null;
+      message: string;
     };
     /** Phase 2 (fix47): one draft Save, only after every entered field passes post-tab readback. */
     save?: {
@@ -602,7 +610,7 @@ export default function FbrConnectClient({
               sign-in, OTP, CAPTCHA, or PIN steps yourself in the FBR window.
               TaxRocket pauses whenever it needs you.{" "}
               {servicesRoute
-                ? "On the Freelancer / Services route (including Salary + Services or Pension + Services) it enters only evidence-backed Services figures and the approved companion income fields, plus queued Wealth rows when Wealth entry is on. After every scoped figure passes readback, it may press Save once at the end. It never Calculates, prepares PSID, makes payment or Submits."
+                ? "On a Freelancer / Services route (including Salary, Pension, Business, or Salary + Business combinations) it enters only the evidence-backed figures in each approved source scope, plus queued Wealth rows when Wealth entry is on. After every scoped figure passes readback and the Wealth reconciliation has no known gap, it may press Save once at the end. It never Calculates, prepares PSID, makes payment or Submits."
                 : "When every figure it typed reads back the same, it presses Save once at the end to keep them in your FBR draft; it never submits, calculates or pays."}
             </p>
             {liveFilingEnabled && (
@@ -998,33 +1006,22 @@ function HandoffCompleteCard({
     ? "You entered these in FBR yourself and the agent read them back: they match the approved figures."
     : "You entered these in FBR yourself; the agent could not check some of them.";
   const isServicesRoute =
+    Boolean(scope?.services) ||
+    scope?.route?.incomeSources.includes("services") === true ||
     scope?.business?.route === "services_tax_deduction" ||
     scope?.save?.routePolicy === "services_save_once";
-  const isCombinedSalaryServicesRoute =
-    isServicesRoute && Number(scope?.salaryFields?.total || 0) > 0;
-  const isCombinedPensionServicesRoute =
-    isServicesRoute && Number(scope?.pensionFields?.total || 0) > 0;
-  // 11-Nov-2026: a Business + Services filing ran the Business numeric sections too
-  // (Trading, Admin, Balance sheet) while this card's 1/1 count covers only the
-  // services scope, so the heading said "Freelancer / Services" and the business half
-  // was invisible here. The remainder below is derived from evidence the card already
-  // shows — the post-Save re-read — minus the fields it already accounts for; it reads
-  // 0 on a pure services run, and 0 when the afterSave readback did not complete.
-  const businessNumericFieldsEntered = Math.max(
-    0,
-    Number(scope?.save?.afterSave?.match ?? 0) -
-      (Number(scope?.business?.preparedFields ?? 0) +
-        Number(scope?.salaryFields?.total ?? 0) +
-        Number(scope?.pensionFields?.total ?? 0) +
-        Number(scope?.wealthRows ?? 0)),
-  );
-  const servicesRouteName = isCombinedPensionServicesRoute
-    ? "Pension + Freelancer / Services"
-    : isCombinedSalaryServicesRoute
-      ? "Salary + Freelancer / Services"
-      : businessNumericFieldsEntered > 0
-        ? "Business + Freelancer / Services"
-        : "Freelancer / Services";
+  const hasFullBusiness = scope?.business?.route === "business";
+  const hasSalary = Number(scope?.salaryFields?.total || 0) > 0;
+  const hasPension = Number(scope?.pensionFields?.total || 0) > 0;
+  // Legacy jobs have no route descriptor. Infer only their recorded source
+  // scopes; never infer a source by subtracting after-Save field counts.
+  const routeLabel = scope?.route?.label || [
+    hasSalary ? "Salary" : null,
+    hasFullBusiness ? "Business" : null,
+    hasPension ? "Pension" : null,
+    isServicesRoute ? "Freelancer / Services" : null,
+  ].filter(Boolean).join(" + ") || "FBR return";
+  const requiresGeneralFinalReview = !isServicesRoute || hasFullBusiness;
   if (scope?.business) {
     const visibleBusinessPending = (scope.business.pendingItems ?? []).filter(
       (item) => {
@@ -1041,30 +1038,32 @@ function HandoffCompleteCard({
         return true;
       },
     );
-    rows.push(
-        isServicesRoute
-        ? {
-            title: `${servicesRouteName} — verified field entry`,
-            detail: `${isCombinedSalaryServicesRoute ? `${scope.salaryFields?.filled}/${scope.salaryFields?.total} Salary fields + ` : isCombinedPensionServicesRoute ? `${scope.pensionFields?.filled}/${scope.pensionFields?.total} Pension fields + ` : ""}${scope.business.filledFields}/${scope.business.preparedFields} approved Services fields verified in ${isCombinedSalaryServicesRoute || isCombinedPensionServicesRoute ? "Employment and " : ""}Business > Other Revenues / Tax Deduction. Only evidence-backed income and withholding are automated.`,
-            state:
-              scope.business.status === "dry_run_only" ||
-              scope.business.status === "needs_review" ||
-              (isCombinedSalaryServicesRoute && Number(scope.salaryFields?.skipped || 0) > 0) ||
-              (isCombinedPensionServicesRoute && Number(scope.pensionFields?.skipped || 0) > 0)
-                ? "attention"
-                : "done",
-          }
-        : {
-            title: "Business — numeric field entry",
-            detail: `${scope.business.filledFields}/${scope.business.preparedFields} queued business fields entered by the agent; each one was read back from FBR before it counted.`,
-            state:
-              scope.business.status === "dry_run_only" ||
-              scope.business.status === "needs_review"
-                ? "attention"
-                : "done",
-          },
-    );
-    if (!isServicesRoute && scope.businessDetails?.required) {
+    const services = scope.services ?? (scope.business.route === "services_tax_deduction"
+      ? {
+          preparedFields: scope.business.preparedFields,
+          filledFields: scope.business.filledFields,
+          skippedFields: Math.max(0, scope.business.preparedFields - scope.business.filledFields),
+        }
+      : null);
+    const verifiedScopes = [
+      hasSalary ? `${scope.salaryFields?.filled}/${scope.salaryFields?.total} Salary fields` : null,
+      hasFullBusiness ? `${scope.business.filledFields}/${scope.business.preparedFields} Business fields` : null,
+      hasPension ? `${scope.pensionFields?.filled}/${scope.pensionFields?.total} Pension fields` : null,
+      services ? `${services.filledFields}/${services.preparedFields} Freelancer / Services fields` : null,
+    ].filter(Boolean);
+    rows.push({
+      title: `${routeLabel} — verified field entry`,
+      detail: `${verifiedScopes.join(" + ")} verified in their approved IRIS sections. These are source-scope counts; shared Business/Services cells are not extra unique fields. Only evidence-backed income and withholding are automated.`,
+      state:
+        scope.business.status === "dry_run_only" ||
+        scope.business.status === "needs_review" ||
+        Number(scope.salaryFields?.skipped || 0) > 0 ||
+        Number(scope.pensionFields?.skipped || 0) > 0 ||
+        Number(services?.skippedFields || 0) > 0
+          ? "attention"
+          : "done",
+    });
+    if (hasFullBusiness && scope.businessDetails?.required) {
       rows.push({
         title: "Business identity and principal activity",
         detail: scope.businessDetails.verified
@@ -1073,11 +1072,18 @@ function HandoffCompleteCard({
         state: scope.businessDetails.verified ? "done" : "attention",
       });
     }
+    if (hasFullBusiness && scope.business.status === "partial_manual_required") {
+      rows.push({
+        title: "Business — manual return review remains",
+        detail: "Numeric-field readback is complete, but the remaining Business schedules, Computations and final return review still belong to you in FBR. This is not submission readiness.",
+        state: "review",
+      });
+    }
     if (visibleBusinessPending.length > 0) {
       rows.push({
-        title: isServicesRoute
-          ? "Services — missing source evidence / remaining inputs"
-          : "Business — items to review",
+        title: hasFullBusiness
+          ? "Business — items to review"
+          : "Services — missing source evidence / remaining inputs",
         detail: visibleBusinessPending.join(" "),
         state: "attention",
       });
@@ -1114,12 +1120,6 @@ function HandoffCompleteCard({
     save &&
       save.clicked &&
       ["saved_confirmed", "saved_no_message", "saved_message_unclassified"].includes(save.status),
-  );
-  const saveReadbackVerified = Boolean(
-    savedByAgent &&
-      save?.afterSave?.complete === true &&
-      save.afterSave.mismatch === 0 &&
-      save.afterSave.notSeen === 0,
   );
   if (save) {
     const at = save.at ? ` at ${new Date(save.at).toLocaleTimeString()}` : "";
@@ -1164,7 +1164,7 @@ function HandoffCompleteCard({
               },
     );
   }
-  if (!isServicesRoute && (!scope?.business || scope.salary !== "not_entered")) {
+  if (requiresGeneralFinalReview && (!scope?.business || scope.salary !== "not_entered")) {
     rows.push(
       scope?.salary === "confirmed_by_taxpayer"
         ? {
@@ -1230,8 +1230,21 @@ function HandoffCompleteCard({
     }
   }
 
+  const wealthReconciliation = scope?.wealthReconciliationCheck;
   rows.push(
-    scope?.wealthStatement === "confirmed_by_taxpayer"
+    wealthReconciliation?.status === "gap"
+      ? {
+          title: "Wealth Statement — reconciliation needs attention",
+          detail: `${scope.wealthRows} row(s) were entered, but IRIS Unreconciled Amount (703000) is PKR ${Number(wealthReconciliation.unreconciled ?? 0).toLocaleString()}. Entered rows are not reconciliation completion. Resolve the evidenced ${wealthReconciliation.gapSide === "missing_outflow" ? "missing outflow" : "missing inflow"} in FBR; do not add a balancing plug.`,
+          state: "attention",
+        }
+      : wealthReconciliation?.status === "not_seen"
+        ? {
+            title: "Wealth Statement — reconciliation not verified",
+            detail: `${scope.wealthRows} row(s) were entered, but IRIS row 703000 was not seen on the final tour. Open Reconciliation of Net Assets in FBR and confirm the difference is 0 before submission.`,
+            state: "review",
+          }
+      : scope?.wealthStatement === "confirmed_by_taxpayer"
       ? {
           title: "Wealth Statement",
           detail: isServicesRoute
@@ -1242,8 +1255,8 @@ function HandoffCompleteCard({
       : scope?.wealthStatement === "entered_not_calculated"
         ? {
             title: "Wealth Statement",
-            detail: isServicesRoute
-              ? `${scope.wealthRows} row(s) entered.`
+            detail: wealthReconciliation?.status === "reconciled"
+              ? `${scope.wealthRows} row(s) entered and IRIS confirmed Unreconciled Amount (703000) is 0.`
               : `${scope.wealthRows} row(s) entered: personal expenses, tax paid and bank accounts. Open Reconciliation of Net Assets in FBR and make sure the unreconciled amount is 0.`,
             state: "done",
           }
@@ -1262,16 +1275,7 @@ function HandoffCompleteCard({
             },
   );
 
-  // Agent-owned work and remaining taxpayer review are different statuses.
-  // A clean entry completes immediately; never fabricate a review confirmation.
-  const agentEntryComplete =
-    rows.every(
-      (row) =>
-        row.state === "done" ||
-        (saveReadbackVerified && row.title === "Draft Save pressed — verify in FBR"),
-    ) && manualAllChecked;
-
-  if (!isServicesRoute) {
+  if (requiresGeneralFinalReview) {
     rows.push(
       scope?.propertyPaymentsComputations === "reviewed_by_taxpayer"
         ? {
@@ -1289,6 +1293,12 @@ function HandoffCompleteCard({
     );
   }
 
+  // Agent-owned work and remaining taxpayer review are different statuses.
+  // Save readback proves entered values persisted through Save, not Draft-list
+  // persistence, Wealth reconciliation, manual Business review or readiness.
+  const agentEntryComplete =
+    rows.every((row) => row.state === "done") && manualAllChecked;
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="border-b bg-muted/30 pb-4">
@@ -1297,26 +1307,22 @@ function HandoffCompleteCard({
             className={`h-5 w-5 ${agentEntryComplete ? "text-emerald-600" : "text-amber-600"}`}
             aria-hidden="true"
           />
-          {isServicesRoute
-            ? agentEntryComplete
-              ? `${servicesRouteName} figures entered in FBR.`
-              : `${servicesRouteName} data entry finished. Check the items below.`
-            : agentEntryComplete
-              ? "Return prepared in FBR. Review and submit it yourself."
-              : "Data entry finished. Check the items below, then submit it yourself."}
+          {agentEntryComplete
+            ? `${routeLabel} approved field entry completed. Final review remains in FBR.`
+            : `Data entry finished for ${routeLabel}. Resolve the items below; this is not submission-ready.`}
         </CardTitle>
         <p className="text-sm leading-relaxed text-muted-foreground">
           The desktop agent finished entering your approved data
           {finishedAt ? ` at ${finishedAt}` : ""}.{" "}
           {isServicesRoute
             ? savedByAgent
-              ? "It pressed the one draft Save only after scoped post-tab verification; Submit, Calculate, Prepare PSID and payment were not pressed."
+              ? "It pressed the one draft Save only after scoped post-tab and Wealth reconciliation checks; Draft-list persistence still requires your confirmation. Submit, Calculate, Prepare PSID and payment were not pressed."
               : `Draft Save was not pressed (${save?.reason || "post-tab verification was not complete"}); Submit, Calculate, Prepare PSID and payment were not pressed.`
             : savedByAgent
               ? "It pressed Save once in your FBR draft; Submit, Calculate, Prepare PSID and payment were not pressed."
               : "The agent did not press Save in this run; Submit, Calculate, Prepare PSID and payment were not pressed."}{" "}
-          {!isServicesRoute &&
-            "The final review and the submission are done by you in the FBR window."}
+          {requiresGeneralFinalReview &&
+            "Review and submit it yourself in the FBR window after the final review."}
         </p>
       </CardHeader>
       <CardContent className="space-y-5 p-0">
@@ -1331,7 +1337,7 @@ function HandoffCompleteCard({
           </ul>
         </div>
 
-        {!isServicesRoute && (
+        {requiresGeneralFinalReview && (
         <div className="px-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Before you submit in FBR

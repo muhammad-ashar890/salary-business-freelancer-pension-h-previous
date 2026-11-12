@@ -182,6 +182,7 @@ const irisBusinessRowDriver = require("./iris-business-row-driver");
 // Phase 1 (fix46): read-only census tour of every IRIS tab (tracking + A6).
 const irisTourCensus = require("./iris-tour-census");
 const wealthReconciliation = require("./wealth-reconciliation-check");
+const { buildFbrHandoffRoute } = require("./fbr-handoff-route");
 // Phase 2 (fix47): the ONE end-of-run Save (taxpayer decision Q1).
 const irisSaveDraft = require("./iris-save-draft");
 // DP-1 (fix48): the IRIS "Depreciation" top tab, typed from the asset schedule.
@@ -4547,6 +4548,19 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     : [];
   const servicesRoute = getServicesPacketRoute(snapshot);
   const servicesRouteActive = servicesRoute.active;
+  const handoffRoute =
+    typeof buildFbrHandoffRoute === "function"
+      ? buildFbrHandoffRoute(servicesRoute.incomeSources)
+      : {
+          id: "services_scoped",
+          label: [
+            servicesRoute.salaryIncluded ? "Salary" : null,
+            servicesRoute.businessIncluded ? "Business" : null,
+            servicesRoute.pensionIncluded ? "Pension" : null,
+            "Freelancer / Services",
+          ].filter(Boolean).join(" + "),
+          incomeSources: servicesRoute.incomeSources,
+        };
   const isCombinedBusinessServicesRun = Boolean(
     snapshot?.services?.version === "services-tax-deduction-v1" &&
       snapshot?.business?.version === "business-entry-v9" &&
@@ -4699,11 +4713,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     `Real-portal autofill (${mode === "dry" ? "DRY RUN — no writes" : "LIVE"}): ` +
       `${coded.length} IRIS-coded fields of ${portalFieldMap.length} in packet.` +
       (servicesRouteActive
-        ? servicesRoute.pensionIncluded
-          ? " Pension + Services route: only reviewed pension rows, verified Services Business rows and the separate Wealth driver are allowed; one draft Save is attempted only after scoped post-tab readback."
-          : servicesRoute.salaryIncluded
-            ? " Salary + Services route: only certificate-backed Salary rows, verified Services Business rows and the separate Wealth driver are allowed; one draft Save is attempted only after scoped post-tab readback."
-            : " Freelancer / Services route: only Business > Other Revenues, Business > Tax Deduction and the separate Wealth driver are allowed; one draft Save is attempted only after scoped post-tab readback."
+        ? ` ${handoffRoute.label} route: only the approved source-scoped rows and the separate Wealth driver are allowed${servicesRoute.businessIncluded ? ", including the full reviewed Business schedules and Business Tax Deduction rows" : ""}; one draft Save is attempted only after scoped post-tab readback and Wealth reconciliation checks.`
         : ""),
   );
   if (wealthPrepared.length) {
@@ -5093,11 +5103,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
           ["salary", "tax_deductions", ...(servicesRoute.pensionIncluded || snapshot.salaryBusinessServices?.computations?.version === "computations-v1" ? ["computations"] : [])]
         : []),
     ];
-    const servicesRouteLabel = servicesRoute.pensionIncluded
-      ? "Pension + Services"
-      : servicesRoute.salaryIncluded
-        ? "Salary + Services"
-        : "Freelancer / Services";
+    const servicesRouteLabel = handoffRoute.label;
     if (servicesRouteActive && !servicesAllowedSections.includes(group.sectionId)) {
       onStep(
         "real_autofill_section_skipped",
@@ -6280,7 +6286,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
       }, {});
       onStep(
         "services_readback_after_tab_summary",
-        `Scoped Services readback after tab switch: ${counts.match || 0} match, ${counts.mismatch || 0} mismatch, ${counts.not_seen || 0} not seen; only approved ${servicesRoute.pensionIncluded ? "Pension / " : servicesRoute.salaryIncluded ? "Salary / " : ""}Services / Wealth sections were visited.`,
+        `Scoped readback after tab switch: ${counts.match || 0} match, ${counts.mismatch || 0} mismatch, ${counts.not_seen || 0} not seen; only the approved ${handoffRoute.label} and Wealth sections in this route's allowlist were visited.`,
       );
       if (typeof irisTourCensus?.collectTotals === "function") {
         irisTotals = {
@@ -6499,6 +6505,8 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     : null;
   let censusAfterSave = null;
   let afterSaveChecks = [];
+  const wealthReviewRequired =
+    mode === "live" && wealthReconciliationCheck?.status === "gap";
   if (mode === "live") {
     const typedNow = results.filter(
       (r) => (r.status === irisRowFiller.FILL_STATUS.FILLED || r.statusBeforeTabCheck === irisRowFiller.FILL_STATUS.FILLED) && !r.dryRun,
@@ -6524,6 +6532,8 @@ async function runRealIrisAutofill(jobContext, job, mode) {
       : "the scoped readback after the tab switch did not complete, so the figures could not be verified";
     const blockedBy = businessDetailsPending
       ? `Business Details is not verified (${businessDetailsReadback?.reason || businessDetailsOutcome?.reason || "not reached"})`
+      : wealthReviewRequired
+        ? `Wealth reconciliation is not balanced (703000=${wealthReconciliationCheck.unreconciled}); resolve the evidenced missing inflow/outflow in FBR before saving or submitting`
       : stopped
       ? "the run stopped for a safety reason"
       : !saveModule
@@ -6712,7 +6722,10 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     (row) => !takenKeys.has(prefillKey(row)),
   );
   const autofillReviewRequired =
-    summary.skipped > 0 || pendingPrefill.length > 0 || businessDetailsPending;
+    summary.skipped > 0 ||
+    pendingPrefill.length > 0 ||
+    businessDetailsPending ||
+    wealthReviewRequired;
   // Phase 1 (fix46): on a stop or any figure not entered, save the page HTML
   // (with the values on screen) in the LOCAL log folder for exact analysis.
   let htmlSnapshot = null;
@@ -6758,7 +6771,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
                 : `IRIS answered: "${saveOutcome.message || "no message"}"`
             }. Check the FBR window and press Save yourself once that is resolved.`
           : servicesRouteActive
-            ? ` Draft Save was not pressed on this Freelancer / Services route (${saveOutcome?.reason || "the scoped readback did not complete"}).`
+            ? ` Draft Save was not pressed on this ${handoffRoute.label} route (${saveOutcome?.reason || "the scoped readback did not complete"}).`
           : typedThisRun > 0
             ? ` The agent typed ${typedThisRun} figure(s) but did not press Save (${
                 saveOutcome?.reason || "Save was not attempted"
@@ -6930,6 +6943,8 @@ async function runRealIrisAutofill(jobContext, job, mode) {
   ).length;
   const pauseMessage = businessDetailsPending
     ? `Numeric fields: ${summary.filled}/${summary.total} verified. Business Details is NOT verified (${businessDetailsAfterSave?.reason || businessDetailsReadback?.reason || businessDetailsOutcome?.reason || "not reached"}). Check the Business Details tab, then Retry automatic filing. The agent never edits an existing business.${saveNote} ${nothingDone}`
+    : wealthReviewRequired
+      ? `${summary.filled}/${summary.total} approved field(s) were entered and read back, but the return is not complete: ${wealthReconciliationCheck.message} Draft Save was not pressed. After correcting the evidenced rows, press Save yourself in FBR and confirm 703000 becomes 0. Numeric-field completion is not Wealth reconciliation or submission readiness. ${nothingDone}`
     : businessRetryRequired
     ? `${lockedBusiness.length} business figure(s) were NOT typed because the IRIS grid stayed locked or could not be verified, even after waiting${waitedSeconds ? ` (${waitedSeconds} s in total)` : ""}${retryKeys.size ? " and a second automatic attempt" : ""}: ${lockedText}. Locked controls are never bypassed. Let IRIS finish loading/calculating, then press Retry automatic filing. No manual-entry confirmation is required.` +
       `${otherProblems ? ` ${otherProblems} other figure(s) also need attention (see the list).` : ""}${conflictText}${prefillText}${saveNote} ${nothingDone}`
@@ -6985,6 +7000,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
     result: {
       mode,
       summary,
+      routeScope: handoffRoute,
       results,
       captures,
       message: fillMessage,
@@ -7406,6 +7422,7 @@ function buildConfirmedHandoffCompletion(saved, nowIso) {
         false,
         autofill.wealthPrepared,
         {
+          route: autofill.routeScope,
           salarySummary: autofill.salarySummary,
           salaryIncluded: autofill.salaryIncluded,
           pensionSummary: autofill.pensionSummary,
@@ -7418,6 +7435,7 @@ function buildConfirmedHandoffCompletion(saved, nowIso) {
           takenOver: autofill.takenOver,
           irisCheck: autofill.totalsCheck,
           previousWealthCheck: autofill.previousWealthCheck,
+          wealthReconciliationCheck: autofill.wealthReconciliationCheck,
           appEstimate: autofill.appEstimate,
           save: autofill.save,
         },
@@ -7529,10 +7547,13 @@ function buildHandoffScopeSummary(
   const wealthFilled = Number(wealth?.summary?.filled) || 0;
   const wealthTotal = Number(wealth?.summary?.total) || 0;
   const wealthDry = wealthEntered && wealth.mode === "dry";
+  const wealthReconciliation = extras.wealthReconciliationCheck || null;
   const wealthState = !wealthEntered
     ? "pending"
     : wealthDry
       ? "dry_run_only"
+      : wealthReconciliation?.status === "gap"
+        ? "needs_review"
       : wealthFilled === wealthTotal && (wealthTotal > 0 || wealthTaken > 0)
         ? wealthTaken > 0
           ? "confirmed_by_taxpayer"
@@ -7553,19 +7574,28 @@ function buildHandoffScopeSummary(
   const pensionSkipped = Number(pension?.skipped) || 0;
   const pensionIncluded = Boolean(extras.pensionIncluded === true);
   const combinedServices = extras.services || null;
+  const isServicesAutomation = isServicesBusiness || Boolean(combinedServices);
   const combinedServicesFilled = Number(combinedServices?.filled) || 0;
   const combinedServicesTotal = Number(combinedServices?.total) || 0;
-  const salaryText = combinedServices
-    ? `Salary ${salaryFilled}/${salaryTotal} + Freelancer / Services ${combinedServicesFilled}/${combinedServicesTotal} approved field(s) verified`
-    : isServicesBusiness
-    ? salaryIncluded
-      ? `Salary ${salaryFilled}/${salaryTotal} + Freelancer / Services ${servicesFilled}/${servicesTotal} approved field(s) verified`
-      : pensionIncluded
-        ? `Pension ${pensionFilled}/${pensionTotal} + Freelancer / Services ${servicesFilled}/${servicesTotal} approved field(s) verified`
-        : `Freelancer / Services ${servicesFilled}/${servicesTotal} verified field(s) entered`
+  const verifiedScopeText = [
+    salaryIncluded ? `Salary ${salaryFilled}/${salaryTotal}` : null,
+    extras.business?.coverage === "partial_manual_required"
+      ? `Business ${Number(extras.business?.filled) || 0}/${Number(extras.business?.total) || 0}`
+      : null,
+    pensionIncluded ? `Pension ${pensionFilled}/${pensionTotal}` : null,
+    combinedServices
+      ? `Freelancer / Services ${combinedServicesFilled}/${combinedServicesTotal}`
+      : isServicesBusiness
+        ? `Freelancer / Services ${servicesFilled}/${servicesTotal}`
+        : null,
+  ].filter(Boolean).join(" + ");
+  const salaryText = isServicesAutomation && verifiedScopeText
+    ? `${verifiedScopeText} approved field(s) verified`
     : genericSalaryText;
   let wealthText =
-    wealthState === "pending"
+    wealthReconciliation?.status === "gap"
+      ? `Wealth \u26A0\uFE0F ${wealthFilled}/${wealthTotal} row(s) entered, but 703000=${wealthReconciliation.unreconciled}; reconciliation needs review`
+      : wealthState === "pending"
       ? `Wealth \u26A0\uFE0F pending${
           wealthRows ? ` (${wealthRows} row(s) prepared, not entered)` : ""
         }`
@@ -7652,6 +7682,22 @@ function buildHandoffScopeSummary(
           Number(previousWealth.previousReturnTaxYear) || null,
       }
     : null;
+  const wealthReconciliationCheck = wealthReconciliation
+    ? {
+        code: "703000",
+        status: ["reconciled", "gap", "not_seen"].includes(String(wealthReconciliation.status))
+          ? String(wealthReconciliation.status)
+          : "not_seen",
+        unreconciled:
+          wealthReconciliation.unreconciled === null || wealthReconciliation.unreconciled === undefined
+            ? null
+            : Math.round(Number(wealthReconciliation.unreconciled) || 0),
+        gapSide: ["missing_inflow", "missing_outflow"].includes(String(wealthReconciliation.gapSide))
+          ? String(wealthReconciliation.gapSide)
+          : null,
+        message: String(wealthReconciliation.message || "").slice(0, 1200),
+      }
+    : null;
   const saveState = extras.save
     ? {
         status: String(extras.save.status || "not_attempted"),
@@ -7667,10 +7713,10 @@ function buildHandoffScopeSummary(
     saveState &&
     saveState.clicked &&
     ["saved_confirmed", "saved_no_message", "saved_message_unclassified"].includes(saveState.status)
-      ? isServicesBusiness
+      ? isServicesAutomation
         ? " · Draft Save pressed once in FBR by the agent"
         : " \u00B7 Saved once in FBR by the agent"
-      : isServicesBusiness && saveState
+      : isServicesAutomation && saveState
         ? ` · Draft Save not pressed (${saveState.reason || "scoped post-tab readback did not complete"})`
         : "";
   const business = extras.business ? {
@@ -7690,6 +7736,17 @@ function buildHandoffScopeSummary(
       .map((item) => `${item.key}: ${item.reason}`),
   } : null;
   return {
+    ...(extras.route?.id && extras.route?.label
+      ? {
+          route: {
+            id: String(extras.route.id).slice(0, 80),
+            label: String(extras.route.label).slice(0, 120),
+            incomeSources: Array.isArray(extras.route.incomeSources)
+              ? extras.route.incomeSources.map(String).slice(0, 8)
+              : [],
+          },
+        }
+      : {}),
     ...(business ? { business } : {}),
     ...(combinedServices
       ? {
@@ -7705,16 +7762,17 @@ function buildHandoffScopeSummary(
       : {}),
     ...(irisCheck ? { irisCheck } : {}),
     ...(previousWealthCheck ? { previousWealthCheck } : {}),
+    ...(wealthReconciliationCheck ? { wealthReconciliationCheck } : {}),
     ...(saveState ? { save: saveState } : {}),
-    ...(isServicesBusiness && salaryIncluded
+    ...(isServicesAutomation && salaryIncluded
       ? { salaryFields: { total: salaryTotal, filled: salaryFilled, skipped: Number(salary?.skipped) || 0 } }
       : {}),
-    ...(isServicesBusiness && pensionIncluded
+    ...(isServicesAutomation && pensionIncluded
       ? { pensionFields: { total: pensionTotal, filled: pensionFilled, skipped: pensionSkipped } }
       : {}),
     wealthPreparedRows: wealthRows,
     employers: employerState,
-    pension: isServicesBusiness
+    pension: isServicesAutomation
       ? !pensionIncluded
         ? "not_applicable"
         : pensionSkipped > 0
@@ -7723,7 +7781,7 @@ function buildHandoffScopeSummary(
             ? "filled"
             : "not_entered"
       : undefined,
-    salary: isServicesBusiness && !salaryIncluded
+    salary: isServicesAutomation && !salaryIncluded
       ? "not_applicable"
       : salaryNeedsReview
         ? "needs_review"
@@ -7742,9 +7800,11 @@ function buildHandoffScopeSummary(
       ? "reviewed_by_taxpayer"
       : "pending",
     readyToSubmit: false,
-    nextStep: "taxpayer_reviews_and_submits",
-    label: isServicesBusiness
-      ? `${salaryText} · ${wealthText}${savedLabel} · draft Save is attempted only after scoped post-tab readback`
+    nextStep: wealthReconciliationCheck?.status === "gap"
+      ? "taxpayer_resolves_wealth_reconciliation"
+      : "taxpayer_reviews_and_submits",
+    label: isServicesAutomation
+      ? `${salaryText} · ${wealthText}${savedLabel} · ${business?.route === "business" ? "Business schedules and final return review remain manual · " : ""}draft Save is attempted only after scoped post-tab readback; Wealth reconciliation must not show a gap`
       : `${extras.businessDetails?.required ? `Business Details ${extras.businessDetails.verified ? "saved-row verified" : "NOT verified"} · ` : ""}${business ? `Business ${business.filledFields}/${business.preparedFields} verified fields entered; remaining schedules manual · ` : ""}${salaryText} \u00B7 ${wealthText}${employerText}${
       extras.reviewConfirmed
         ? " \u00B7 Property, Payments and Computations reviewed by the taxpayer"
@@ -7764,8 +7824,9 @@ function mergeNavigationAutofillOutcome(navigation, autofill, autofillMode) {
   const identityPending = Boolean(autofillMode === "live" && businessDetails?.required && !businessDetails.verified);
   const reviewRequired = Boolean(autofill?.paused || skipped > 0 || identityPending);
   const save = autofill?.result?.save;
+  const handoffRouteLabel = autofill?.result?.routeScope?.label || "FBR return";
   const saveFact = save?.routePolicy === "services_save_once" && !save?.clicked
-    ? `Draft Save was not pressed on the Freelancer / Services route (${save.reason || "the scoped readback was not complete"}). Submit, Calculate, Prepare PSID and payment were not pressed.`
+    ? `Draft Save was not pressed on the ${handoffRouteLabel} route (${save.reason || "the scoped readback was not complete"}). Submit, Calculate, Prepare PSID and payment were not pressed.`
     : save?.clicked
     ? `Draft Save was pressed once${save.message ? ` (IRIS: "${save.message}")` : "; IRIS showed no message, so Draft-list persistence is not confirmed"}. Submit, Calculate, Prepare PSID and payment were not pressed.`
     : "The return was not saved, calculated, paid, or submitted.";
@@ -7807,6 +7868,7 @@ function mergeNavigationAutofillOutcome(navigation, autofill, autofillMode) {
       reviewRequired,
       autofill?.result?.wealthPrepared,
       {
+        route: autofill?.result?.routeScope,
         salarySummary: autofill?.result?.salarySummary,
         salaryIncluded: autofill?.result?.salaryIncluded,
         pensionSummary: autofill?.result?.pensionSummary,
@@ -7820,6 +7882,7 @@ function mergeNavigationAutofillOutcome(navigation, autofill, autofillMode) {
         takenOver: autofill?.result?.takenOver,
         irisCheck: autofill?.result?.totalsCheck,
         previousWealthCheck: autofill?.result?.previousWealthCheck,
+        wealthReconciliationCheck: autofill?.result?.wealthReconciliationCheck,
         appEstimate: autofill?.result?.appEstimate,
         save: autofill?.result?.save,
       },
