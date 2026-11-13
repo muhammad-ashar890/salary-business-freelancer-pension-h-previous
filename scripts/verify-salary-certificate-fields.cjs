@@ -153,6 +153,17 @@ assert.deepEqual(
 );
 assert.deepEqual(extractSalaryCertificateEmployers("not-json"), []);
 assert.deepEqual(extractSalaryCertificateEmployers(null), []);
+assert.deepEqual(
+  extractSalaryCertificateEmployers(JSON.stringify({
+    fields: [
+      { label: "Employer Name", value: "Acme Ltd" },
+      { label: "Other Employer Names (optional, separate with ;)", value: "None; N/A; Not applicable; Nil; Beta Corp" },
+    ],
+  })),
+  ["Acme Ltd", "Beta Corp"],
+  "optional missing-value placeholders never become employers",
+);
+assert.equal(hasRequiredSalaryCertificateEmployer([{ label: "Employer Name", value: "None" }]), false);
 
 // Editing the employer names of an already-mapped certificate.
 {

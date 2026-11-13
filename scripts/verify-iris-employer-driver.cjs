@@ -72,13 +72,20 @@ test("chooseEmployerOption: one exact match, none, or ambiguous - never the firs
   assert.equal(driver.chooseEmployerOption(["| 1"], "").kind, "none");
 });
 
-test("planEmployers drops blanks and duplicates and caps the list", () => {
+test("planEmployers drops blanks, missing-value placeholders and duplicates and caps the list", () => {
   assert.deepEqual(
-    driver.planEmployers([" Acme  Ltd ", "ACME LIMITED", "", null, "Beta"]),
+    driver.planEmployers([" Acme  Ltd ", "ACME LIMITED", "", null, "None", "none", "N/A", "Not applicable", "Nil", "Beta"]),
     ["Acme Ltd", "Beta"],
   );
   assert.equal(driver.planEmployers(Array.from({ length: 30 }, (_, i) => `Co ${i}`)).length, 10);
   assert.deepEqual(driver.planEmployers(undefined), []);
+});
+
+test("live: an old packet containing None never opens an employer dialog", async () => {
+  const fake = new FakeIrisEmployer({ registry: REGISTRY });
+  const outcome = await run(fake, ["None", "N/A", "Not applicable", null]);
+  assert.deepEqual(outcome.results, []);
+  assert.equal(fake.clicks.length, 0);
 });
 
 test("click surface: only the documented controls can be requested", () => {
@@ -174,7 +181,7 @@ test("live: no exact match cancels the dialog and reports what IRIS offered", as
   assert.equal(fake.modal(), null);
   const picked = fake.clicks.filter((c) => /mat-option/i.test(c.tag));
   assert.equal(picked.length, 0, "no option was chosen");
-  assert.match(driver.describeEmployerIssues(outcome.results)[0], /not an exact match/);
+  assert.match(driver.describeEmployerIssues(outcome.results)[0], /was not found in IRIS/);
 });
 
 test("the cards IRIS shows are logged so a missed card can be diagnosed", async () => {
@@ -194,7 +201,8 @@ test("the issue text names the problem and leaves the instruction to the caller"
     { name: "X", status: S.NO_EXACT_MATCH, candidates: ["X PVT | 1"] },
   ])[0];
   assert.doesNotMatch(text, /Pick the right/);
-  assert.match(text, /"X" is not an exact match/);
+  assert.match(text, /Employer "X" was not found in IRIS/);
+  assert.doesNotMatch(text, /X PVT|offered|registration/i);
 });
 
 test("live: a name IRIS knows nothing about is reported with an empty list", async () => {
@@ -202,7 +210,7 @@ test("live: a name IRIS knows nothing about is reported with an empty list", asy
   const outcome = await run(fake, ["NOBODY AT ALL"]);
   assert.deepEqual(statuses(outcome), [S.NO_EXACT_MATCH]);
   assert.deepEqual(outcome.results[0].candidates, []);
-  assert.match(driver.describeEmployerIssues(outcome.results)[0], /IRIS offered nothing/);
+  assert.match(driver.describeEmployerIssues(outcome.results)[0], /was not found in IRIS/);
   assert.equal(fake.modal(), null);
 });
 
@@ -212,7 +220,7 @@ test("live: two registrations with the same name are never guessed between", asy
   assert.deepEqual(statuses(outcome), [S.AMBIGUOUS]);
   assert.equal(fake.cards().length, 0);
   assert.equal(fake.modal(), null);
-  assert.match(driver.describeEmployerIssues(outcome.results)[0], /Several IRIS registrations/);
+  assert.match(driver.describeEmployerIssues(outcome.results)[0], /More than one IRIS registration/);
 });
 
 test("live: one employer failing does not stop the next one", async () => {
@@ -297,7 +305,7 @@ test("live: an employer skipped after a dialog failure says so in plain words", 
   const fake = new FakeIrisEmployer({ registry: REGISTRY, rejectAdd: true });
   const outcome = await run(fake, ["SYSTEMS LIMITED", "AT&T Pakistan"]);
   const lines = driver.describeEmployerIssues(outcome.results);
-  assert.match(lines[1], /was not attempted because/);
+  assert.match(lines[1], /was not attempted/);
   assert.doesNotMatch(lines[1], /stopped_the_run/);
 });
 
@@ -333,7 +341,7 @@ test("the Salary page not opening leaves everything untouched", async () => {
   });
   assert.deepEqual(statuses(outcome), [S.SECTION_UNAVAILABLE]);
   assert.equal(fake.clicks.length, 0);
-  assert.match(driver.describeEmployerIssues(outcome.results)[0], /tab_not_found/);
+  assert.match(driver.describeEmployerIssues(outcome.results)[0], /could not be added automatically/);
 });
 
 test("a missing Add Employer Details button is reported, not guessed around", async () => {

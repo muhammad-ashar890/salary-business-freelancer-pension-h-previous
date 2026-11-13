@@ -402,6 +402,14 @@ function cardMatchesEmployer(cardText, employerName, regNo) {
   );
 }
 
+const MISSING_EMPLOYER_NAMES = new Set([
+  "NONE",
+  "N A",
+  "NOT APPLICABLE",
+  "NIL",
+  "-",
+]);
+
 /** Unique, non-empty employer names in packet order. Pure. */
 function planEmployers(names) {
   const seen = new Set();
@@ -411,7 +419,7 @@ function planEmployers(names) {
       .replace(/\s+/g, " ")
       .trim();
     const key = employerNameKey(name);
-    if (!key || seen.has(key)) continue;
+    if (!key || MISSING_EMPLOYER_NAMES.has(key) || seen.has(key)) continue;
     seen.add(key);
     out.push(name);
   }
@@ -439,37 +447,15 @@ function describeEmployerIssues(results) {
     if (SUCCESS_STATUSES.has(r.status)) continue;
     const name = `"${r.name}"`;
     if (r.status === EMPLOYER_STATUS.NO_EXACT_MATCH) {
-      lines.push(
-        `Employer ${name} is not an exact match for any registered name in IRIS${
-          r.candidates && r.candidates.length
-            ? ` (IRIS offered: ${r.candidates.join("; ")})`
-            : " (IRIS offered nothing)"
-        }`,
-      );
+      lines.push(`Employer ${name} was not found in IRIS.`);
     } else if (r.status === EMPLOYER_STATUS.AMBIGUOUS) {
-      lines.push(
-        `Several IRIS registrations are named ${name} (${(
-          r.candidates || []
-        ).join("; ")})`,
-      );
+      lines.push(`More than one IRIS registration is named ${name}.`);
     } else if (r.setupStatus === NOT_ATTEMPTED) {
-      lines.push(
-        `Employer ${name} was not attempted because the Add Employer dialog could not be used for the previous employer`,
-      );
+      lines.push(`Employer ${name} was not attempted.`);
     } else if (r.status === EMPLOYER_STATUS.ADDED_UNVERIFIED) {
-      lines.push(
-        `Employer ${name} was submitted but its card could not be confirmed in the Employer Details list`,
-      );
-    } else if (r.status === EMPLOYER_STATUS.SECTION_UNAVAILABLE) {
-      lines.push(
-        `Employer ${name} was not added because the Employer Details section could not be opened (${
-          r.setupStatus || "unknown"
-        })`,
-      );
+      lines.push(`Please confirm that employer ${name} appears in the Employer Details list.`);
     } else {
-      lines.push(
-        `Employer ${name} was not added (${r.setupStatus || r.status})`,
-      );
+      lines.push(`Employer ${name} could not be added automatically.`);
     }
   }
   return lines;

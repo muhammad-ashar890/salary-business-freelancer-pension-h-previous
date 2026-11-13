@@ -3213,7 +3213,7 @@ test("employers: added through the driver BEFORE the salary figures, in live mod
     return okEmployers(visited)(win, names, options);
   });
   const outcome = await ctx.runRealIrisAutofill(
-    employerPacket(["SYSTEMS LIMITED", " systems  limited ", "BETA CORP"]),
+    employerPacket(["SYSTEMS LIMITED", " systems  limited ", "None", "N/A", "BETA CORP"]),
     { id: "job-1", type: "tax_assisted_filing" },
     "live",
   );
@@ -3249,12 +3249,12 @@ test("employers: one that cannot be added stops the run at once - nothing else i
   assert.ok(!visited.includes("payment"), "no review tour while an employer is open");
   assert.equal(outcome.paused, true);
   assert.equal(outcome.pauseAction, "portal_employer_review");
-  assert.match(outcome.pauseMessage, /Employer details need you/);
-  assert.match(outcome.pauseMessage, /not an exact match/);
-  assert.match(outcome.pauseMessage, /SYSTEMS PVT \| 1/);
-  assert.match(outcome.pauseMessage, /I have added the employer in FBR/);
-  assert.match(outcome.pauseMessage, /have not been entered yet/);
-  assert.match(outcome.pauseMessage, /Nothing was saved, submitted, calculated, or paid/);
+  assert.match(outcome.pauseMessage, /Employer action needed/);
+  assert.match(outcome.pauseMessage, /was not found in IRIS/);
+  assert.doesNotMatch(outcome.pauseMessage, /SYSTEMS PVT \| 1|IRIS offered/);
+  assert.match(outcome.pauseMessage, /Employment > Salary > Add Employer Details/);
+  assert.match(outcome.pauseMessage, /No salary or wealth figures were entered/);
+  assert.match(outcome.pauseMessage, /Nothing was saved, submitted, calculated or paid/);
   assert.equal(outcome.result.reviewRequired, true);
   assert.equal(outcome.result.employers.summary.needsReview, 1);
   // The merged job result keeps the employer action so Continue records it.

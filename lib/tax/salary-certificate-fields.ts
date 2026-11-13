@@ -342,10 +342,14 @@ function normalizeEmployerNames(
   value: unknown,
   { commaSeparates = false }: { commaSeparates?: boolean } = {},
 ): string[] {
+  const missingValues = new Set(["", "NONE", "N/A", "N A", "NOT APPLICABLE", "NIL", "-", "--"]);
   return String(value ?? "")
     .split(commaSeparates ? /[;,\n]+/ : /[;\n]+/)
     .map((name) => name.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
+    .filter((name) => {
+      const key = name.toUpperCase().replace(/[.\u2019']/g, "").replace(/\s+/g, " ").trim();
+      return !missingValues.has(key);
+    });
 }
 
 /**

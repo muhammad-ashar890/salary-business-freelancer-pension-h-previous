@@ -1309,9 +1309,16 @@ function HandoffCompleteCard({
             className={`h-5 w-5 shrink-0 ${agentEntryComplete ? "text-emerald-600" : "text-amber-600"}`}
             aria-hidden="true"
           />
-          {agentEntryComplete
-            ? `${routeLabel} approved field entry completed. Final review remains in FBR.`
-            : `Data entry finished for ${routeLabel}. Resolve the items below; this is not submission-ready.`}
+          <span>
+            {agentEntryComplete ? (
+              <>
+                <span className="block">{`${routeLabel} approved field entry completed.`}</span>
+                <span className="block">Final review remains in FBR.</span>
+              </>
+            ) : (
+              `Data entry finished for ${routeLabel}. Resolve the items below; this is not submission-ready.`
+            )}
+          </span>
         </CardTitle>
         <p className="text-sm leading-relaxed text-muted-foreground">
           The desktop agent finished entering your approved data

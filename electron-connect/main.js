@@ -4939,11 +4939,10 @@ async function runRealIrisAutofill(jobContext, job, mode) {
   // the figures are entered on the resumed run (which is idempotent).
   if (employerIssues.length) {
     const pauseMessage =
-      `Employer details need you: ${employerIssues.join(". ")}. ` +
-      `Add the employer yourself in the FBR window (Employment > Salary > + Add Employer Details), ` +
-      `then press "I have added the employer in FBR - Continue". ` +
-      `The salary and wealth figures have not been entered yet; they are entered after you continue. ` +
-      `Nothing was saved, submitted, calculated, or paid.`;
+      `Employer action needed: ${employerIssues.join(" ")} ` +
+      `Add the missing employer${employerIssues.length === 1 ? "" : "s"} in FBR under Employment > Salary > Add Employer Details. ` +
+      `Then tick the confirmation box and select Continue. ` +
+      `No salary or wealth figures were entered. Nothing was saved, submitted, calculated or paid.`;
     onStep("real_autofill_employer_pause", pauseMessage);
     return {
       paused: true,

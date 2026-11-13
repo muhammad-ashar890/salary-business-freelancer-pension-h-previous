@@ -106,6 +106,7 @@ export const BUSINESS_SALES_NARRATION_KEYWORDS = [
   "sales deposit",
   "sale deposit",
   "sales receipt",
+  "business sale receipt",
   "sales collection",
   "daily sales",
   "till deposit",
@@ -233,6 +234,12 @@ export const BUSINESS_RUNNING_COST_KEYWORDS = [
   "diesel",
   "vehicle maintenance",
   "rent",
+] as const;
+
+/** An explicit personal marker outranks account-level running-cost inference. */
+export const EXPLICIT_PERSONAL_RUNNING_COST_KEYWORDS = [
+  "personal utility",
+  "personal utilities",
 ] as const;
 
 /**
@@ -385,6 +392,7 @@ export const CLASSIFICATION_RULES = [
       "electricity",
       "gas bill",
       "utility",
+      "utilities",
       " ke ",
     ],
     entryType: "EXPENSE",
@@ -398,20 +406,21 @@ export const CLASSIFICATION_RULES = [
     confidence: 0.88,
   },
   {
-    keywords: ["salary", "payroll", "wages", "compensation"],
-    entryType: "INCOME",
-    category: "SALARY",
-    confidence: 0.95,
-  },
-  {
+    // Keep the specific income head before generic payroll wording: a bank
+    // narration such as "Pension payroll" contains both, and is not salary.
     // Pension credits (AG/PPO/HBL PPS treasury disbursements) are as
     // recognisable as payroll, so they get the same SUGGESTED treatment as
-    // salary: the chip says what it is and Approve All Safe can confirm it,
-    // exactly like the salary rule above. Generic credits still fall through
-    // to the POTENTIAL_INCOME placeholder — nothing else changes.
+    // salary: the chip says what it is and Approve All Safe can confirm it.
+    // Generic credits still fall through to POTENTIAL_INCOME.
     keywords: ["pension"],
     entryType: "INCOME",
     category: "PENSION",
+    confidence: 0.95,
+  },
+  {
+    keywords: ["salary", "payroll", "wages", "compensation"],
+    entryType: "INCOME",
+    category: "SALARY",
     confidence: 0.95,
   },
   {
@@ -682,6 +691,7 @@ export function classifyTransaction(
         keywords: [
           "customer sales receipt",
           "business sales",
+          "business sale receipt",
           "business sales receipt",
           "business service fee collected",
           ...(options.businessAccountConfirmed ? ["service fee collected", "service fees collected", "client fees received"] : []),
@@ -766,6 +776,9 @@ export function classifyTransaction(
     options?.businessEnabled &&
     options?.businessAccountConfirmed &&
     direction === "debit" &&
+    !EXPLICIT_PERSONAL_RUNNING_COST_KEYWORDS.some((keyword) =>
+      matchesKeyword(normalized, keyword),
+    ) &&
     BUSINESS_RUNNING_COST_KEYWORDS.some((keyword) =>
       matchesKeyword(normalized, keyword),
     )

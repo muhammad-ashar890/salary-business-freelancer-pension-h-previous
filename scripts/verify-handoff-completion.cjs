@@ -63,15 +63,24 @@ function renderHandoffCompletion(overrides = {}) {
   );
   const text = [];
   const icons = [];
+  const blockTexts = [];
+  const nodeText = (node) => {
+    if (Array.isArray(node)) return node.map(nodeText).join(" ");
+    if (node && typeof node === "object") return nodeText(node.children);
+    return typeof node === "string" ? node : "";
+  };
   function walk(node) {
     if (Array.isArray(node)) return node.forEach(walk);
     if (node && typeof node === "object") {
       if (node.type === "icon") icons.push(node.props);
+      if (node.type === "span" && /\bblock\b/.test(node.props?.className || "")) {
+        blockTexts.push(nodeText(node));
+      }
       walk(node.children);
     } else if (typeof node === "string") text.push(node);
   }
   walk(tree);
-  return { text: text.join(" "), icons };
+  return { text: text.join(" "), icons, blockTexts };
 }
 
 const tripleScope = {
@@ -99,8 +108,12 @@ const tripleScope = {
 };
 
 test("triple-route field entry is green and full-sized while manual FBR review remains", () => {
-  const { text, icons } = renderHandoffCompletion(tripleScope);
+  const { text, icons, blockTexts } = renderHandoffCompletion(tripleScope);
   assert.match(text, /Salary \+ Business \+ Freelancer \/ Services approved field entry completed/);
+  assert.deepEqual(blockTexts.slice(0, 2), [
+    "Salary + Business + Freelancer / Services approved field entry completed.",
+    "Final review remains in FBR.",
+  ]);
   assert.doesNotMatch(text, /Resolve the items below; this is not submission-ready/);
   assert.match(text, /Business — manual return review remains/);
   assert.match(text, /Review in FBR/);
