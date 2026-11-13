@@ -699,7 +699,7 @@ export async function generateFilingPacketAction(
       return {
         success: false,
         error:
-          "Services income evidence supports only TY2026 Myself filings with Services alone, exactly Salary + Services, exactly Pension + Services, exactly Business + Services, or exactly Salary + Business + Services. Other source combinations are unsupported, so no Services packet was generated.",
+          "Services income evidence supports only TY2026 Myself filings with Services alone, exactly Salary + Services, exactly Pension + Services, exactly Business + Services, or exactly Salary + Business + Services, or exactly Salary + Pension + Services. Other source combinations are unsupported, so no Services packet was generated.",
       };
     }
 

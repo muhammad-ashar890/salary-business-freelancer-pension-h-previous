@@ -1058,7 +1058,7 @@ export function buildServicesTaxDeductionPacket(input: {
     })
   )
     throw new Error(
-      "Verified Services entry supports TY2026 Myself filings with Services alone, exactly Salary + Services, exactly Pension + Services, exactly Business + Services, or exactly Salary + Business + Services; other source combinations are unsupported.",
+      "Verified Services entry supports TY2026 Myself filings with Services alone, exactly Salary + Services, exactly Pension + Services, exactly Business + Services, or exactly Salary + Business + Services, or exactly Salary + Pension + Services; other source combinations are unsupported.",
     );
   const fields = [...input.businessFields, ...input.withholdingFields];
   // No approved row means nothing may be entered: stay null rather than

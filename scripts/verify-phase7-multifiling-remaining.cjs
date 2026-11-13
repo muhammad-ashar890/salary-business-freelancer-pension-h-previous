@@ -276,11 +276,25 @@ test("7A: unsupported Services multi-source combinations fail closed at Setup an
     }),
     true,
   );
+  assert.equal(
+    isSingleFreelancerServicesFiling({
+      taxYear: 2026,
+      filerType: "myself",
+      incomeSources: ["salary", "pension", "services"],
+    }),
+    true,
+    "Salary + Pension + Services is the supported pension twin of the Business triple",
+  );
   for (const bad of [
     {
       taxYear: 2026,
       filerType: "myself",
-      incomeSources: ["salary", "pension", "services"],
+      incomeSources: ["business", "pension", "services"],
+    },
+    {
+      taxYear: 2026,
+      filerType: "myself",
+      incomeSources: ["salary", "business", "pension", "services"],
     },
     { taxYear: 2025, filerType: "myself", incomeSources: ["services"] },
     { taxYear: 2026, filerType: "my_business", incomeSources: ["services"] },

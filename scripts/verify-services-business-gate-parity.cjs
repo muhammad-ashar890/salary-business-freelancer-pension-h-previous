@@ -30,9 +30,10 @@ const REQUIRED_MENTIONS = [
   "Pension + Services",
   "Business + Services",
   "Salary + Business + Services",
+  "Salary + Pension + Services",
 ];
 
-test("every Freelancer / Services gate names the same five source sets", () => {
+test("every Freelancer / Services gate names the same six source sets", () => {
   for (const file of GATE_FILES) {
     const source = read(file);
     for (const label of REQUIRED_MENTIONS) {

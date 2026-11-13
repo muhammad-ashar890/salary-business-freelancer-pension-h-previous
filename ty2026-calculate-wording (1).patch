@@ -1,0 +1,147 @@
+diff --git a/components/tax/fbr-connect-client.tsx b/components/tax/fbr-connect-client.tsx
+index d70ee13..2373719 100644
+--- a/components/tax/fbr-connect-client.tsx
++++ b/components/tax/fbr-connect-client.tsx
+@@ -610,8 +610,8 @@ export default function FbrConnectClient({
+               sign-in, OTP, CAPTCHA, or PIN steps yourself in the FBR window.
+               TaxRocket pauses whenever it needs you.{" "}
+               {servicesRoute
+-                ? "On a Freelancer / Services route (including Salary, Pension, Business, or Salary + Business combinations) it enters only the evidence-backed figures in each approved source scope, plus queued Wealth rows when Wealth entry is on. After every scoped figure passes readback and the Wealth reconciliation has no known gap, it may press Save once at the end. It never Calculates, prepares PSID, makes payment or Submits."
+-                : "When every figure it typed reads back the same, it presses Save once at the end to keep them in your FBR draft; it never submits, calculates or pays."}
++                ? "On a Freelancer / Services route (including Salary, Pension, Business, or Salary + Business combinations) it enters only the evidence-backed figures in each approved source scope, plus queued Wealth rows when Wealth entry is on. After every scoped figure passes readback and the Wealth reconciliation has no known gap, it may press Save once at the end. It never prepares PSID, makes payment or Submits."
++                : "When every figure it typed reads back the same, it presses Save once at the end to keep them in your FBR draft; it never submits or pays."}
+             </p>
+             {liveFilingEnabled && (
+               <div
+@@ -622,7 +622,7 @@ export default function FbrConnectClient({
+                   Your filing is ready for supervised entry.
+                 </span>{" "}
+                 {servicesRoute
+-                  ? "TaxRocket will enter only evidence-backed Services figures in Business > Other Revenues / Tax Deduction and the approved Salary or Pension companion fields for the selected route. Wealth Statement rows are entered only if the agent's Wealth switch is on. If all scoped figures pass readback, it will press Save once at the end. It will not Calculate, prepare PSID, make payment or Submit."
++                  ? "TaxRocket will enter only evidence-backed Services figures in Business > Other Revenues / Tax Deduction and the approved Salary or Pension companion fields for the selected route. Wealth Statement rows are entered only if the agent's Wealth switch is on. If all scoped figures pass readback, it will press Save once at the end. It will not prepare PSID, make payment or Submit."
+                   : "TaxRocket will enter only the approved Salary and Salary withholding information that can be verified. Wealth Statement rows are entered only if the agent's Wealth switch is on. Property, Payments, and Computations remain outside this test. Nothing is saved or submitted."}
+               </div>
+             )}
+@@ -1325,11 +1325,11 @@ function HandoffCompleteCard({
+           {finishedAt ? ` at ${finishedAt}` : ""}.{" "}
+           {isServicesRoute
+             ? savedByAgent
+-              ? "It pressed the one draft Save only after scoped post-tab and Wealth reconciliation checks; Draft-list persistence still requires your confirmation. Submit, Calculate, Prepare PSID and payment were not pressed."
+-              : `Draft Save was not pressed (${save?.reason || "post-tab verification was not complete"}); Submit, Calculate, Prepare PSID and payment were not pressed.`
++              ? "It pressed the one draft Save only after scoped post-tab and Wealth reconciliation checks; Draft-list persistence still requires your confirmation. Submit, Prepare PSID and payment were not pressed."
++              : `Draft Save was not pressed (${save?.reason || "post-tab verification was not complete"}); Submit, Prepare PSID and payment were not pressed.`
+             : savedByAgent
+-              ? "It pressed Save once in your FBR draft; Submit, Calculate, Prepare PSID and payment were not pressed."
+-              : "The agent did not press Save in this run; Submit, Calculate, Prepare PSID and payment were not pressed."}{" "}
++              ? "It pressed Save once in your FBR draft; Submit, Prepare PSID and payment were not pressed."
++              : "The agent did not press Save in this run; Submit, Prepare PSID and payment were not pressed."}{" "}
+           {requiresGeneralFinalReview &&
+             "Review and submit it yourself in the FBR window after the final review."}
+         </p>
+diff --git a/electron-connect/main.js b/electron-connect/main.js
+index 7eeb0e1..e3f5549 100644
+--- a/electron-connect/main.js
++++ b/electron-connect/main.js
+@@ -4223,7 +4223,7 @@ async function runLocalIrisNavigationCheck(jobContext, job) {
+   onStep(
+     "live_pilot_boundary",
+     servicesRoute.active
+-      ? `Original 114(1), TY${taxYear}: existing draft first, otherwise guarded TY2026+ new-return setup. This navigation check does not enter values; approved Freelancer / Services autofill may run afterward only when both live gates and the exact Services contract allow it. Save, Calculate, Submit and payment are never pressed on this route.`
++      ? `Original 114(1), TY${taxYear}: existing draft first, otherwise guarded TY2026+ new-return setup. This navigation check does not enter values; approved Freelancer / Services autofill may run afterward only when both live gates and the exact Services contract allow it. Save, Submit and payment are never pressed on this route.`
+       : `Original 114(1), TY${taxYear}: existing draft first, otherwise guarded TY2026+ new-return setup. This navigation check does not enter values; approved autofill may run afterward only when both live gates and packet mapping allow it. Submit is never automated; Save is pressed once at the end, and only after every typed figure reads back the same after the tab switch.`,
+   );
+   onStep(
+@@ -5021,8 +5021,8 @@ async function runRealIrisAutofill(jobContext, job, mode) {
+       onStep(
+         "iris_auto_calculate",
+         auto
+-          ? `IRIS Auto Calculate switch is ${auto.autoCalculate ? "ON" : "OFF"} (read on ${auto.key}); the agent never presses Calculate.`
+-          : "IRIS Auto Calculate switch was not found on the visited views (state not known); the agent never presses Calculate.",
++          ? `IRIS Auto Calculate switch is ${auto.autoCalculate ? "ON" : "OFF"} (read on ${auto.key}); the agent never touches it.`
++          : "IRIS Auto Calculate switch was not found on the visited views (state not known); the agent never touches it.",
+       );
+     } catch (error) {
+       onStep(
+@@ -6574,7 +6574,7 @@ async function runRealIrisAutofill(jobContext, job, mode) {
+     } else {
+       onStep(
+         "iris_save_start",
+-        `${typedNow} newly typed figure(s) passed the required post-tab readback${servicesRouteActive ? " within the Services route allowlist" : ""}; pressing draft Save once. Submit, Calculate, Prepare PSID and payment are never pressed.`,
++        `${typedNow} newly typed figure(s) passed the required post-tab readback${servicesRouteActive ? " within the Services route allowlist" : ""}; pressing draft Save once. Submit, Prepare PSID and payment are never pressed.`,
+       );
+       try {
+         const attemptedSave = await saveModule.saveReturnDraft(windowInstance, { onStep });
+@@ -7513,7 +7513,7 @@ function buildHandoffReviewMessage() {
+     "(1) Personal Assets / Liabilities - check Immovable Properties and every other asset you own, and add anything missing yourself. " +
+     "(2) Payment tab - check whether any payment is due; the agent never pays. " +
+     "(3) Computations - IRIS recalculates by itself when you switch tabs; compare the tax with TaxRocket's estimate and confirm the Reconciliation amount is 0. " +
+-    "When everything is correct, press Continue here. The agent did not press Calculate, and nothing was saved, submitted or paid."
++    "When everything is correct, press Continue here. Nothing was saved, submitted, or paid."
+   );
+ }
+ 
+@@ -7615,9 +7615,9 @@ function buildHandoffScopeSummary(
+       : wealthState === "dry_run_only"
+         ? `Wealth \u26A0\uFE0F dry run only (${wealthTotal} row(s) checked, nothing entered)`
+         : wealthState === "entered_not_calculated"
+-          ? `Wealth \u2705 ${wealthFilled}/${wealthTotal} row(s) entered \u2014 press Calculate in FBR and confirm the reconciliation difference is 0`
++          ? `Wealth \u2705 ${wealthFilled}/${wealthTotal} row(s) entered \u2014 confirm in FBR that the reconciliation difference (703000) is 0`
+           : wealthState === "confirmed_by_taxpayer"
+-            ? `Wealth \u2705 ${wealthFilled}/${wealthTotal} row(s) entered by the agent; the rest entered by the taxpayer in FBR \u2014 press Calculate in FBR and confirm the reconciliation difference is 0`
++            ? `Wealth \u2705 ${wealthFilled}/${wealthTotal} row(s) entered by the agent; the rest entered by the taxpayer in FBR \u2014 confirm in FBR that the reconciliation difference (703000) is 0`
+             : `Wealth \u26A0\uFE0F needs review (${wealthFilled}/${wealthTotal} row(s) entered)`;
+   if (
+     isServicesBusiness &&
+@@ -7839,10 +7839,10 @@ function mergeNavigationAutofillOutcome(navigation, autofill, autofillMode) {
+   const save = autofill?.result?.save;
+   const handoffRouteLabel = autofill?.result?.routeScope?.label || "FBR return";
+   const saveFact = save?.routePolicy === "services_save_once" && !save?.clicked
+-    ? `Draft Save was not pressed on the ${handoffRouteLabel} route (${save.reason || "the scoped readback was not complete"}). Submit, Calculate, Prepare PSID and payment were not pressed.`
++    ? `Draft Save was not pressed on the ${handoffRouteLabel} route (${save.reason || "the scoped readback was not complete"}). Submit, Prepare PSID and payment were not pressed.`
+     : save?.clicked
+-    ? `Draft Save was pressed once${save.message ? ` (IRIS: "${save.message}")` : "; IRIS showed no message, so Draft-list persistence is not confirmed"}. Submit, Calculate, Prepare PSID and payment were not pressed.`
+-    : "The return was not saved, calculated, paid, or submitted.";
++    ? `Draft Save was pressed once${save.message ? ` (IRIS: "${save.message}")` : "; IRIS showed no message, so Draft-list persistence is not confirmed"}. Submit, Prepare PSID and payment were not pressed.`
++    : "The return was not saved, paid, or submitted.";
+   const identityFact = businessDetails?.required
+     ? businessDetails.verified ? " Business Details: saved-row readback verified." : " Business Details: NOT verified; numeric-field completion is not whole-data completion."
+     : "";
+diff --git a/electron-connect/iris-save-draft.js b/electron-connect/iris-save-draft.js
+index 625d00c..a41326f 100644
+--- a/electron-connect/iris-save-draft.js
++++ b/electron-connect/iris-save-draft.js
+@@ -295,7 +295,7 @@ async function saveReturnDraft(windowInstance, options = {}) {
+   outcome.at = new Date().toISOString();
+   onStep(
+     "iris_save_clicked",
+-    "The agent pressed Save in IRIS (the lower-bar Save button). Submit, Calculate and payment were not touched.",
++    "The agent pressed Save in IRIS (the lower-bar Save button). Submit and payment were not touched.",
+   );
+   // Toasts can vanish quickly: every poll is kept.
+   const seen = [];
+diff --git a/electron-connect/job-report.js b/electron-connect/job-report.js
+index 8a5b2f8..296c840 100644
+--- a/electron-connect/job-report.js
++++ b/electron-connect/job-report.js
+@@ -676,7 +676,7 @@ function buildJobReport(input = {}) {
+   lines.push(
+     "",
+     "NEVER DONE BY THE AGENT",
+-    "  Calculate: not pressed by the agent. IRIS has an Auto Calculate switch that recalculates when you change tabs; the agent cannot see whether you pressed Calculate yourself.",
++    "  Auto Calculate: IRIS recalculates by itself when you change tabs; the agent never touches it and cannot see whether you recalculated yourself.",
+     "  Submit, Prepare PSID and payment: never pressed.",
+     autofill?.save?.clicked
+       ? `  Save: pressed once by the agent at ${autofill.save.at || "the end of the run"} (see SAVE above).`
+diff --git a/scripts/verify-job-report.cjs b/scripts/verify-job-report.cjs
+index 4ed5fb0..fd982bb 100644
+--- a/scripts/verify-job-report.cjs
++++ b/scripts/verify-job-report.cjs
+@@ -100,7 +100,7 @@ test("completed run: fields say who typed what, employers say who added them", (
+   assert.match(out, /ADDED BY YOU in FBR .*ACME LIMITED/);
+   assert.match(out, /Not shown in this run: the return was already open/);
+   assert.match(out, /Confirmed by you in TaxRocket/);
+-  assert.match(out, /Calculate: not pressed by the agent/);
++  assert.match(out, /Auto Calculate: IRIS recalculates by itself when you change tabs/);
+   assert.match(out, /05:50:02Z real_autofill_section — salary: switched/);
+   assert.doesNotMatch(out, /HUGE/, "noisy steps are left out");
+ });

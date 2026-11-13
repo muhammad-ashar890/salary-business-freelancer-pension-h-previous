@@ -3705,16 +3705,22 @@ function getServicesPacketRoute(snapshot) {
     uniqueSources[0] === "business" &&
     uniqueSources[1] === "salary" &&
     uniqueSources[2] === "services";
+  const salaryPensionAndServices =
+    uniqueSources.length === 3 &&
+    uniqueSources[0] === "pension" &&
+    uniqueSources[1] === "salary" &&
+    uniqueSources[2] === "services";
   /* Supported Services source sets, kept in lockstep with
      lib/tax/business-bank-categories.ts isFreelancerIncomeSelected and
      lib/tax/business-filing.ts buildServicesTaxDeductionPacket: Services alone,
-     Salary + Services, Pension + Services, Business + Services, and
-     Salary + Business + Services. Anything else stays fail-closed. */
+     Salary + Services, Pension + Services, Business + Services,
+     Salary + Business + Services, and Salary + Pension + Services. Anything
+     else stays fail-closed. */
   const exact =
     Number(filing.taxYear) === 2026 &&
     filing.filerType === "myself" &&
     incomeSources.length === uniqueSources.length &&
-    (servicesOnly || salaryAndServices || pensionAndServices || businessAndServices || salaryBusinessAndServices);
+    (servicesOnly || salaryAndServices || pensionAndServices || businessAndServices || salaryBusinessAndServices || salaryPensionAndServices);
   const salaryBusinessComputationsValid =
     !salaryBusinessAndServices ||
     (snapshot?.salaryBusinessServices?.version === "salary-business-services-v1" &&
@@ -3730,8 +3736,9 @@ function getServicesPacketRoute(snapshot) {
   return {
     incomeSources,
     selected,
-    salaryIncluded: salaryAndServices || salaryBusinessAndServices,
-    pensionIncluded: pensionAndServices,
+    salaryIncluded:
+      salaryAndServices || salaryBusinessAndServices || salaryPensionAndServices,
+    pensionIncluded: pensionAndServices || salaryPensionAndServices,
     businessIncluded: businessAndServices || salaryBusinessAndServices,
     exact,
     payloadValid,
@@ -3869,8 +3876,15 @@ function getServicesAutofillFields(snapshot, allCoded) {
  */
 function getSalaryFieldsForServicesRoute(allCoded) {
   const fields = Array.isArray(allCoded) ? allCoded : [];
-  const salaryRows = fields.filter((field) =>
-    ["1009", "64020004"].includes(String(field?.irisCode || "")),
+  const salaryRows = fields.filter(
+    (field) =>
+      ["1009", "64020004"].includes(String(field?.irisCode || "")) &&
+      // A pension charged as salary owns 64020004 on this route too
+      // (PENSION_SALARY_149). The pension allowlist verifies those cells; the
+      // salary allowlist must stay blind to them instead of calling them
+      // unsupported, exactly as getPensionFieldsForServicesRoute ignores every
+      // row that is not PENSION_*.
+      !String(field?.ourCategory || "").startsWith("PENSION_"),
   );
   const grossSalary = salaryRows.filter(
     (field) =>
@@ -3968,7 +3982,7 @@ async function runLocalIrisNavigationCheck(jobContext, job) {
     (servicesRoute.selected || isCombinedBusinessServicesRun) &&
     !servicesRoute.active
   ) {
-    const message = "This Freelancer / Services packet does not carry a verified TY2026 Myself Services payload for Services alone, exactly Salary + Services, exactly Pension + Services, exactly Business + Services, or exactly Salary + Business + Services. A Business + Services return needs at least one evidence-approved Services row (Other Revenues income or Tax Deduction withholding) beside the Business payload. Salary + Business + Services also needs its fold-aware computations envelope. Regenerate and approve the packet; the agent will not guess a route or fall back to Business. Nothing was changed in FBR.";
+    const message = "This Freelancer / Services packet does not carry a verified TY2026 Myself Services payload for Services alone, exactly Salary + Services, exactly Pension + Services, exactly Business + Services, or exactly Salary + Business + Services, or exactly Salary + Pension + Services. A Business + Services return needs at least one evidence-approved Services row (Other Revenues income or Tax Deduction withholding) beside the Business payload. Salary + Business + Services also needs its fold-aware computations envelope. Regenerate and approve the packet; the agent will not guess a route or fall back to Business. Nothing was changed in FBR.";
     return { paused: true, pauseAction: "portal_state_confirmation", pauseMessage: message,
       executionLog: [], result: { requiredAction: "portal_state_confirmation", message, submitted: false, businessCoverage: "services_payload_missing" } };
   }

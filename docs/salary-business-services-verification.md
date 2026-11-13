@@ -34,7 +34,7 @@ Required fixture invariants:
 - The triple Computations plan is the selected plan. A missing or stale envelope blocks activation.
 - Fully mapped final-tax-only Services can inherit only finite, positive companion Normal Tax. Normal-tax Services or unmapped portal income leaves Normal Tax/surcharge/super tax to user review and removes unproven automatic expectations.
 - Business reporting retains the full Business grid; Services-backed/shared-cell counts are separate.
-- Salary + Pension + Services, Business + Pension + Services, the quadruple, duplicates, non-TY2026 and non-Myself remain blocked.
+- Business + Pension + Services, the quadruple, duplicates, non-TY2026 and non-Myself remain blocked. Salary + Pension + Services has its own runbook (docs/salary-pension-services-verification.md) and its own contract suite.
 
 ## Stage 1 — supervised dry run on real IRIS
 

@@ -127,7 +127,6 @@ test("server gate preserves every other supported and blocked route boundary", (
     );
   }
   for (const input of [
-    { incomeSources: ["salary", "pension", "services"] },
     { incomeSources: ["business", "pension", "services"] },
     { incomeSources: ["salary", "business", "pension", "services"] },
     { incomeSources: ["salary", "business", "services", "services"] },
@@ -156,7 +155,6 @@ test("Electron activates the exact triple only with a separate valid Services en
   assert.equal(route.pensionIncluded, false);
 
   for (const invalid of [
-    snapshot(["salary", "pension", "services"]),
     snapshot(["business", "pension", "services"]),
     snapshot(targetSources, { taxYear: 2025 }),
     snapshot(targetSources, { filerType: "my_business" }),

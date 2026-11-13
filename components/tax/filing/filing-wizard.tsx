@@ -2094,7 +2094,7 @@ export function FilingWizard({
 
     if (navigationStepKey === "documents" && unsupportedServicesSelection) {
       setFilingActionError(
-        "Freelancer / Services supports only Tax Year 2026 Myself filings with Services alone, Salary + Services, Pension + Services, Business + Services, or Salary + Business + Services. Return to Income sources and remove incompatible sources before continuing.",
+        "Freelancer / Services supports only Tax Year 2026 Myself filings with Services alone, Salary + Services, Pension + Services, Business + Services, Salary + Business + Services, or Salary + Pension + Services. Return to Income sources and remove incompatible sources before continuing.",
       );
       return;
     }
@@ -2633,10 +2633,10 @@ export function FilingWizard({
           >
             <p className="font-semibold">This Services source combination is not supported yet</p>
             <p className="mt-1 text-xs leading-relaxed">
-              Services may be filed alone, with Salary, Pension, Business, or with
-              Salary + Business in this TY2026 Myself route. Other source
-              combinations remain blocked; do not treat their Services evidence
-              as complete.
+              Services may be filed alone, with Salary, Pension, Business, with
+              Salary + Business, or with Salary + Pension in this TY2026 Myself
+              route. Other source combinations remain blocked; do not treat
+              their Services evidence as complete.
             </p>
           </div>
         )}

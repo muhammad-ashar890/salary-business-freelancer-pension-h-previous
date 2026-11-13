@@ -43,9 +43,10 @@ function readIncomeSources(value: string | string[] | null | undefined): string[
 }
 
 /**
- * Freelancer / Services automation supports exactly five source sets:
+ * Freelancer / Services automation supports exactly six source sets:
  * Services alone, Salary + Services, Pension + Services, Business + Services,
- * and Salary + Business + Services. All other combinations remain fail-closed.
+ * Salary + Business + Services, and Salary + Pension + Services. All other
+ * combinations remain fail-closed.
  * Compare sets rather than array order because the prerequisite screen does
  * not promise a stable order for selected sources.
  *
@@ -62,6 +63,26 @@ export function isSalaryBusinessServicesSourceSet(
   return (
     normalized.length === 3 &&
     normalized[0] === "business" &&
+    normalized[1] === "salary" &&
+    normalized[2] === "services"
+  );
+}
+
+/**
+ * Salary + Pension + Services — the pension twin of the Salary + Business +
+ * Services triple: same Services envelope, with the reviewed pension source in
+ * place of the Business packet. Compared as a set because the setup screen does
+ * not promise a selection order.
+ */
+export function isSalaryPensionServicesSourceSet(
+  incomeSources?: string | string[] | null,
+) {
+  const sources = readIncomeSources(incomeSources);
+  if (new Set(sources).size !== sources.length) return false;
+  const normalized = [...sources].sort();
+  return (
+    normalized.length === 3 &&
+    normalized[0] === "pension" &&
     normalized[1] === "salary" &&
     normalized[2] === "services"
   );
@@ -84,7 +105,8 @@ export function isFreelancerIncomeSelected(input: {
     (normalized.length === 2 &&
       normalized[0] === "pension" &&
       normalized[1] === "services") ||
-    isSalaryBusinessServicesSourceSet(sources)
+    isSalaryBusinessServicesSourceSet(sources) ||
+    isSalaryPensionServicesSourceSet(sources)
   );
 }
 
@@ -135,7 +157,7 @@ export function freelancerBankDecisionError(
 ): string | null {
   if (normalizeBankCategory(category) !== "SERVICES") return null;
   if (!freelancerEnabled)
-    return "Freelancer services income is enabled only for TY2026 Myself filings with either Services alone, exactly Salary + Services, exactly Pension + Services, exactly Business + Services, or exactly Salary + Business + Services; other combinations remain unsupported.";
+    return "Freelancer services income is enabled only for TY2026 Myself filings with either Services alone, exactly Salary + Services, exactly Pension + Services, exactly Business + Services, or exactly Salary + Business + Services, or exactly Salary + Pension + Services; other combinations remain unsupported.";
   if (entryType !== "INCOME")
     return "Choose Income for freelancer services receipts.";
   return null;

@@ -258,8 +258,18 @@ test("Phase 6 route is active only for TY2026 Myself Services-only, Salary+Servi
   assert.equal(businessCombined.pensionIncluded, false);
   assert.equal(businessCombined.businessIncluded, true);
 
-  const rejected = [
+  // Salary + Pension + Services is a supported triple since the pension twin of
+  // the Salary + Business + Services route landed; both companions switch on.
+  const pensionAndSalary = main.getServicesPacketRoute(
     snapshotWith({ incomeSources: ["services", "pension", "salary"] }),
+  );
+  assert.equal(pensionAndSalary.active, true);
+  assert.equal(pensionAndSalary.salaryIncluded, true);
+  assert.equal(pensionAndSalary.pensionIncluded, true);
+  assert.equal(pensionAndSalary.businessIncluded, false);
+
+  const rejected = [
+    snapshotWith({ incomeSources: ["services", "pension", "salary", "business"] }),
     snapshotWith({ incomeSources: ["services", "salary", "property_rent"] }),
     snapshotWith({ incomeSources: ["services", "services"] }),
     snapshotWith({ taxYear: 2025 }),
